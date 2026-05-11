@@ -436,6 +436,17 @@ html, body {
         3. Skopiuj URL i wklej powyżej<br>
         请将Apps Script部署URL粘贴到上方
       </div>
+      <div style="margin-top:14px;border-top:1px solid #2a2a2a;padding-top:12px;">
+        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">
+          Zmień PIN · 修改密码 (domyślny: 1234)
+        </label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="password" id="newPin" placeholder="Nowy PIN · 新密码" style="font-size:16px;letter-spacing:0.1em;max-width:140px;">
+          <button onclick="savePin()" style="background:#444;border:none;border-radius:6px;color:#fff;font-family:var(--fh);font-size:13px;font-weight:700;padding:8px 14px;cursor:pointer;letter-spacing:0.05em;">
+            Zmień · 更改
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- TAB: TYPY AWARII -->
@@ -654,12 +665,36 @@ function showToast(msg, type) {
 
 // ── CONFIG ───────────────────────────────────────────────────
 // ── CONFIG TABS ────────────────────────────────────────────
+function savePin() {
+  var pin = document.getElementById('newPin').value.trim();
+  if (!pin || pin.length < 4) {
+    showToast('⚠ PIN musi mieć min. 4 znaki · 密码至少4位', 'err');
+    return;
+  }
+  localStorage.setItem('cfm_pin', pin);
+  document.getElementById('newPin').value = '';
+  showToast('✓ PIN zmieniony · 密码已更改', 'success');
+}
+
 function toggleConfig() {
   var panel = document.getElementById('configPanel');
-  var btn = document.querySelector('.gear-btn');
-  var isOpen = panel.classList.toggle('open');
-  btn.classList.toggle('active', isOpen);
-  if (isOpen) { renderTypeEditor(); updateWebhookStatus(); }
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    document.querySelector('.gear-btn').classList.remove('active');
+    return;
+  }
+  // Pytaj o PIN przed otwarciem
+  var pin = prompt('PIN do ustawień · 设置密码:');
+  if (pin === null) return; // anulowano
+  var savedPin = localStorage.getItem('cfm_pin') || '1234';
+  if (pin !== savedPin) {
+    showToast('❌ Błędny PIN · 密码错误', 'err');
+    return;
+  }
+  panel.classList.add('open');
+  document.querySelector('.gear-btn').classList.add('active');
+  renderTypeEditor();
+  updateWebhookStatus();
 }
 
 function switchTab(tab) {

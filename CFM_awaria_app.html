@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f0f0f">
+<title>CFM Awaria · TMT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red:    #D92B2B;
+  --red-dk: #A51F1F;
+  --green:  #1A9E50;
+  --green-dk: #117035;
+  --bg:     #0f0f0f;
+  --surface:#1a1a1a;
+  --border: #2a2a2a;
+  --text:   #f0f0f0;
+  --muted:  #888;
+  --font-head: 'Barlow Condensed', sans-serif;
+  --font-body: 'Barlow', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); overscroll-behavior: none; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; }
+.topbar-logo { font-family: var(--font-head); font-size: 22px; font-weight: 900; letter-spacing: 0.03em; color: var(--text); }
+.topbar-logo span { color: var(--red); }
+.topbar-sub { font-size: 11px; color: var(--muted); text-align: right; line-height: 1.3; }
+.main { padding: 16px; max-width: 480px; margin: 0 auto; }
+.section-label { font-family: var(--font-head); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.section-label span { color: #555; margin-left: 6px; font-family: var(--font-body); font-weight: 400; font-size: 11px; text-transform: none; }
+.station-select { width: 100%; background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; color: var(--text); font-family: var(--font-head); font-size: 28px; font-weight: 800; letter-spacing: 0.04em; padding: 14px 16px; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; cursor: pointer; transition: border-color 0.15s; }
+.station-select:focus { outline: none; border-color: var(--red); }
+.remembered-badge { display: inline-flex; align-items: center; gap: 5px; background: #1a2a1a; border: 1px solid #2a4a2a; border-radius: 20px; padding: 4px 10px; font-size: 11px; color: var(--green); margin-top: 6px; }
+.remembered-badge::before { content: "●"; font-size: 8px; }
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+.type-btn { background: var(--surface); border: 1.5px solid var(--border); border-radius: 8px; color: var(--muted); font-family: var(--font-body); font-size: 13px; font-weight: 500; padding: 10px 12px; cursor: pointer; text-align: left; transition: all 0.12s; line-height: 1.3; }
+.type-btn:active { transform: scale(0.97); }
+.type-btn.selected { border-color: var(--red); background: rgba(217,43,43,0.12); color: #ff7070; }
+.type-btn .cn { display: block; font-size: 11px; color: #555; margin-top: 2px; }
+.type-btn.selected .cn { color: rgba(255,112,112,0.6); }
+.action-btn { width: 100%; border: none; border-radius: 12px; font-family: var(--font-head); font-size: 26px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; padding: 20px; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; overflow: hidden; }
+.action-btn:active { transform: scale(0.98); }
+.action-btn .cn-label { font-family: var(--font-body); font-size: 13px; font-weight: 400; letter-spacing: 0.02em; opacity: 0.75; }
+.btn-start { background: var(--red); color: #fff; margin-bottom: 12px; }
+.btn-end { background: var(--green); color: #fff; }
+.btn-disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.active-banner { background: rgba(217,43,43,0.08); border: 1.5px solid rgba(217,43,43,0.3); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; display: none; }
+.active-banner.visible { display: block; }
+.active-banner-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.active-label { font-family: var(--font-head); font-size: 13px; font-weight: 800; letter-spacing: 0.08em; color: var(--red); display: flex; align-items: center; gap: 6px; }
+.blink { animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.active-timer { font-family: var(--font-head); font-size: 28px; font-weight: 900; color: var(--red); letter-spacing: 0.04em; }
+.active-station { font-size: 12px; color: var(--muted); }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface); border: 1px solid var(--border); border-radius: 30px; padding: 12px 24px; font-size: 14px; font-weight: 600; color: var(--text); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; z-index: 100; }
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.success { border-color: var(--green); color: #4dde8a; }
+.toast.error { border-color: var(--red); color: #ff8080; }
+.history-section { margin-top: 24px; }
+.history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.history-left { flex: 1; }
+.history-op { font-family: var(--font-head); font-size: 16px; font-weight: 800; color: var(--text); }
+.history-type { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.history-right { text-align: right; }
+.history-time { font-family: var(--font-head); font-size: 14px; font-weight: 700; }
+.history-time.done { color: var(--green); }
+.history-ts { font-size: 10px; color: #555; margin-top: 2px; }
+.config-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-top: 24px; display: none; }
+.config-panel.open { display: block; }
+.config-panel input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font-body); font-size: 12px; padding: 8px 10px; margin-top: 6px; }
+.config-save { margin-top: 10px; background: var(--border); border: none; border-radius: 6px; color: var(--text); font-family: var(--font-head); font-size: 14px; font-weight: 700; padding: 8px 18px; cursor: pointer; letter-spacing: 0.05em; }
+.gear-btn { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 2px 6px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-logo">CFM<span>●</span>AWARIA</div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div class="topbar-sub">TMT Karlino<br>故障登记</div>
+    <button class="gear-btn" onclick="toggleConfig()" title="Ustawienia">⚙</button>
+  </div>
+</div>
+<div class="main">
+  <div class="active-banner" id="activeBanner">
+    <div class="active-banner-top">
+      <div class="active-label"><span class="blink">●</span> AWARIA TRWA · 故障进行中</div>
+      <div class="active-timer" id="activeTimer">00:00</div>
+    </div>
+    <div class="active-station" id="activeStation"></div>
+  </div>
+  <div class="section-label">Stanowisko · 工位</div>
+  <select class="station-select" id="stationSelect" onchange="onStationChange()">
+    <option value="">— wybierz —</option>
+    <option>OP50-1</option><option>OP50-2</option><option>OP52</option>
+    <option>OP53</option><option>OP60</option><option>OP61</option>
+    <option>OP70/71</option><option>OP72</option><option>OP73</option>
+    <option>OP74/80</option><option>GP12</option><option>OP30</option>
+    <option>OP33A</option><option>OP33B</option>
+    <option>OP40-1</option><option>OP40-2</option><option>OP40-3</option>
+  </select>
+  <div class="remembered-badge" id="rememberedBadge" style="display:none;">Zapamiętano · 已记住此工位</div>
+  <div class="divider"></div>
+  <div class="section-label">Typ zdarzenia · 事件类型 <span>(tylko dla startu)</span></div>
+  <div class="type-grid" id="typeGrid">
+    <button class="type-btn selected" data-val="Awaria mechaniczna" onclick="selectType(this)">Awaria mechaniczna<span class="cn">机械故障</span></button>
+    <button class="type-btn" data-val="Awaria elektryczna" onclick="selectType(this)">Awaria elektryczna<span class="cn">电气故障</span></button>
+    <button class="type-btn" data-val="Awaria pneumatyczna" onclick="selectType(this)">Awaria pneumatyczna<span class="cn">气动故障</span></button>
+    <button class="type-btn" data-val="Brak materiału" onclick="selectType(this)">Brak materiału<span class="cn">缺料</span></button>
+    <button class="type-btn" data-val="Mikroprzestój" onclick="selectType(this)">Mikroprzestój<span class="cn">短暂停机</span></button>
+    <button class="type-btn" data-val="Inne" onclick="selectType(this)">Inne<span class="cn">其他</span></button>
+  </div>
+  <div class="divider"></div>
+  <button class="action-btn btn-start" id="btnStart" onclick="submitStart()">▶ START AWARII<span class="cn-label">故障开始 · 立即登记</span></button>
+  <button class="action-btn btn-end btn-disabled" id="btnEnd" onclick="submitEnd()">■ KONIEC AWARII<span class="cn-label">故障结束 · 一键发送</span></button>
+  <div class="history-section">
+    <div class="section-label" style="margin-bottom:12px;">Historia · 记录 <span id="histCount"></span></div>
+    <div id="historyList"></div>
+  </div>
+  <div class="config-panel" id="configPanel">
+    <div class="section-label">Ustawienia · 设置</div>
+    <label style="font-size:12px;color:var(--muted);margin-top:10px;display:block;">URL Google Apps Script (webhook)</label>
+    <input type="text" id="webhookUrl" placeholder="https://script.google.com/macros/s/...">
+    <button class="config-save" onclick="saveConfig()">Zapisz · 保存</button>
+    <div style="font-size:11px;color:#555;margin-top:8px;line-height:1.6;">Wklej URL z Apps Script → Wdróż → Aplikacja webowa.<br>请粘贴Apps Script部署的网络应用URL。</div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var state = { station: localStorage.getItem('cfm_station') || '', type: 'Awaria mechaniczna', activeBreakdown: JSON.parse(localStorage.getItem('cfm_active') || 'null'), history: JSON.parse(localStorage.getItem('cfm_history') || '[]'), webhookUrl: localStorage.getItem('cfm_webhook') || '' };
+var timerInterval = null;
+window.onload = function() { if (state.station) { document.getElementById('stationSelect').value = state.station; showRememberedBadge(); } if (state.webhookUrl) { document.getElementById('webhookUrl').value = state.webhookUrl; } if (state.activeBreakdown) { showActiveBanner(); enableEndButton(); } renderHistory(); };
+function onStationChange() { var sel = document.getElementById('stationSelect').value; state.station = sel; localStorage.setItem('cfm_station', sel); showRememberedBadge(); }
+function showRememberedBadge() { var b = document.getElementById('rememberedBadge'); b.style.display = state.station ? 'inline-flex' : 'none'; }
+function selectType(btn) { document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); state.type = btn.dataset.val; }
+function submitStart() { if (!state.station) { showToast('⚠ Wybierz stanowisko!', 'error'); return; } if (state.activeBreakdown) { showToast('⚠ Zamknij obecną awarię!', 'error'); return; } var now = new Date(); state.activeBreakdown = { station: state.station, type: state.type, startTs: now.toISOString(), startFormatted: formatTs(now) }; localStorage.setItem('cfm_active', JSON.stringify(state.activeBreakdown)); sendToSheets('START', { stanowisko: state.station, typ: state.type, timestamp: now.toISOString() }); showActiveBanner(); enableEndButton(); showToast('✓ START zarejestrowany · 已登记故障开始', 'success'); }
+function submitEnd() { if (!state.activeBreakdown) return; var now = new Date(); var startDate = new Date(state.activeBreakdown.startTs); var diffMin = Math.round((now - startDate) / 60000); var record = { station: state.activeBreakdown.station, type: state.activeBreakdown.type, startTs: state.activeBreakdown.startFormatted, endTs: formatTs(now), durationMin: diffMin }; sendToSheets('KONIEC', { stanowisko: state.activeBreakdown.station, typ: state.activeBreakdown.type, start_timestamp: state.activeBreakdown.startTs, koniec_timestamp: now.toISOString(), czas_min: diffMin }); state.history.unshift(record); if (state.history.length > 20) state.history.pop(); localStorage.setItem('cfm_history', JSON.stringify(state.history)); state.activeBreakdown = null; localStorage.removeItem('cfm_active'); clearInterval(timerInterval); document.getElementById('activeBanner').classList.remove('visible'); document.getElementById('btnEnd').classList.add('btn-disabled'); renderHistory(); showToast('✓ Czas awarii: ' + diffMin + ' min · 故障时长：' + diffMin + '分钟', 'success'); }
+function showActiveBanner() { var banner = document.getElementById('activeBanner'); banner.classList.add('visible'); document.getElementById('activeStation').textContent = state.activeBreakdown.station + ' · ' + state.activeBreakdown.type; startTimer(); }
+function startTimer() { clearInterval(timerInterval); timerInterval = setInterval(function() { var now = new Date(); var start = new Date(state.activeBreakdown.startTs); var diff = Math.floor((now - start) / 1000); var m = Math.floor(diff / 60); var s = diff % 60; document.getElementById('activeTimer').textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0'); }, 1000); }
+function enableEndButton() { document.getElementById('btnEnd').classList.remove('btn-disabled'); }
+function sendToSheets(eventType, data) { var url = state.webhookUrl; if (!url) { console.log('Brak webhook URL:', eventType, data); return; } data.event_type = eventType; fetch(url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).catch(function(e) { console.error('Webhook error:', e); }); }
+function renderHistory() { var list = document.getElementById('historyList'); document.getElementById('histCount').textContent = state.history.length ? '(' + state.history.length + ')' : ''; if (!state.history.length) { list.innerHTML = '<div style="font-size:12px;color:#555;padding:8px 0;">Brak historii · 暂无记录</div>'; return; } list.innerHTML = state.history.slice(0,8).map(function(r) { return '<div class="history-item"><div class="history-left"><div class="history-op">' + r.station + '</div><div class="history-type">' + r.type + '</div></div><div class="history-right"><div class="history-time done">' + r.durationMin + ' min</div><div class="history-ts">' + r.startTs + '</div></div></div>'; }).join(''); }
+var toastTimeout;
+function showToast(msg, type) { var t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast ' + (type || ''); clearTimeout(toastTimeout); setTimeout(function() { t.classList.add('show'); }, 10); toastTimeout = setTimeout(function() { t.classList.remove('show'); }, 3000); }
+function toggleConfig() { document.getElementById('configPanel').classList.toggle('open'); }
+function saveConfig() { state.webhookUrl = document.getElementById('webhookUrl').value.trim(); localStorage.setItem('cfm_webhook', state.webhookUrl); document.getElementById('configPanel').classList.remove('open'); showToast('✓ Zapisano · 已保存', 'success'); }
+function formatTs(d) { return d.toLocaleDateString('pl-PL') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+</script>
+</body>
+</html>

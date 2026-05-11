@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f0f0f">
+<title>CFM Raport · TMT</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue:   #1A6ED8;
+  --blue-dk:#1254A8;
+  --green:  #1A9E50;
+  --red:    #D92B2B;
+  --amber:  #D97706;
+  --bg:     #0f0f0f;
+  --surface:#1a1a1a;
+  --surface2:#222;
+  --border: #2a2a2a;
+  --text:   #f0f0f0;
+  --muted:  #888;
+  --fh: 'Barlow Condensed', sans-serif;
+  --fb: 'Barlow', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { background: var(--bg); color: var(--text); font-family: var(--fb); overscroll-behavior: none; }
+
+/* TOP BAR */
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:12px 16px 10px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--bg); z-index:10; }
+.logo { font-family:var(--fh); font-size:20px; font-weight:900; letter-spacing:0.03em; }
+.logo span { color:var(--blue); }
+.topbar-right { font-size:11px; color:var(--muted); text-align:right; line-height:1.4; }
+
+/* MAIN */
+.main { padding:14px 16px 40px; max-width:480px; margin:0 auto; }
+
+/* SECTION LABEL */
+.lbl { font-family:var(--fh); font-size:10px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+.lbl .cn { font-family:var(--fb); font-weight:400; font-size:10px; text-transform:none; letter-spacing:0; color:#555; }
+.lbl .req { color:var(--red); font-size:12px; }
+
+/* SELECTS & INPUTS */
+.field { margin-bottom:14px; }
+select, input[type=text], input[type=number], textarea {
+  width:100%; background:var(--surface); border:1.5px solid var(--border);
+  border-radius:10px; color:var(--text); font-family:var(--fh);
+  font-size:22px; font-weight:800; letter-spacing:0.02em;
+  padding:12px 14px; appearance:none; -webkit-appearance:none;
+  transition:border-color 0.15s;
+}
+select {
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center;
+}
+select:focus, input:focus, textarea:focus { outline:none; border-color:var(--blue); }
+input[type=number], input[type=text] { font-size:26px; }
+textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacing:0; resize:none; min-height:70px; line-height:1.5; }
+.remembered { display:inline-flex; align-items:center; gap:5px; background:#0d1d2e; border:1px solid #1a3a5e; border-radius:20px; padding:3px 10px; font-size:10px; color:#5b9bd5; margin-top:5px; }
+.remembered::before { content:"●"; font-size:7px; }
+
+/* DIVIDER */
+.div { height:1px; background:var(--border); margin:18px 0; }
+
+/* AUTO HOUR BADGE */
+.hour-badge { background:rgba(26,110,216,0.12); border:1.5px solid rgba(26,110,216,0.3); border-radius:10px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.hour-val { font-family:var(--fh); font-size:24px; font-weight:900; color:#5b9bd5; letter-spacing:0.04em; }
+.hour-sub { font-size:11px; color:var(--muted); text-align:right; line-height:1.5; }
+.hour-change { font-size:11px; color:#5b9bd5; cursor:pointer; text-decoration:underline; margin-top:3px; }
+
+/* NG SECTION */
+.ng-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+/* SUBMIT */
+.btn-submit { width:100%; background:var(--blue); color:#fff; border:none; border-radius:12px; font-family:var(--fh); font-size:24px; font-weight:900; letter-spacing:0.06em; padding:18px; cursor:pointer; transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:3px; margin-top:6px; }
+.btn-submit:active { transform:scale(0.98); background:var(--blue-dk); }
+.btn-submit .cn { font-family:var(--fb); font-size:12px; font-weight:400; opacity:0.75; letter-spacing:0.02em; }
+.btn-submit:disabled { opacity:0.4; pointer-events:none; }
+
+/* TOAST */
+.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--surface); border:1px solid var(--border); border-radius:30px; padding:11px 22px; font-size:13px; font-weight:600; color:var(--text); transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1); white-space:nowrap; z-index:100; }
+.toast.show { transform:translateX(-50%) translateY(0); }
+.toast.ok { border-color:var(--green); color:#4dde8a; }
+.toast.err { border-color:var(--red); color:#ff8080; }
+
+/* SUCCESS SCREEN */
+.success-screen { display:none; position:fixed; inset:0; background:var(--bg); z-index:200; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:32px; }
+.success-screen.show { display:flex; }
+.success-icon { font-size:64px; line-height:1; }
+.success-title { font-family:var(--fh); font-size:32px; font-weight:900; color:var(--green); letter-spacing:0.04em; text-align:center; }
+.success-sub { font-size:14px; color:var(--muted); text-align:center; line-height:1.6; }
+.btn-next { margin-top:8px; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; color:var(--text); font-family:var(--fh); font-size:18px; font-weight:800; letter-spacing:0.05em; padding:14px 32px; cursor:pointer; }
+
+/* COUNTER */
+.counter-row { display:flex; align-items:center; gap:10px; }
+.counter-btn { width:48px; height:48px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface2); color:var(--text); font-size:26px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background 0.1s; }
+.counter-btn:active { background:#333; }
+.counter-input { flex:1; text-align:center; }
+
+/* HOUR MANUAL SELECT */
+.hour-manual { display:none; }
+.hour-manual.open { display:block; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">CFM<span>●</span>RAPORT</div>
+  <div class="topbar-right">
+    TMT Karlino · 每小时报告<br>
+    <span id="clockDisplay" style="color:var(--text);font-weight:600;"></span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- OPERATOR -->
+  <div class="field">
+    <div class="lbl">Operator · 操作员 <span class="req">*</span></div>
+    <select id="operatorSel" onchange="saveOperator()">
+      <option value="">— wybierz / 请选择 —</option>
+      <option>Magda Bąk</option>
+      <option>Fabian Bagiński</option>
+      <option>Ewa Baczynska</option>
+      <option>Karolina Ceterska</option>
+      <option>Szymon Chrzanowski</option>
+      <option>Patryk Makarewicz</option>
+      <option>Sebastian Purgat</option>
+      <option>Adam Żbikowski</option>
+      <option>Marlena Tomczyk</option>
+      <option>Marta Laskowska</option>
+      <option>Anna Juszkiewicz</option>
+      <option>Katarzyna Kotala</option>
+      <option>Sylwia Pytlik</option>
+      <option>Dorota Szpiler</option>
+      <option>Jakub Waldowski</option>
+      <option>Patryk Andreasik</option>
+      <option>Patryk Przydatek</option>
+      <option>Arkadiusz Przydatek</option>
+      <option>Przemek Purtak</option>
+      <option>Artur Wassiliew</option>
+      <option>Szymon Hubicki</option>
+      <option>Oskar Sobczak</option>
+      <option>Ewelina Kedzior</option>
+      <option>Malgorzata Dobrowolska</option>
+      <option>Karolina Koszalka</option>
+      <option>Damian Lysiak</option>
+      <option>Rafal Krupko</option>
+      <option>Ewa Kielar</option>
+      <option>Barbara Kuczko</option>
+      <option>Mateusz Kubala</option>
+      <option>Szymon Olesik</option>
+      <option>Paulina Filocha</option>
+    </select>
+    <div class="remembered" id="remOperator" style="display:none;">Zapamiętano · 已记住</div>
+  </div>
+
+  <!-- STANOWISKO -->
+  <div class="field">
+    <div class="lbl">Stanowisko · 工位 <span class="req">*</span></div>
+    <select id="stationSel" onchange="saveStation()">
+      <option value="">— wybierz / 请选择 —</option>
+      <option>OP50-1</option><option>OP50-2</option><option>OP52</option>
+      <option>OP53</option><option>OP60</option><option>OP61</option>
+      <option>OP70/71</option><option>OP72</option><option>OP73</option>
+      <option>OP74/80</option><option>GP12</option><option>OP30</option>
+      <option>OP33A</option><option>OP33B</option>
+      <option>OP40-1</option><option>OP40-2</option><option>OP40-3</option>
+    </select>
+    <div class="remembered" id="remStation" style="display:none;">Zapamiętano · 已记住</div>
+  </div>
+
+  <div class="div"></div>
+
+  <!-- GODZINA AUTO -->
+  <div class="lbl">Godzina · 时间 <span class="req">*</span> <span class="cn">– wykryta automatycznie</span></div>
+  <div class="hour-badge">
+    <div>
+      <div class="hour-val" id="hourVal">–</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px;" id="hourCn">–</div>
+    </div>
+    <div class="hour-sub">
+      <span id="hourSub">Raport za ukończoną godzinę</span><br>
+      <span class="hour-change" onclick="toggleManualHour()">Zmień ręcznie</span>
+    </div>
+  </div>
+  <div class="hour-manual" id="hourManual">
+    <div class="field">
+      <select id="hourSel">
+        <option value="">— wybierz godzinę / 请选择时间 —</option>
+        <option>7:00-8:00</option><option>8:00-9:00</option>
+        <option>9:00-10:00</option><option>10:00-11:00</option>
+        <option>11:00-12:00</option><option>12:00-13:00</option>
+        <option>13:00-14:00</option><option>14:00-15:00</option>
+        <option>15:00-16:00</option><option>16:00-17:00</option>
+        <option>17:00-18:00</option><option>18:00-19:00</option>
+        <option>19:00-20:00</option><option>20:00-21:00</option>
+        <option>21:00-22:00</option><option>22:00-23:00</option>
+        <option>23:00-0:00</option><option>0:00-1:00</option>
+        <option>1:00-2:00</option><option>2:00-3:00</option>
+        <option>3:00-4:00</option><option>4:00-5:00</option>
+        <option>5:00-6:00</option><option>6:00-7:00</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="div"></div>
+
+  <!-- ILOŚĆ -->
+  <div class="field">
+    <div class="lbl">Ilość szt. · 完成件数 <span class="req">*</span></div>
+    <div class="counter-row">
+      <button class="counter-btn" onclick="adjustQty(-1)">−</button>
+      <input class="counter-input" type="number" id="qtyInput" min="0" max="9999" placeholder="0" inputmode="numeric">
+      <button class="counter-btn" onclick="adjustQty(1)">+</button>
+    </div>
+  </div>
+  <div id="qtyHint" style="display:none; font-size:11px; color:#5b9bd5; margin-top:5px; padding:4px 10px; background:rgba(26,110,216,0.08); border:1px solid rgba(26,110,216,0.2); border-radius:20px; display:inline-block;"></div>
+
+  <!-- POWÓD OPÓŹNIENIA -->
+  <div class="field">
+    <div class="lbl">Powód opóźnienia · 延迟原因 <span class="cn">– opcjonalnie</span></div>
+    <textarea id="delayInput" placeholder="Opisz powód jeśli wystąpił opóźnienie…&#10;如有延迟，请说明原因…" rows="2"></textarea>
+  </div>
+
+  <div class="div"></div>
+
+  <!-- NG -->
+  <div class="ng-row">
+    <div class="field">
+      <div class="lbl">Ile NG · NG数量 <span class="req">*</span></div>
+      <div class="counter-row">
+        <button class="counter-btn" onclick="adjustNg(-1)">−</button>
+        <input class="counter-input" type="number" id="ngInput" min="0" max="9999" placeholder="0" inputmode="numeric" style="font-size:22px;">
+        <button class="counter-btn" onclick="adjustNg(1)">+</button>
+      </div>
+    </div>
+    <div></div>
+  </div>
+
+  <!-- POWÓD NG -->
+  <div class="field">
+    <div class="lbl">Powód NG · NG原因 <span class="cn">– opcjonalnie</span></div>
+    <textarea id="ngReasonInput" placeholder="Opisz przyczynę NG…&#10;请说明NG原因…" rows="2"></textarea>
+  </div>
+
+  <div class="div"></div>
+
+  <!-- SUBMIT -->
+  <button class="btn-submit" id="btnSubmit" onclick="submitForm()">
+    WYŚLIJ RAPORT
+    <span class="cn">提交报告 · 发送</span>
+  </button>
+
+</div>
+
+<!-- SUCCESS SCREEN -->
+<div class="success-screen" id="successScreen">
+  <div class="success-icon">✓</div>
+  <div class="success-title">WYSŁANO!</div>
+  <div class="success-sub" id="successDetails"></div>
+  <button class="btn-next" onclick="resetForm()">Nowy raport · 新报告</button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── ENTRY IDs – WKLEJ SWOJE ────────────────────────────────
+// Aby znaleźć entry IDs:
+// 1. Otwórz formularz → Ctrl+U (źródło) → Ctrl+F → wpisz "entry."
+// 2. Znajdziesz 6 numerów – wklej je poniżej
+var FORM_ACTION = "https://docs.google.com/forms/d/e/1FAIpQLSdFbaSKScCZl6muTG6vgCC_41ktsCpi3XQySfaRjEC-LYu8Iw/formResponse";
+var ENTRY = {
+  operator:  "entry.OPERATOR_ID",   // ← WKLEJ ID dla pola Operator (dodasz w formularzu)
+  station:   "entry.STATION_ID",    // ← Wybierz stanowisko
+  hour:      "entry.HOUR_ID",       // ← Godzina
+  qty:       "entry.QTY_ID",        // ← Ilość szt.
+  delay:     "entry.DELAY_ID",      // ← Powód opóźnienia
+  ng:        "entry.NG_ID",         // ← Ile NG
+  ngReason:  "entry.NG_REASON_ID"   // ← Powód NG
+};
+// ──────────────────────────────────────────────────────────
+
+var manualHourOpen = false;
+
+// ── GODZINY ────────────────────────────────────────────────
+var HOURS = [
+  {label:"7:00-8:00",   h:7},  {label:"8:00-9:00",   h:8},
+  {label:"9:00-10:00",  h:9},  {label:"10:00-11:00", h:10},
+  {label:"11:00-12:00", h:11}, {label:"12:00-13:00", h:12},
+  {label:"13:00-14:00", h:13}, {label:"14:00-15:00", h:14},
+  {label:"15:00-16:00", h:15}, {label:"16:00-17:00", h:16},
+  {label:"17:00-18:00", h:17}, {label:"18:00-19:00", h:18},
+  {label:"19:00-20:00", h:19}, {label:"20:00-21:00", h:20},
+  {label:"21:00-22:00", h:21}, {label:"22:00-23:00", h:22},
+  {label:"23:00-0:00",  h:23}, {label:"0:00-1:00",   h:0},
+  {label:"1:00-2:00",   h:1},  {label:"2:00-3:00",   h:2},
+  {label:"3:00-4:00",   h:3},  {label:"4:00-5:00",   h:4},
+  {label:"5:00-6:00",   h:5},  {label:"6:00-7:00",   h:6}
+];
+var CN_HOURS = [
+  "7点-8点","8点-9点","9点-10点","10点-11点","11点-12点","12点-13点","13点-14点","14点-15点",
+  "15点-16点","16点-17点","17点-18点","18点-19点","19点-20点","20点-21点","21点-22点","22点-23点",
+  "23点-0点","0点-1点","1点-2点","2点-3点","3点-4点","4点-5点","5点-6点","6点-7点"
+];
+
+function getAutoHour() {
+  var now = new Date();
+  var h = now.getHours();
+  var m = now.getMinutes();
+  // Raport składamy PO zakończeniu godziny
+  // 8:03 → raport za 7:00-8:00 (h-1)
+  // 8:25 → raport za 8:00-9:00 (h)
+  // Granica: 10 minut po pełnej godzinie
+  var reportH = (m <= 10) ? ((h === 0) ? 23 : h - 1) : h;
+  for (var i = 0; i < HOURS.length; i++) {
+    if (HOURS[i].h === reportH) return i;
+  }
+  return -1;
+}
+
+function getSelectedHour() {
+  if (manualHourOpen) {
+    return document.getElementById('hourSel').value;
+  }
+  var idx = getAutoHour();
+  return idx >= 0 ? HOURS[idx].label : '';
+}
+
+function updateHourDisplay() {
+  var now = new Date();
+  var m = now.getMinutes();
+  var idx = getAutoHour();
+  if (idx >= 0) {
+    document.getElementById('hourVal').textContent = HOURS[idx].label;
+    document.getElementById('hourCn').textContent = CN_HOURS[idx];
+    // Pokaż info dlaczego pokazuje poprzednią godzinę
+    var sub = document.getElementById('hourSub');
+    if (sub) {
+      sub.textContent = (m <= 10)
+        ? 'Raport za ukończoną godzinę · 上一小时报告'
+        : 'Bieżąca godzina · 当前小时';
+    }
+  } else {
+    document.getElementById('hourVal').textContent = 'poza zmianą';
+    document.getElementById('hourCn').textContent = '非工作时间';
+  }
+}
+
+function toggleManualHour() {
+  manualHourOpen = !manualHourOpen;
+  document.getElementById('hourManual').classList.toggle('open', manualHourOpen);
+}
+
+// ── ZEGAR ──────────────────────────────────────────────────
+function updateClock() {
+  var now = new Date();
+  var hh = String(now.getHours()).padStart(2,'0');
+  var mm = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('clockDisplay').textContent = hh + ':' + mm;
+  updateHourDisplay();
+}
+setInterval(updateClock, 10000);
+updateClock();
+
+// ── PAMIĘĆ ─────────────────────────────────────────────────
+window.onload = function() {
+  var op = localStorage.getItem('cfm_operator');
+  var st = localStorage.getItem('cfm_station');
+  if (op) { document.getElementById('operatorSel').value = op; document.getElementById('remOperator').style.display = 'inline-flex'; }
+  if (st) { document.getElementById('stationSel').value = st; document.getElementById('remStation').style.display = 'inline-flex'; }
+  // Podpowiedz ostatnią ilość jeśli nie jest to pierwsza godzina (7:00-8:00)
+  var lastQty = localStorage.getItem('cfm_last_qty');
+  var lastHour = localStorage.getItem('cfm_last_qty_hour');
+  var autoIdx = getAutoHour();
+  // Pierwsza godzina każdej zmiany – brak podpowiedzi
+  // Zmiana I: 7:00-8:00 (idx 0), Zmiana II: 15:00-16:00 (idx 8), Zmiana III: 23:00-0:00 (idx 16)
+  var isFirstHour = (autoIdx === 0 || autoIdx === 8 || autoIdx === 16);
+  if (lastQty && !isFirstHour) {
+    document.getElementById('qtyInput').value = '';
+    document.getElementById('qtyHint').textContent = 'Ostatnio: ' + lastQty + ' szt. (' + (lastHour || '?') + ') · 上次：' + lastQty + '件';
+    document.getElementById('qtyHint').style.display = 'inline-block';
+  } else {
+    document.getElementById('qtyInput').value = '';
+    document.getElementById('qtyHint').style.display = 'none';
+  }
+  document.getElementById('ngInput').value = '';
+};
+
+function saveOperator() {
+  var v = document.getElementById('operatorSel').value;
+  if (v) { localStorage.setItem('cfm_operator', v); document.getElementById('remOperator').style.display = 'inline-flex'; }
+}
+function saveStation() {
+  var v = document.getElementById('stationSel').value;
+  if (v) { localStorage.setItem('cfm_station', v); document.getElementById('remStation').style.display = 'inline-flex'; }
+}
+
+// ── LICZNIKI ───────────────────────────────────────────────
+function adjustQty(d) {
+  var el = document.getElementById('qtyInput');
+  el.value = Math.max(0, (parseInt(el.value) || 0) + d);
+}
+function adjustNg(d) {
+  var el = document.getElementById('ngInput');
+  el.value = Math.max(0, (parseInt(el.value) || 0) + d);
+}
+
+// ── SUBMIT ─────────────────────────────────────────────────
+function submitForm() {
+  var operator = document.getElementById('operatorSel').value;
+  var station  = document.getElementById('stationSel').value;
+  var hour     = getSelectedHour();
+  var qty      = document.getElementById('qtyInput').value;
+  var delay    = document.getElementById('delayInput').value;
+  var ng       = document.getElementById('ngInput').value;
+  var ngReason = document.getElementById('ngReasonInput').value;
+
+  if (!operator) { showToast('⚠ Wybierz operatora!', 'err'); return; }
+  if (!station)  { showToast('⚠ Wybierz stanowisko!', 'err'); return; }
+  if (!hour)     { showToast('⚠ Wybierz godzinę!', 'err'); return; }
+  if (qty === '' || qty === null) { showToast('⚠ Podaj ilość sztuk!', 'err'); return; }
+  if (ng  === '' || ng  === null) { showToast('⚠ Podaj ilość NG (0 jeśli brak)!', 'err'); return; }
+
+  // Sprawdź czy entry IDs są ustawione
+  var hasRealIds = Object.values(ENTRY).every(function(v) { return !v.includes('_ID'); });
+
+  if (!hasRealIds) {
+    localStorage.setItem('cfm_last_qty', qty);
+    localStorage.setItem('cfm_last_qty_hour', hour);
+    showSuccess(operator, station, hour, qty, ng);
+    showToast('⚠ Tryb demo – brak entry IDs', 'err');
+    return;
+  }
+
+  // Wyślij do Google Forms przez ukryty iframe
+  var btn = document.getElementById('btnSubmit');
+  btn.disabled = true;
+  btn.textContent = 'Wysyłanie...';
+
+  var params = new URLSearchParams();
+  params.append(ENTRY.operator, operator);
+  params.append(ENTRY.station,  station);
+  params.append(ENTRY.hour,     hour);
+  params.append(ENTRY.qty,      qty);
+  params.append(ENTRY.delay,    delay);
+  params.append(ENTRY.ng,       ng);
+  params.append(ENTRY.ngReason, ngReason);
+
+  var iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  iframe.name = 'hidden_iframe';
+  document.body.appendChild(iframe);
+
+  var form = document.createElement('form');
+  form.action = FORM_ACTION;
+  form.method = 'POST';
+  form.target = 'hidden_iframe';
+  form.innerHTML = params.toString().split('&').map(function(p) {
+    var kv = p.split('=');
+    return '<input type="hidden" name="' + decodeURIComponent(kv[0]) + '" value="' + decodeURIComponent(kv[1] || '') + '">';
+  }).join('');
+  document.body.appendChild(form);
+
+  iframe.onload = function() {
+    localStorage.setItem('cfm_last_qty', qty);
+    localStorage.setItem('cfm_last_qty_hour', hour);
+    showSuccess(operator, station, hour, qty, ng);
+    document.body.removeChild(iframe);
+    document.body.removeChild(form);
+  };
+
+  form.submit();
+}
+
+function showSuccess(op, st, hr, qty, ng) {
+  document.getElementById('successDetails').innerHTML =
+    '<strong>' + op + '</strong><br>' +
+    st + ' &nbsp;·&nbsp; ' + hr + '<br>' +
+    'Sztuki: <strong>' + qty + '</strong> &nbsp;·&nbsp; NG: <strong>' + ng + '</strong>';
+  document.getElementById('successScreen').classList.add('show');
+}
+
+function resetForm() {
+  document.getElementById('successScreen').classList.remove('show');
+  // Podpowiedz ostatnią ilość przy następnym raporcie
+  var lastQty = localStorage.getItem('cfm_last_qty');
+  var lastHour = localStorage.getItem('cfm_last_qty_hour');
+  var autoIdx = getAutoHour();
+  var isFirstHour = (autoIdx === 0);
+  if (lastQty && !isFirstHour) {
+    document.getElementById('qtyInput').value = '';
+    var hint = document.getElementById('qtyHint');
+    hint.textContent = 'Ostatnio: ' + lastQty + ' szt. (' + (lastHour || '?') + ') · 上次：' + lastQty + '件';
+    hint.style.display = 'inline-block';
+  } else {
+    document.getElementById('qtyInput').value = '';
+    document.getElementById('qtyHint').style.display = 'none';
+  }
+  document.getElementById('ngInput').value = '';
+  document.getElementById('delayInput').value = '';
+  document.getElementById('ngReasonInput').value = '';
+  var btn = document.getElementById('btnSubmit');
+  btn.disabled = false;
+  btn.innerHTML = 'WYŚLIJ RAPORT<span class="cn">提交报告 · 发送</span>';
+  updateHourDisplay();
+}
+
+// ── TOAST ──────────────────────────────────────────────────
+var _tt;
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type || '');
+  clearTimeout(_tt);
+  setTimeout(function() { t.classList.add('show'); }, 10);
+  _tt = setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+</script>
+</body>
+</html>

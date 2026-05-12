@@ -481,7 +481,7 @@ var state = {
   type: 'Awaria mechaniczna',
   activeBreakdown: JSON.parse(localStorage.getItem('cfm_active') || 'null'),
   history: JSON.parse(localStorage.getItem('cfm_history') || '[]'),
-  webhookUrl: localStorage.getItem('cfm_webhook') || ''
+  webhookUrl: localStorage.getItem('cfm_webhook') || 'https://script.google.com/macros/s/AKfycbxbdmTTx4VJpd_QdvwlMKP4_EHl8IXtL3dY_vnvF5RqCh7e4Gj6dBOhBWlfcLLqhvFN/exec'
 };
 
 var timerInterval = null;
@@ -494,7 +494,11 @@ window.onload = function() {
     showRememberedBadge();
   }
 
-  // Restore webhook
+  // Restore webhook – jeśli brak, ustaw domyślny
+  if (!localStorage.getItem('cfm_webhook')) {
+    localStorage.setItem('cfm_webhook', 'https://script.google.com/macros/s/AKfycbxbdmTTx4VJpd_QdvwlMKP4_EHl8IXtL3dY_vnvF5RqCh7e4Gj6dBOhBWlfcLLqhvFN/exec');
+    state.webhookUrl = 'https://script.google.com/macros/s/AKfycbxbdmTTx4VJpd_QdvwlMKP4_EHl8IXtL3dY_vnvF5RqCh7e4Gj6dBOhBWlfcLLqhvFN/exec';
+  }
   if (state.webhookUrl) {
     document.getElementById('webhookUrl').value = state.webhookUrl;
   }

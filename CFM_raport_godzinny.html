@@ -279,13 +279,13 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
 // 2. Znajdziesz 6 numerów – wklej je poniżej
 var FORM_ACTION = "https://docs.google.com/forms/d/e/1FAIpQLSdFbaSKScCZl6muTG6vgCC_41ktsCpi3XQySfaRjEC-LYu8Iw/formResponse";
 var ENTRY = {
-  operator:  "entry.OPERATOR_ID",   // ← WKLEJ ID dla pola Operator (dodasz w formularzu)
-  station:   "entry.STATION_ID",    // ← Wybierz stanowisko
-  hour:      "entry.HOUR_ID",       // ← Godzina
-  qty:       "entry.QTY_ID",        // ← Ilość szt.
-  delay:     "entry.DELAY_ID",      // ← Powód opóźnienia
-  ng:        "entry.NG_ID",         // ← Ile NG
-  ngReason:  "entry.NG_REASON_ID"   // ← Powód NG
+  operator:  null,                  // Pole Operator nie istnieje w formularzu – wysyłane tylko lokalnie
+  station:   "entry.1119194065",   // Wybierz stanowisko
+  hour:      "entry.1731890928",   // Godzina
+  qty:       "entry.1578705554",   // Ilość szt.
+  delay:     "entry.2127292099",   // Powód opóźnienia
+  ng:        "entry.1645665412",   // Ile NG
+  ngReason:  "entry.1346565491"    // Powód NG
 };
 // ──────────────────────────────────────────────────────────
 
@@ -431,7 +431,7 @@ function submitForm() {
   if (ng  === '' || ng  === null) { showToast('⚠ Podaj ilość NG (0 jeśli brak)!', 'err'); return; }
 
   // Sprawdź czy entry IDs są ustawione
-  var hasRealIds = Object.values(ENTRY).every(function(v) { return !v.includes('_ID'); });
+  var hasRealIds = ENTRY.station && !ENTRY.station.includes('_ID');
 
   if (!hasRealIds) {
     localStorage.setItem('cfm_last_qty', qty);
@@ -447,7 +447,6 @@ function submitForm() {
   btn.textContent = 'Wysyłanie...';
 
   var params = new URLSearchParams();
-  params.append(ENTRY.operator, operator);
   params.append(ENTRY.station,  station);
   params.append(ENTRY.hour,     hour);
   params.append(ENTRY.qty,      qty);

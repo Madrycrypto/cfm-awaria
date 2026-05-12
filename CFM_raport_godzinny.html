@@ -38,6 +38,30 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--fb); 
 .logo { font-family:var(--fh); font-size:20px; font-weight:900; letter-spacing:0.03em; }
 .logo span { color:var(--blue); }
 .topbar-right { font-size:11px; color:var(--muted); text-align:right; line-height:1.4; }
+.gear-btn { background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer; padding:2px 6px; }
+.gear-btn.active { color:var(--text); }
+.admin-panel { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:200; overflow-y:auto; padding:20px 16px 40px; }
+.admin-panel.open { display:block; }
+.admin-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.admin-title { font-family:var(--fh); font-size:22px; font-weight:900; color:var(--text); letter-spacing:0.04em; }
+.admin-close { background:none; border:1px solid var(--border); border-radius:6px; color:var(--muted); font-size:16px; padding:4px 12px; cursor:pointer; }
+.admin-tabs { display:flex; gap:6px; margin-bottom:16px; }
+.admin-tab { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--muted); font-family:var(--fh); font-size:12px; font-weight:700; padding:8px 4px; cursor:pointer; text-align:center; letter-spacing:0.03em; }
+.admin-tab.active { background:#1A6ED8; color:#fff; border-color:#1A6ED8; }
+.admin-section { display:none; }
+.admin-section.active { display:block; }
+.list-item-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.list-item-input { flex:1; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--fb); font-size:14px; padding:8px 10px; }
+.list-item-del { background:rgba(217,43,43,0.15); border:1px solid rgba(217,43,43,0.3); border-radius:6px; color:#ff7070; font-size:18px; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.list-add-btn { width:100%; background:rgba(26,110,216,0.1); border:1px dashed rgba(26,110,216,0.3); border-radius:6px; color:#5b9bd5; font-family:var(--fh); font-size:13px; font-weight:700; padding:9px; cursor:pointer; margin-top:4px; }
+.list-save-btn { width:100%; background:#1A6ED8; color:#fff; border:none; border-radius:8px; font-family:var(--fh); font-size:16px; font-weight:900; padding:13px; cursor:pointer; margin-top:14px; }
+.webhook-input { width:100%; background:var(--bg); border:1.5px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--fb); font-size:12px; padding:9px 12px; margin-top:6px; }
+.webhook-save { width:100%; background:var(--green); color:#fff; border:none; border-radius:8px; font-family:var(--fh); font-size:16px; font-weight:900; padding:12px; cursor:pointer; margin-top:10px; }
+.dot-ok { width:8px; height:8px; border-radius:50%; background:#1A9E50; display:inline-block; margin-right:5px; }
+.dot-err { width:8px; height:8px; border-radius:50%; background:#D92B2B; display:inline-block; margin-right:5px; }
+.pin-row { display:flex; gap:8px; margin-top:8px; }
+.pin-input { flex:1; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--fb); font-size:18px; letter-spacing:0.1em; padding:8px 10px; text-align:center; }
+.pin-btn { background:#444; border:none; border-radius:6px; color:var(--text); font-family:var(--fh); font-size:13px; font-weight:700; padding:8px 14px; cursor:pointer; }
 
 /* MAIN */
 .main { padding:14px 16px 40px; max-width:480px; margin:0 auto; }
@@ -117,6 +141,7 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
     TMT Karlino · 每小时报告<br>
     <span id="clockDisplay" style="color:var(--text);font-weight:600;"></span>
   </div>
+  <button class="gear-btn" id="gearBtn" onclick="openAdmin()" title="Ustawienia">⚙</button>
 </div>
 
 <div class="main">
@@ -271,6 +296,50 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="adminPanel">
+  <div class="admin-header">
+    <div class="admin-title">⚙ ADMIN · 管理</div>
+    <button class="admin-close" onclick="closeAdmin()">✕ Zamknij</button>
+  </div>
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="adminTab('workers')">Pracownicy · 员工</button>
+    <button class="admin-tab" onclick="adminTab('stations')">Stanowiska · 工位</button>
+    <button class="admin-tab" onclick="adminTab('webhook')">Połączenie · 连接</button>
+  </div>
+
+  <!-- PRACOWNICY -->
+  <div class="admin-section active" id="admin-workers">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Zarządzaj listą pracowników · 管理员工列表</div>
+    <div id="workersList"></div>
+    <button class="list-add-btn" onclick="addWorker()">+ Dodaj pracownika · 添加员工</button>
+    <button class="list-save-btn" onclick="saveWorkers()">💾 Zapisz listę · 保存</button>
+  </div>
+
+  <!-- STANOWISKA -->
+  <div class="admin-section" id="admin-stations">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Zarządzaj listą stanowisk · 管理工位列表</div>
+    <div id="stationsList"></div>
+    <button class="list-add-btn" onclick="addStation()">+ Dodaj stanowisko · 添加工位</button>
+    <button class="list-save-btn" onclick="saveStations()">💾 Zapisz listę · 保存</button>
+  </div>
+
+  <!-- WEBHOOK -->
+  <div class="admin-section" id="admin-webhook">
+    <div class="status-line" id="webhookStatusLine"></div>
+    <label style="font-size:11px;color:var(--muted);display:block;">URL Webhook · Apps Script URL</label>
+    <input class="webhook-input" type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/...">
+    <button class="webhook-save" onclick="saveWebhook()">💾 Zapisz i testuj · 保存并测试</button>
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmień PIN · 修改密码 (domyślny: 1234)</div>
+      <div class="pin-row">
+        <input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN">
+        <button class="pin-btn" onclick="savePin()">Zmień</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 // ── ENTRY IDs – WKLEJ SWOJE ────────────────────────────────
@@ -430,54 +499,73 @@ function submitForm() {
   if (qty === '' || qty === null) { showToast('⚠ Podaj ilość sztuk!', 'err'); return; }
   if (ng  === '' || ng  === null) { showToast('⚠ Podaj ilość NG (0 jeśli brak)!', 'err'); return; }
 
-  // Sprawdź czy entry IDs są ustawione
-  var hasRealIds = ENTRY.station && !ENTRY.station.includes('_ID');
-
-  if (!hasRealIds) {
-    localStorage.setItem('cfm_last_qty', qty);
-    localStorage.setItem('cfm_last_qty_hour', hour);
-    showSuccess(operator, station, hour, qty, ng);
-    showToast('⚠ Tryb demo – brak entry IDs', 'err');
-    return;
-  }
-
-  // Wyślij do Google Forms przez ukryty iframe
+  var webhookUrl = localStorage.getItem('cfm_raport_webhook') || '';
   var btn = document.getElementById('btnSubmit');
   btn.disabled = true;
-  btn.textContent = 'Wysyłanie...';
+  btn.innerHTML = 'Wysyłanie…<span class="cn">发送中…</span>';
 
-  var params = new URLSearchParams();
-  params.append(ENTRY.station,  station);
-  params.append(ENTRY.hour,     hour);
-  params.append(ENTRY.qty,      qty);
-  params.append(ENTRY.delay,    delay);
-  params.append(ENTRY.ng,       ng);
-  params.append(ENTRY.ngReason, ngReason);
-
-  var iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
-  iframe.name = 'hidden_iframe';
-  document.body.appendChild(iframe);
-
-  var form = document.createElement('form');
-  form.action = FORM_ACTION;
-  form.method = 'POST';
-  form.target = 'hidden_iframe';
-  form.innerHTML = params.toString().split('&').map(function(p) {
-    var kv = p.split('=');
-    return '<input type="hidden" name="' + decodeURIComponent(kv[0]) + '" value="' + decodeURIComponent(kv[1] || '') + '">';
-  }).join('');
-  document.body.appendChild(form);
-
-  iframe.onload = function() {
-    localStorage.setItem('cfm_last_qty', qty);
-    localStorage.setItem('cfm_last_qty_hour', hour);
-    showSuccess(operator, station, hour, qty, ng);
-    document.body.removeChild(iframe);
-    document.body.removeChild(form);
+  var payload = {
+    event_type: 'RAPORT',
+    operator:   operator,
+    station:    station,
+    hour:       hour,
+    qty:        qty,
+    delay:      delay,
+    ng:         ng,
+    ng_reason:  ngReason,
+    timestamp:  new Date().toISOString()
   };
 
-  form.submit();
+  if (webhookUrl) {
+    // Wyślij przez webhook
+    fetch(webhookUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function() {
+      localStorage.setItem('cfm_last_qty', qty);
+      localStorage.setItem('cfm_last_qty_hour', hour);
+      showSuccess(operator, station, hour, qty, ng);
+    }).catch(function(e) {
+      showToast('❌ Błąd połączenia · 连接错误', 'err');
+      btn.disabled = false;
+      btn.innerHTML = 'WYŚLIJ RAPORT<span class="cn">提交报告 · 发送</span>';
+    });
+  } else {
+    // Fallback: Google Forms (bez operatora)
+    var params = new URLSearchParams();
+    params.append(ENTRY.station,  station);
+    params.append(ENTRY.hour,     hour);
+    params.append(ENTRY.qty,      qty);
+    params.append(ENTRY.delay,    delay);
+    params.append(ENTRY.ng,       ng);
+    params.append(ENTRY.ngReason, ngReason);
+
+    var iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.name = 'hidden_iframe';
+    document.body.appendChild(iframe);
+
+    var form = document.createElement('form');
+    form.action = FORM_ACTION;
+    form.method = 'POST';
+    form.target = 'hidden_iframe';
+    form.innerHTML = params.toString().split('&').map(function(p) {
+      var kv = p.split('=');
+      return '<input type="hidden" name="' + decodeURIComponent(kv[0]) + '" value="' + decodeURIComponent(kv[1] || '') + '">';
+    }).join('');
+    document.body.appendChild(form);
+
+    iframe.onload = function() {
+      localStorage.setItem('cfm_last_qty', qty);
+      localStorage.setItem('cfm_last_qty_hour', hour);
+      showSuccess(operator, station, hour, qty, ng);
+      document.body.removeChild(iframe);
+      document.body.removeChild(form);
+    };
+    form.submit();
+  }
 }
 
 function showSuccess(op, st, hr, qty, ng) {
@@ -523,6 +611,121 @@ function showToast(msg, type) {
   setTimeout(function() { t.classList.add('show'); }, 10);
   _tt = setTimeout(function() { t.classList.remove('show'); }, 3000);
 }
+
+// ── ADMIN PANEL ─────────────────────────────────────────────
+var DEFAULT_WORKERS = [
+  'Magda Bąk','Fabian Bagiński','Ewa Baczynska','Karolina Ceterska',
+  'Szymon Chrzanowski','Patryk Makarewicz','Sebastian Purgat','Adam Żbikowski',
+  'Marlena Tomczyk','Marta Laskowska','Anna Juszkiewicz','Katarzyna Kotala',
+  'Sylwia Pytlik','Dorota Szpiler','Jakub Waldowski','Patryk Andreasik',
+  'Patryk Przydatek','Arkadiusz Przydatek','Przemek Purtak','Artur Wassiliew',
+  'Szymon Hubicki','Oskar Sobczak','Ewelina Kedzior','Malgorzata Dobrowolska',
+  'Karolina Koszalka','Damian Lysiak','Rafal Krupko','Ewa Kielar',
+  'Barbara Kuczko','Mateusz Kubala','Szymon Olesik','Paulina Filocha'
+];
+var DEFAULT_STATIONS = [
+  'OP50-1','OP50-2','OP52','OP53','OP60','OP61',
+  'OP70/71','OP72','OP73','OP74/80','GP12','OP30',
+  'OP33A','OP33B','OP40-1','OP40-2','OP40-3'
+];
+
+function getWorkers() { var s=localStorage.getItem('cfm_workers'); return s?JSON.parse(s):DEFAULT_WORKERS; }
+function getStations() { var s=localStorage.getItem('cfm_stations'); return s?JSON.parse(s):DEFAULT_STATIONS; }
+
+function openAdmin() {
+  var pin = prompt('PIN administratora · 管理员密码:');
+  if (pin === null) return;
+  var savedPin = localStorage.getItem('cfm_pin') || '1234';
+  if (pin !== savedPin) { showToast('❌ Błędny PIN · 密码错误', 'err'); return; }
+  document.getElementById('adminPanel').classList.add('open');
+  document.getElementById('gearBtn').classList.add('active');
+  renderWorkersList(); renderStationsList(); updateWebhookStatus();
+  var wh = localStorage.getItem('cfm_raport_webhook') || '';
+  if (wh) document.getElementById('webhookUrlInput').value = wh;
+}
+
+function closeAdmin() {
+  document.getElementById('adminPanel').classList.remove('open');
+  document.getElementById('gearBtn').classList.remove('active');
+  rebuildSelects();
+}
+
+function adminTab(tab) {
+  var tabs = ['workers','stations','webhook'];
+  document.querySelectorAll('.admin-tab').forEach(function(t,i) { t.classList.toggle('active', tabs[i]===tab); });
+  document.querySelectorAll('.admin-section').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('admin-'+tab).classList.add('active');
+}
+
+function renderWorkersList() {
+  var workers = getWorkers();
+  document.getElementById('workersList').innerHTML = workers.map(function(w,i) {
+    return '<div class="list-item-row"><input class="list-item-input" id="w-'+i+'" value="'+w+'"><button class="list-item-del" onclick="delWorker('+i+')">×</button></div>';
+  }).join('');
+}
+
+function renderStationsList() {
+  var stations = getStations();
+  document.getElementById('stationsList').innerHTML = stations.map(function(s,i) {
+    return '<div class="list-item-row"><input class="list-item-input" id="s-'+i+'" value="'+s+'"><button class="list-item-del" onclick="delStation('+i+')">×</button></div>';
+  }).join('');
+}
+
+function addWorker() { var w=getWorkers(); w.push('Nowy pracownik'); localStorage.setItem('cfm_workers',JSON.stringify(w)); renderWorkersList(); }
+function delWorker(i) { var w=getWorkers(); w.splice(i,1); localStorage.setItem('cfm_workers',JSON.stringify(w)); renderWorkersList(); }
+function saveWorkers() {
+  var w=getWorkers();
+  var saved=w.map(function(x,i){var el=document.getElementById('w-'+i);return el?el.value.trim():x;}).filter(Boolean);
+  localStorage.setItem('cfm_workers',JSON.stringify(saved));
+  showToast('✓ Pracownicy zapisani · 已保存','ok');
+}
+
+function addStation() { var s=getStations(); s.push('NOWE'); localStorage.setItem('cfm_stations',JSON.stringify(s)); renderStationsList(); }
+function delStation(i) { var s=getStations(); s.splice(i,1); localStorage.setItem('cfm_stations',JSON.stringify(s)); renderStationsList(); }
+function saveStations() {
+  var s=getStations();
+  var saved=s.map(function(x,i){var el=document.getElementById('s-'+i);return el?el.value.trim():x;}).filter(Boolean);
+  localStorage.setItem('cfm_stations',JSON.stringify(saved));
+  showToast('✓ Stanowiska zapisane · 已保存','ok');
+}
+
+function rebuildSelects() {
+  var workers=getWorkers(); var stations=getStations();
+  var curOp=localStorage.getItem('cfm_operator')||'';
+  var curSt=localStorage.getItem('cfm_station')||'';
+  var opSel=document.getElementById('operatorSel');
+  opSel.innerHTML='<option value="">— wybierz / 请选择 —</option>'+
+    workers.map(function(w){return '<option'+(w===curOp?' selected':'')+'>'+w+'</option>';}).join('');
+  var stSel=document.getElementById('stationSel');
+  stSel.innerHTML='<option value="">— wybierz / 请选择 —</option>'+
+    stations.map(function(s){return '<option'+(s===curSt?' selected':'')+'>'+s+'</option>';}).join('');
+}
+
+function updateWebhookStatus() {
+  var url=localStorage.getItem('cfm_raport_webhook')||'';
+  var el=document.getElementById('webhookStatusLine');
+  if(url){el.innerHTML='<span class="dot-ok"></span>Webhook aktywny · 已连接';el.style.color='#1A9E50';}
+  else{el.innerHTML='<span class="dot-err"></span>Brak webhook – używa Google Forms · 未设置Webhook';el.style.color='#D92B2B';}
+}
+
+function saveWebhook() {
+  var url=document.getElementById('webhookUrlInput').value.trim();
+  localStorage.setItem('cfm_raport_webhook',url);
+  updateWebhookStatus();
+  if(url){fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({event_type:'TEST'})});}
+  showToast('✓ Webhook zapisany · 已保存','ok');
+}
+
+function savePin() {
+  var pin=document.getElementById('newPinInput').value.trim();
+  if(!pin||pin.length<4){showToast('⚠ PIN min. 4 znaki','err');return;}
+  localStorage.setItem('cfm_pin',pin);
+  document.getElementById('newPinInput').value='';
+  showToast('✓ PIN zmieniony · 密码已更改','ok');
+}
+
+// Przy starcie - przebuduj listy z localStorage
+window.addEventListener('load', function() { rebuildSelects(); });
 </script>
 </body>
 </html>

@@ -725,7 +725,13 @@ function savePin() {
 }
 
 // Przy starcie - przebuduj listy z localStorage
-window.addEventListener('load', function() { rebuildSelects(); });
+window.addEventListener('load', function() {
+  rebuildSelects();
+  // Jeśli webhook nie ustawiony - ustaw domyślny
+  if (!localStorage.getItem('cfm_raport_webhook')) {
+    localStorage.setItem('cfm_raport_webhook', 'https://script.google.com/macros/s/AKfycbzGocyIdgPgj-l40ZLrRQbmMsaSRJqJmBH6R6a_0qq1if6JK4pSqXNSfpE4DEeKwKN1/exec');
+  }
+});
 </script>
 </body>
 </html>

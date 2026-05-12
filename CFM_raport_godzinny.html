@@ -517,21 +517,18 @@ function submitForm() {
   };
 
   if (webhookUrl) {
-    // Wyślij przez webhook
-    fetch(webhookUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).then(function() {
+    // Wyślij przez webhook – metoda GET z parametrami (działa z Apps Script no-cors)
+    var urlParams = webhookUrl + '?' + Object.keys(payload).map(function(k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || '');
+    }).join('&');
+
+    var img = new Image();
+    img.onload = img.onerror = function() {
       localStorage.setItem('cfm_last_qty', qty);
       localStorage.setItem('cfm_last_qty_hour', hour);
       showSuccess(operator, station, hour, qty, ng);
-    }).catch(function(e) {
-      showToast('❌ Błąd połączenia · 连接错误', 'err');
-      btn.disabled = false;
-      btn.innerHTML = 'WYŚLIJ RAPORT<span class="cn">提交报告 · 发送</span>';
-    });
+    };
+    img.src = urlParams;
   } else {
     // Fallback: Google Forms (bez operatora)
     var params = new URLSearchParams();

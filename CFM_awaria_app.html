@@ -406,9 +406,9 @@ html, body {
     </button>
   </div>
 
-  <!-- POLE OPISU DLA "INNE" -->
+  <!-- POLE OPISU DLA "INNE" / "BRAK MATERIAŁU" -->
   <div class="inne-box" id="inneBox">
-    <span class="inne-label">Opis przyczyny · 其他原因说明 <span style="color:var(--red)">*</span></span>
+    <span class="inne-label" id="inneLabel">Opis · 描述 <span style="color:var(--red)">*</span></span>
     <textarea class="inne-textarea" id="inneOpis" placeholder="Opisz przyczynę awarii...&#10;请描述故障原因..." rows="3"></textarea>
   </div>
 
@@ -515,6 +515,11 @@ window.onload = function() {
     document.getElementById('webhookUrl').value = state.webhookUrl;
   }
   renderTypeBtns();
+  // Pokaż pole opisu dla domyślnego typu
+  setTimeout(function() {
+    var firstBtn = document.querySelector('.type-btn.selected');
+    if (firstBtn) selectType(firstBtn);
+  }, 50);
 
   // Restore active breakdown
   if (state.activeBreakdown) {
@@ -543,14 +548,30 @@ function selectType(btn) {
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   state.type = btn.dataset.val;
-  // Pokaż pole opisu tylko dla "Inne"
+  // Pokaż pole opisu dla "Inne" i "Brak materiału"
   var inneBox = document.getElementById('inneBox');
-  if (state.type === 'Inne') {
+  var inneLabel = document.getElementById('inneLabel');
+  var inneOpis = document.getElementById('inneOpis');
+
+  var opisy = {
+    'Awaria mechaniczna':  { label: 'Co się zepsuło? · 什么损坏了？',           ph: 'Np. silnik, pasek, wałek...\n例如：电机、皮带、轴...' },
+    'Awaria elektryczna':  { label: 'Opis usterki elektrycznej · 电气故障描述', ph: 'Np. brak zasilania, przepalony bezpiecznik...\n例如：无电源、保险丝断...' },
+    'Awaria pneumatyczna': { label: 'Opis usterki pneumatycznej · 气动故障描述', ph: 'Np. brak ciśnienia, nieszczelność...\n例如：无气压、漏气...' },
+    'Brak materiału':      { label: 'Jakiego materiału brakuje? · 缺少什么物料？', ph: 'Podaj nazwę / numer materiału...\n请输入物料名称/编号...' },
+    'Mikroprzestój':       { label: 'Przyczyna mikroprzestoju · 短暂停机原因',   ph: 'Np. zacięcie, czyszczenie, regulacja...\n例如：卡料、清洁、调整...' },
+    'Inne':                { label: 'Opis przyczyny · 其他原因说明',              ph: 'Opisz przyczynę awarii...\n请描述故障原因...' }
+  };
+
+  var opis = opisy[state.type];
+  if (opis) {
+    inneLabel.innerHTML = opis.label + ' <span style="color:var(--red)">*</span>';
+    inneOpis.placeholder = opis.ph;
     inneBox.classList.add('visible');
-    document.getElementById('inneOpis').focus();
+    inneOpis.value = '';
+    setTimeout(function(){ inneOpis.focus(); }, 100);
   } else {
     inneBox.classList.remove('visible');
-    document.getElementById('inneOpis').value = '';
+    inneOpis.value = '';
   }
 }
 
@@ -559,19 +580,16 @@ function submitStart() {
   if (!state.station) { showToast('⚠ Wybierz stanowisko!', 'error'); return; }
   if (state.activeBreakdown) { showToast('⚠ Zamknij obecną awarię!', 'error'); return; }
 
-  // Walidacja pola opisu dla "Inne"
+  // Walidacja – opis obowiązkowy dla każdego typu
   var inneOpis = document.getElementById('inneOpis').value.trim();
-  if (state.type === 'Inne' && !inneOpis) {
-    showToast('⚠ Opisz przyczynę awarii!', 'error');
+  if (!inneOpis) {
+    showToast('⚠ Opisz przyczynę awarii · 请填写故障原因', 'error');
     document.getElementById('inneOpis').focus();
     return;
   }
 
-  // Typ wyświetlany – dla "Inne" dołącz opis
-  var typFull = state.type;
-  if (state.type === 'Inne' && inneOpis) {
-    typFull = 'Inne: ' + inneOpis;
-  }
+  // Typ wyświetlany z opisem
+  var typFull = state.type + ': ' + inneOpis;
 
   var now = new Date();
   state.activeBreakdown = {
@@ -827,6 +845,11 @@ function saveTypes() {
   });
   localStorage.setItem('cfm_types', JSON.stringify(saved));
   renderTypeBtns();
+  // Pokaż pole opisu dla domyślnego typu
+  setTimeout(function() {
+    var firstBtn = document.querySelector('.type-btn.selected');
+    if (firstBtn) selectType(firstBtn);
+  }, 50);
   document.getElementById('configPanel').classList.remove('open');
   document.querySelector('.gear-btn').classList.remove('active');
   showToast('✓ Typy zapisane · 类型已保存', 'success');

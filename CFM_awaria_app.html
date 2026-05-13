@@ -149,6 +149,12 @@ html, body {
 }
 .type-btn .cn { display: block; font-size: 11px; color: #555; margin-top: 2px; }
 .type-btn.selected .cn { color: rgba(255,112,112,0.6); }
+.inne-box { display:none; margin-top:10px; animation: fadeIn 0.2s ease; }
+.inne-box.visible { display:block; }
+.inne-textarea { width:100%; background:var(--surface); border:1.5px solid var(--red); border-radius:10px; color:var(--text); font-family:var(--font-body); font-size:15px; padding:12px 14px; resize:none; min-height:80px; line-height:1.5; }
+.inne-textarea:focus { outline:none; border-color:#ff7070; }
+.inne-label { font-family:var(--font-head); font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--red); margin-bottom:6px; display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
 
 /* ── BIG ACTION BUTTONS ── */
 .action-btn {
@@ -400,6 +406,12 @@ html, body {
     </button>
   </div>
 
+  <!-- POLE OPISU DLA "INNE" -->
+  <div class="inne-box" id="inneBox">
+    <span class="inne-label">Opis przyczyny · 其他原因说明 <span style="color:var(--red)">*</span></span>
+    <textarea class="inne-textarea" id="inneOpis" placeholder="Opisz przyczynę awarii...&#10;请描述故障原因..." rows="3"></textarea>
+  </div>
+
   <div class="divider"></div>
 
   <!-- ACTION BUTTONS -->
@@ -531,6 +543,15 @@ function selectType(btn) {
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   state.type = btn.dataset.val;
+  // Pokaż pole opisu tylko dla "Inne"
+  var inneBox = document.getElementById('inneBox');
+  if (state.type === 'Inne') {
+    inneBox.classList.add('visible');
+    document.getElementById('inneOpis').focus();
+  } else {
+    inneBox.classList.remove('visible');
+    document.getElementById('inneOpis').value = '';
+  }
 }
 
 // ── START AWARII ─────────────────────────────────────────────
@@ -538,10 +559,24 @@ function submitStart() {
   if (!state.station) { showToast('⚠ Wybierz stanowisko!', 'error'); return; }
   if (state.activeBreakdown) { showToast('⚠ Zamknij obecną awarię!', 'error'); return; }
 
+  // Walidacja pola opisu dla "Inne"
+  var inneOpis = document.getElementById('inneOpis').value.trim();
+  if (state.type === 'Inne' && !inneOpis) {
+    showToast('⚠ Opisz przyczynę awarii!', 'error');
+    document.getElementById('inneOpis').focus();
+    return;
+  }
+
+  // Typ wyświetlany – dla "Inne" dołącz opis
+  var typFull = state.type;
+  if (state.type === 'Inne' && inneOpis) {
+    typFull = 'Inne: ' + inneOpis;
+  }
+
   var now = new Date();
   state.activeBreakdown = {
     station: state.station,
-    type: state.type,
+    type: typFull,
     startTs: now.toISOString(),
     startFormatted: formatTs(now)
   };
@@ -549,7 +584,7 @@ function submitStart() {
 
   sendToSheets('START', {
     stanowisko: state.station,
-    typ: state.type,
+    typ: typFull,
     timestamp: now.toISOString()
   });
 

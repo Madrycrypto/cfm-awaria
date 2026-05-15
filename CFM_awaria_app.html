@@ -232,6 +232,21 @@ html, body {
   gap: 6px;
 }
 .blink { animation: blink 1s infinite; }
+.warn-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:300; align-items:center; justify-content:center; padding:20px; }
+.warn-overlay.open { display:flex; }
+.warn-dialog { background:var(--surface); border:2px solid var(--red); border-radius:14px; padding:20px; width:100%; max-width:360px; }
+.warn-icon { font-size:36px; text-align:center; margin-bottom:8px; }
+.warn-title { font-family:var(--font-head); font-size:18px; font-weight:900; color:var(--red); text-align:center; letter-spacing:0.04em; margin-bottom:4px; }
+.warn-title-cn { font-size:12px; color:#888; text-align:center; margin-bottom:14px; }
+.warn-info { background:rgba(217,43,43,0.08); border-radius:8px; padding:10px 12px; margin-bottom:14px; }
+.warn-info-row { display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px; }
+.warn-info-row:last-child { margin-bottom:0; }
+.warn-info-lbl { color:var(--muted); }
+.warn-info-val { color:var(--text); font-weight:600; }
+.warn-btns { display:flex; flex-direction:column; gap:8px; }
+.warn-btn-close { background:var(--green); color:#fff; border:none; border-radius:8px; font-family:var(--font-head); font-size:16px; font-weight:900; padding:13px; cursor:pointer; letter-spacing:0.04em; }
+.warn-btn-new { background:rgba(217,43,43,0.15); border:1px solid rgba(217,43,43,0.4); color:#ff7070; border-radius:8px; font-family:var(--font-head); font-size:14px; font-weight:700; padding:11px; cursor:pointer; }
+.warn-btn-cancel { background:none; border:none; color:var(--muted); font-size:13px; padding:8px; cursor:pointer; text-align:center; width:100%; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
 .active-timer {
@@ -369,7 +384,7 @@ html, body {
   <!-- STATION -->
   <div class="section-label">Stanowisko · 工位</div>
   <select class="station-select" id="stationSelect" onchange="onStationChange()">
-    <option value="">— wybierz —</option>
+    <option value="">— wybierz / 请选择 —</option>
     <option>OP50-1</option><option>OP50-2</option><option>OP52</option>
     <option>OP53</option><option>OP60</option><option>OP61</option>
     <option>OP70/71</option><option>OP72</option><option>OP73</option>
@@ -386,20 +401,20 @@ html, body {
   <!-- TYPE -->
   <div class="section-label">Typ zdarzenia · 事件类型 <span>(tylko dla startu)</span></div>
   <div class="type-grid" id="typeGrid">
-    <button class="type-btn selected" data-val="Awaria mechaniczna" onclick="selectType(this)">
-      Awaria mechaniczna<span class="cn">机械故障</span>
+    <button class="type-btn selected" data-val="Awaria maszyny" onclick="selectType(this)">
+      Awaria maszyny<span class="cn">设备故障</span>
     </button>
-    <button class="type-btn" data-val="Awaria elektryczna" onclick="selectType(this)">
-      Awaria elektryczna<span class="cn">电气故障</span>
-    </button>
-    <button class="type-btn" data-val="Awaria pneumatyczna" onclick="selectType(this)">
-      Awaria pneumatyczna<span class="cn">气动故障</span>
+    <button class="type-btn" data-val="Oczekiwanie na lidera" onclick="selectType(this)">
+      Oczekiwanie na lidera<span class="cn">等待班长</span>
     </button>
     <button class="type-btn" data-val="Brak materiału" onclick="selectType(this)">
       Brak materiału<span class="cn">缺料</span>
     </button>
     <button class="type-btn" data-val="Mikroprzestój" onclick="selectType(this)">
       Mikroprzestój<span class="cn">短暂停机</span>
+    </button>
+    <button class="type-btn" data-val="Szkolenie" onclick="selectType(this)">
+      Szkolenie<span class="cn">培训</span>
     </button>
     <button class="type-btn" data-val="Inne" onclick="selectType(this)">
       Inne<span class="cn">其他</span>
@@ -486,6 +501,40 @@ html, body {
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- OSTRZEŻENIE O OTWARTEJ AWARII -->
+<div class="warn-overlay" id="warnOverlay">
+  <div class="warn-dialog">
+    <div class="warn-icon">⚠️</div>
+    <div class="warn-title">OTWARTA AWARIA</div>
+    <div class="warn-title-cn">发现未关闭的故障记录</div>
+    <div class="warn-info">
+      <div class="warn-info-row">
+        <span class="warn-info-lbl">Typ · 类型:</span>
+        <span class="warn-info-val" id="warnTyp">—</span>
+      </div>
+      <div class="warn-info-row">
+        <span class="warn-info-lbl">Start · 开始:</span>
+        <span class="warn-info-val" id="warnStart">—</span>
+      </div>
+      <div class="warn-info-row">
+        <span class="warn-info-lbl">Czas · 时长:</span>
+        <span class="warn-info-val" id="warnCzas">—</span>
+      </div>
+    </div>
+    <div class="warn-btns">
+      <button class="warn-btn-close" onclick="warnZamknijIStart()">
+        ■ ZAMKNIJ POPRZEDNIĄ I ZACZNIJ NOWĄ<br>
+        <span style="font-size:11px;opacity:0.75;">关闭上一个并开始新的</span>
+      </button>
+      <button class="warn-btn-new" onclick="warnTylkoStart()">
+        ▶ ZACZNIJ NOWĄ BEZ ZAMYKANIA<br>
+        <span style="font-size:11px;opacity:0.75;">直接开始新的（不关闭）</span>
+      </button>
+      <button class="warn-btn-cancel" onclick="warnAnuluj()">Anuluj · 取消</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── STATE ────────────────────────────────────────────────────
 var state = {
@@ -553,13 +602,19 @@ function selectType(btn) {
   var inneLabel = document.getElementById('inneLabel');
   var inneOpis = document.getElementById('inneOpis');
 
+  // Mikroprzestój – bez opisu
+  if (state.type === 'Mikroprzestój') {
+    inneBox.classList.remove('visible');
+    inneOpis.value = '';
+    return;
+  }
+
   var opisy = {
-    'Awaria mechaniczna':  { label: 'Co się zepsuło? · 什么损坏了？',           ph: 'Np. silnik, pasek, wałek...\n例如：电机、皮带、轴...' },
-    'Awaria elektryczna':  { label: 'Opis usterki elektrycznej · 电气故障描述', ph: 'Np. brak zasilania, przepalony bezpiecznik...\n例如：无电源、保险丝断...' },
-    'Awaria pneumatyczna': { label: 'Opis usterki pneumatycznej · 气动故障描述', ph: 'Np. brak ciśnienia, nieszczelność...\n例如：无气压、漏气...' },
-    'Brak materiału':      { label: 'Jakiego materiału brakuje? · 缺少什么物料？', ph: 'Podaj nazwę / numer materiału...\n请输入物料名称/编号...' },
-    'Mikroprzestój':       { label: 'Przyczyna mikroprzestoju · 短暂停机原因',   ph: 'Np. zacięcie, czyszczenie, regulacja...\n例如：卡料、清洁、调整...' },
-    'Inne':                { label: 'Opis przyczyny · 其他原因说明',              ph: 'Opisz przyczynę awarii...\n请描述故障原因...' }
+    'Awaria maszyny':        { label: 'Co się zepsuło? · 什么损坏了？',             ph: 'Np. silnik, pasek, czujnik...\n例如：电机、皮带、传感器...' },
+    'Oczekiwanie na lidera': { label: 'Powód oczekiwania · 等待班长原因',           ph: 'Np. problem jakościowy, decyzja...\n例如：质量问题、等待决定...' },
+    'Brak materiału':        { label: 'Jakiego materiału brakuje? · 缺少什么物料？', ph: 'Podaj nazwę / numer materiału...\n请输入物料名称/编号...' },
+    'Szkolenie':             { label: 'Temat szkolenia · 培训主题',                 ph: 'Np. nowy produkt, BHP, instrukcja...\n例如：新产品、安全、操作规程...' },
+    'Inne':                  { label: 'Opis przyczyny · 其他原因说明',               ph: 'Opisz przyczynę awarii...\n请描述故障原因...' }
   };
 
   var opis = opisy[state.type];
@@ -576,21 +631,90 @@ function selectType(btn) {
 }
 
 // ── START AWARII ─────────────────────────────────────────────
+// Przechowuje dane oczekującego startu podczas sprawdzania
+var _pendingStart = null;
+var _openAwaria = null;
+
 function submitStart() {
   if (!state.station) { showToast('⚠ Wybierz stanowisko!', 'error'); return; }
   if (state.activeBreakdown) { showToast('⚠ Zamknij obecną awarię!', 'error'); return; }
 
-  // Walidacja – opis obowiązkowy dla każdego typu
+  // Walidacja opisu (przed sprawdzeniem sheets)
   var inneOpis = document.getElementById('inneOpis').value.trim();
-  if (!inneOpis) {
-    showToast('⚠ Opisz przyczynę awarii · 请填写故障原因', 'error');
+  if (state.type !== 'Mikroprzestój' && !inneOpis) {
+    showToast('⚠ Opisz przyczynę · 请填写原因', 'error');
     document.getElementById('inneOpis').focus();
     return;
   }
+  var typFull = state.type === 'Mikroprzestój' ? 'Mikroprzestój' : state.type + ': ' + inneOpis;
 
-  // Typ wyświetlany z opisem
-  var typFull = state.type + ': ' + inneOpis;
+  // Zapisz dane oczekującego startu
+  _pendingStart = { typFull: typFull };
 
+  // Sprawdź w Sheets czy jest otwarta awaria
+  var wh = state.webhookUrl;
+  if (wh) {
+    showToast('⏳ Sprawdzanie...', '');
+    var url = wh + '?event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(state.station);
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.open && data.awaria) {
+          _openAwaria = data.awaria;
+          // Pokaż ostrzeżenie
+          document.getElementById('warnTyp').textContent = data.awaria.typ;
+          document.getElementById('warnStart').textContent = data.awaria.start;
+          document.getElementById('warnCzas').textContent = data.awaria.diffMin + ' min';
+          document.getElementById('warnOverlay').classList.add('open');
+        } else {
+          // Brak otwartej awarii – startuj normalnie
+          wykonajStart(_pendingStart.typFull);
+        }
+      })
+      .catch(function() {
+        // Błąd połączenia – startuj mimo wszystko
+        wykonajStart(_pendingStart.typFull);
+      });
+    return; // Czekaj na odpowiedź
+  }
+
+  // Brak webhook – startuj lokalnie
+  wykonajStart(typFull);
+}
+
+function warnZamknijIStart() {
+  document.getElementById('warnOverlay').classList.remove('open');
+  if (_openAwaria) {
+    // Wyślij KONIEC dla poprzedniej awarii
+    var now = new Date();
+    var diffMin = Math.round((now - new Date(_openAwaria.startIso)) / 60000);
+    var wh = state.webhookUrl;
+    if (wh) {
+      var url = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(state.station)
+        + '&typ=' + encodeURIComponent(_openAwaria.typ)
+        + '&start_timestamp=' + encodeURIComponent(_openAwaria.startIso)
+        + '&koniec_timestamp=' + encodeURIComponent(now.toISOString())
+        + '&czas_min=' + diffMin;
+      new Image().src = url;
+    }
+    showToast('✓ Poprzednia awaria zamknięta: ' + diffMin + ' min', 'success');
+  }
+  setTimeout(function() { wykonajStart(_pendingStart.typFull); }, 500);
+}
+
+function warnTylkoStart() {
+  document.getElementById('warnOverlay').classList.remove('open');
+  wykonajStart(_pendingStart.typFull);
+}
+
+function warnAnuluj() {
+  document.getElementById('warnOverlay').classList.remove('open');
+  _pendingStart = null;
+  _openAwaria = null;
+}
+
+function wykonajStart(typFull) {
+  // typFull już jest obliczony i zwalidowany przed wywołaniem tej funkcji
   var now = new Date();
   state.activeBreakdown = {
     station: state.station,
@@ -609,7 +733,7 @@ function submitStart() {
   showActiveBanner();
   enableEndButton();
   showToast('✓ START zarejestrowany · 已登记故障开始', 'success');
-}
+} // koniec wykonajStart
 
 // ── KONIEC AWARII ────────────────────────────────────────────
 function submitEnd() {
@@ -796,12 +920,12 @@ function saveConfig() {
 
 // ── TYPY AWARII – EDYTOR ────────────────────────────────────
 var defaultTypes = [
-  {pl:'Awaria mechaniczna', cn:'机械故障'},
-  {pl:'Awaria elektryczna', cn:'电气故障'},
-  {pl:'Awaria pneumatyczna', cn:'气动故障'},
-  {pl:'Brak materiału', cn:'缺料'},
-  {pl:'Mikroprzestój', cn:'短暂停机'},
-  {pl:'Inne', cn:'其他'}
+  {pl:'Awaria maszyny',        cn:'设备故障'},
+  {pl:'Oczekiwanie na lidera', cn:'等待班长'},
+  {pl:'Brak materiału',        cn:'缺料'},
+  {pl:'Mikroprzestój',         cn:'短暂停机'},
+  {pl:'Szkolenie',             cn:'培训'},
+  {pl:'Inne',                  cn:'其他'}
 ];
 
 function getTypes() {

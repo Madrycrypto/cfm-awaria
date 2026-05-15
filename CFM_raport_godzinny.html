@@ -60,6 +60,16 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--fb); 
 .dot-ok { width:8px; height:8px; border-radius:50%; background:#1A9E50; display:inline-block; margin-right:5px; }
 .dot-err { width:8px; height:8px; border-radius:50%; background:#D92B2B; display:inline-block; margin-right:5px; }
 .pin-row { display:flex; gap:8px; margin-top:8px; }
+.pin-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:300; align-items:center; justify-content:center; }
+.pin-overlay.open { display:flex; }
+.pin-dialog { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:24px 20px; width:280px; text-align:center; }
+.pin-dialog-title { font-family:var(--fh); font-size:18px; font-weight:900; color:var(--text); letter-spacing:0.04em; margin-bottom:4px; }
+.pin-dialog-sub { font-size:11px; color:var(--muted); margin-bottom:16px; }
+.pin-dialog-input { width:100%; background:var(--bg); border:1.5px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--fb); font-size:24px; letter-spacing:0.2em; text-align:center; padding:12px; margin-bottom:12px; }
+.pin-dialog-input:focus { outline:none; border-color:#1A6ED8; }
+.pin-dialog-btns { display:flex; gap:8px; }
+.pin-dialog-ok { flex:1; background:#1A6ED8; color:#fff; border:none; border-radius:8px; font-family:var(--fh); font-size:16px; font-weight:900; padding:12px; cursor:pointer; }
+.pin-dialog-cancel { background:var(--border); color:var(--muted); border:none; border-radius:8px; font-family:var(--fh); font-size:16px; font-weight:900; padding:12px 16px; cursor:pointer; }
 .pin-input { flex:1; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--fb); font-size:18px; letter-spacing:0.1em; padding:8px 10px; text-align:center; }
 .pin-btn { background:#444; border:none; border-radius:6px; color:var(--text); font-family:var(--fh); font-size:13px; font-weight:700; padding:8px 14px; cursor:pointer; }
 
@@ -131,6 +141,50 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
 /* HOUR MANUAL SELECT */
 .hour-manual { display:none; }
 .hour-manual.open { display:block; }
+
+/* OSTRZEŻENIE O OTWARTEJ AWARII */
+.warn-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:300; align-items:center; justify-content:center; padding:20px; }
+.warn-overlay.open { display:flex; }
+.warn-dialog { background:var(--surface); border:2px solid #D92B2B; border-radius:14px; padding:20px; width:100%; max-width:360px; }
+.warn-icon { font-size:36px; text-align:center; margin-bottom:8px; }
+.warn-title { font-family:var(--fh); font-size:18px; font-weight:900; color:#D92B2B; text-align:center; letter-spacing:0.04em; margin-bottom:4px; }
+.warn-title-cn { font-size:12px; color:#888; text-align:center; margin-bottom:14px; }
+.warn-info { background:rgba(217,43,43,0.08); border-radius:8px; padding:10px 12px; margin-bottom:14px; }
+.warn-info-row { display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px; }
+.warn-info-row:last-child { margin-bottom:0; }
+.warn-info-lbl { color:var(--muted); }
+.warn-info-val { color:var(--text); font-weight:600; }
+.warn-btns { display:flex; flex-direction:column; gap:8px; }
+.warn-btn-close { background:#1A9E50; color:#fff; border:none; border-radius:8px; font-family:var(--fh); font-size:15px; font-weight:900; padding:13px; cursor:pointer; }
+.warn-btn-new { background:rgba(217,43,43,0.15); border:1px solid rgba(217,43,43,0.4); color:#ff7070; border-radius:8px; font-family:var(--fh); font-size:13px; font-weight:700; padding:11px; cursor:pointer; }
+.warn-btn-cancel { background:none; border:none; color:var(--muted); font-size:13px; padding:8px; cursor:pointer; text-align:center; width:100%; }
+
+/* PANEL AWARII */
+.awaria-panel { background:rgba(217,43,43,0.06); border:1.5px solid rgba(217,43,43,0.2); border-radius:12px; padding:14px; margin-top:6px; display:none; }
+.awaria-panel.active { display:block; animation: fadeInDown 0.2s ease; }
+@keyframes fadeInDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+.awaria-type-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.awaria-type-btn { background:var(--surface); border:1.5px solid var(--border); border-radius:8px; color:var(--muted); font-family:var(--fb); font-size:12px; font-weight:500; padding:8px 10px; cursor:pointer; text-align:left; line-height:1.3; }
+.awaria-type-btn.sel { border-color:var(--red); background:rgba(217,43,43,0.12); color:#ff7070; }
+.awaria-type-btn .cn { display:block; font-size:10px; color:#555; margin-top:2px; }
+.awaria-type-btn.sel .cn { color:rgba(255,112,112,0.6); }
+.awaria-desc-box { display:none; margin-top:8px; }
+.awaria-desc-box.vis { display:block; }
+.awaria-desc-lbl { font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--red); margin-bottom:5px; display:block; }
+.awaria-desc-input { width:100%; background:var(--bg); border:1.5px solid rgba(217,43,43,0.4); border-radius:8px; color:var(--text); font-family:var(--fb); font-size:14px; padding:10px 12px; resize:none; min-height:60px; }
+.awaria-timer-row { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+.awaria-timer { font-family:var(--fh); font-size:22px; font-weight:900; color:var(--red); letter-spacing:0.04em; }
+.awaria-timer .blink { animation:blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+.btn-awaria-start { background:var(--red); color:#fff; border:none; border-radius:8px; font-family:var(--fh); font-size:14px; font-weight:900; letter-spacing:0.04em; padding:10px 18px; cursor:pointer; }
+.btn-awaria-stop { background:var(--green); color:#fff; border:none; border-radius:8px; font-family:var(--fh); font-size:14px; font-weight:900; letter-spacing:0.04em; padding:10px 18px; cursor:pointer; }
+.awaria-toggle-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; }
+.awaria-toggle-lbl { font-family:var(--fh); font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--red); }
+.awaria-toggle-btn { background:none; border:1px solid rgba(217,43,43,0.3); border-radius:20px; color:var(--red); font-size:11px; font-weight:600; padding:3px 10px; cursor:pointer; }
+.awaria-main-btn { width:100%; background:rgba(217,43,43,0.1); border:2px solid rgba(217,43,43,0.4); border-radius:12px; color:#ff6b6b; font-family:var(--fh); font-size:20px; font-weight:900; letter-spacing:0.06em; padding:14px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; transition:all 0.15s; }
+.awaria-main-btn:active { background:rgba(217,43,43,0.2); transform:scale(0.98); }
+.awaria-main-btn.open { background:rgba(217,43,43,0.15); border-color:var(--red); color:#fff; }
+.awaria-main-cn { font-family:var(--fb); font-size:12px; font-weight:400; opacity:0.7; letter-spacing:0.02em; }
 </style>
 </head>
 <body>
@@ -146,60 +200,97 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
 
 <div class="main">
 
-  <!-- OPERATOR -->
-  <div class="field">
-    <div class="lbl">Operator · 操作员 <span class="req">*</span></div>
-    <select id="operatorSel" onchange="saveOperator()">
-      <option value="">— wybierz / 请选择 —</option>
-      <option>Magda Bąk</option>
-      <option>Fabian Bagiński</option>
-      <option>Ewa Baczynska</option>
-      <option>Karolina Ceterska</option>
-      <option>Szymon Chrzanowski</option>
-      <option>Patryk Makarewicz</option>
-      <option>Sebastian Purgat</option>
-      <option>Adam Żbikowski</option>
-      <option>Marlena Tomczyk</option>
-      <option>Marta Laskowska</option>
-      <option>Anna Juszkiewicz</option>
-      <option>Katarzyna Kotala</option>
-      <option>Sylwia Pytlik</option>
-      <option>Dorota Szpiler</option>
-      <option>Jakub Waldowski</option>
-      <option>Patryk Andreasik</option>
-      <option>Patryk Przydatek</option>
-      <option>Arkadiusz Przydatek</option>
-      <option>Przemek Purtak</option>
-      <option>Artur Wassiliew</option>
-      <option>Szymon Hubicki</option>
-      <option>Oskar Sobczak</option>
-      <option>Ewelina Kedzior</option>
-      <option>Malgorzata Dobrowolska</option>
-      <option>Karolina Koszalka</option>
-      <option>Damian Lysiak</option>
-      <option>Rafal Krupko</option>
-      <option>Ewa Kielar</option>
-      <option>Barbara Kuczko</option>
-      <option>Mateusz Kubala</option>
-      <option>Szymon Olesik</option>
-      <option>Paulina Filocha</option>
-    </select>
-    <div class="remembered" id="remOperator" style="display:none;">Zapamiętano · 已记住</div>
+  <!-- OPERATOR + STANOWISKO OBOK SIEBIE -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start;">
+
+    <div class="field">
+      <div class="lbl" style="font-size:9px;">Operator · 操作员 <span class="req">*</span></div>
+      <select id="operatorSel" onchange="saveOperator()" style="font-size:14px; padding:10px 12px;">
+        <option value="">— wybierz / 请选择 —</option>
+        <option>Magda Bąk</option>
+        <option>Fabian Bagiński</option>
+        <option>Ewa Baczynska</option>
+        <option>Karolina Ceterska</option>
+        <option>Szymon Chrzanowski</option>
+        <option>Patryk Makarewicz</option>
+        <option>Sebastian Purgat</option>
+        <option>Adam Żbikowski</option>
+        <option>Marlena Tomczyk</option>
+        <option>Marta Laskowska</option>
+        <option>Anna Juszkiewicz</option>
+        <option>Katarzyna Kotala</option>
+        <option>Sylwia Pytlik</option>
+        <option>Dorota Szpiler</option>
+        <option>Jakub Waldowski</option>
+        <option>Patryk Andreasik</option>
+        <option>Patryk Przydatek</option>
+        <option>Arkadiusz Przydatek</option>
+        <option>Przemek Purtak</option>
+        <option>Artur Wassiliew</option>
+        <option>Szymon Hubicki</option>
+        <option>Oskar Sobczak</option>
+        <option>Ewelina Kedzior</option>
+        <option>Malgorzata Dobrowolska</option>
+        <option>Karolina Koszalka</option>
+        <option>Damian Lysiak</option>
+        <option>Rafal Krupko</option>
+        <option>Ewa Kielar</option>
+        <option>Barbara Kuczko</option>
+        <option>Mateusz Kubala</option>
+        <option>Szymon Olesik</option>
+        <option>Paulina Filocha</option>
+      </select>
+      <div class="remembered" id="remOperator" style="display:none;">Zapamiętano · 已记住</div>
+    </div>
+
+    <div class="field">
+      <div class="lbl" style="font-size:9px;">Stanowisko · 工位 <span class="req">*</span></div>
+      <select id="stationSel" onchange="saveStation()" style="font-size:14px; padding:10px 12px;">
+        <option value="">— wybierz / 请选择 —</option>
+        <option>OP50-1</option><option>OP50-2</option><option>OP52</option>
+        <option>OP53</option><option>OP60</option><option>OP61</option>
+        <option>OP70/71</option><option>OP72</option><option>OP73</option>
+        <option>OP74/80</option><option>GP12</option><option>OP30</option>
+        <option>OP33A</option><option>OP33B</option>
+        <option>OP40-1</option><option>OP40-2</option><option>OP40-3</option>
+      </select>
+      <div class="remembered" id="remStation" style="display:none;">Zapamiętano · 已记住</div>
+    </div>
+
   </div>
 
-  <!-- STANOWISKO -->
-  <div class="field">
-    <div class="lbl">Stanowisko · 工位 <span class="req">*</span></div>
-    <select id="stationSel" onchange="saveStation()">
-      <option value="">— wybierz / 请选择 —</option>
-      <option>OP50-1</option><option>OP50-2</option><option>OP52</option>
-      <option>OP53</option><option>OP60</option><option>OP61</option>
-      <option>OP70/71</option><option>OP72</option><option>OP73</option>
-      <option>OP74/80</option><option>GP12</option><option>OP30</option>
-      <option>OP33A</option><option>OP33B</option>
-      <option>OP40-1</option><option>OP40-2</option><option>OP40-3</option>
-    </select>
-    <div class="remembered" id="remStation" style="display:none;">Zapamiętano · 已记住</div>
+  <!-- PANEL AWARII -->
+  <div style="margin-top:12px;">
+    <button class="awaria-main-btn" onclick="toggleAwariaPanel()" id="awariaToggleBtn">
+      ⚡ ZGŁOŚ AWARIĘ
+      <span class="awaria-main-cn">故障登记</span>
+    </button>
+    <div class="awaria-panel" id="awariaPanel">
+      <div id="awariaActiveBanner" style="display:none; background:rgba(217,43,43,0.1); border-radius:8px; padding:8px 12px; margin-bottom:10px;">
+        <div class="awaria-timer-row">
+          <div>
+            <div style="font-size:11px; color:var(--muted);" id="awariaActiveType">—</div>
+            <div class="awaria-timer"><span class="blink">●</span> <span id="awariaTimerDisplay">00:00</span></div>
+          </div>
+          <button class="btn-awaria-stop" onclick="awariaStop()">■ KONIEC · 结束</button>
+        </div>
+      </div>
+      <div id="awariaTypeSection">
+        <div class="awaria-type-grid">
+          <button class="awaria-type-btn sel" data-val="Awaria maszyny" onclick="awariaSelectType(this)">Awaria maszyny<span class="cn">设备故障</span></button>
+          <button class="awaria-type-btn" data-val="Oczekiwanie na lidera" onclick="awariaSelectType(this)">Oczekiwanie na lidera<span class="cn">等待班长</span></button>
+          <button class="awaria-type-btn" data-val="Brak materiału" onclick="awariaSelectType(this)">Brak materiału<span class="cn">缺料</span></button>
+          <button class="awaria-type-btn" data-val="Mikroprzestój" onclick="awariaSelectType(this)">Mikroprzestój<span class="cn">短暂停机</span></button>
+          <button class="awaria-type-btn" data-val="Szkolenie" onclick="awariaSelectType(this)">Szkolenie<span class="cn">培训</span></button>
+          <button class="awaria-type-btn" data-val="Inne" onclick="awariaSelectType(this)">Inne<span class="cn">其他</span></button>
+        </div>
+        <div class="awaria-desc-box" id="awariaDescBox">
+          <span class="awaria-desc-lbl" id="awariaDescLbl">Opis · 描述 *</span>
+          <textarea class="awaria-desc-input" id="awariaDescInput" rows="2" placeholder="Opisz przyczynę...&#10;请描述原因..."></textarea>
+        </div>
+        <button class="btn-awaria-start" style="width:100%;margin-top:10px;" onclick="awariaStart()">▶ START AWARII · 故障开始</button>
+      </div>
+    </div>
   </div>
 
   <div class="div"></div>
@@ -238,42 +329,44 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
 
   <div class="div"></div>
 
-  <!-- ILOŚĆ -->
-  <div class="field">
-    <div class="lbl">Ilość szt. · 完成件数 <span class="req">*</span></div>
-    <div class="counter-row">
-      <button class="counter-btn" onclick="adjustQty(-1)">−</button>
-      <input class="counter-input" type="number" id="qtyInput" min="0" max="9999" placeholder="0" inputmode="numeric">
-      <button class="counter-btn" onclick="adjustQty(1)">+</button>
+  <!-- ILOŚĆ + NG OBOK SIEBIE -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start;">
+
+    <div class="field">
+      <div class="lbl">Ilość szt. · 完成件数 <span class="req">*</span></div>
+      <div class="counter-row">
+        <button class="counter-btn" onclick="adjustQty(-1)">−</button>
+        <input class="counter-input" type="number" id="qtyInput" min="0" max="9999" placeholder="0" inputmode="numeric">
+        <button class="counter-btn" onclick="adjustQty(1)">+</button>
+      </div>
     </div>
-  </div>
-  <div id="qtyHint" style="display:none; font-size:11px; color:#5b9bd5; margin-top:5px; padding:4px 10px; background:rgba(26,110,216,0.08); border:1px solid rgba(26,110,216,0.2); border-radius:20px; display:inline-block;"></div>
 
-  <!-- POWÓD OPÓŹNIENIA -->
-  <div class="field">
-    <div class="lbl">Powód opóźnienia · 延迟原因 <span class="cn">– opcjonalnie</span></div>
-    <textarea id="delayInput" placeholder="Opisz powód jeśli wystąpił opóźnienie…&#10;如有延迟，请说明原因…" rows="2"></textarea>
-  </div>
-
-  <div class="div"></div>
-
-  <!-- NG -->
-  <div class="ng-row">
     <div class="field">
       <div class="lbl">Ile NG · NG数量 <span class="req">*</span></div>
       <div class="counter-row">
         <button class="counter-btn" onclick="adjustNg(-1)">−</button>
-        <input class="counter-input" type="number" id="ngInput" min="0" max="9999" placeholder="0" inputmode="numeric" style="font-size:22px;">
+        <input class="counter-input" type="number" id="ngInput" min="0" max="9999" placeholder="0" inputmode="numeric">
         <button class="counter-btn" onclick="adjustNg(1)">+</button>
       </div>
     </div>
-    <div></div>
+
+  </div>
+  <div id="qtyHint" style="display:none; font-size:11px; color:#5b9bd5; margin-top:5px; padding:4px 10px; background:rgba(26,110,216,0.08); border:1px solid rgba(26,110,216,0.2); border-radius:20px; display:inline-block;"></div>
+
+  <!-- POWÓD OPÓŹNIENIA (ukryte domyślnie, włączane przez admin) -->
+  <div id="delayField" style="display:none;">
+    <div class="field" style="margin-top:12px;">
+      <div class="lbl">Powód opóźnienia · 延迟原因 <span class="cn">– opcjonalnie</span></div>
+      <textarea id="delayInput" placeholder="Opisz powód jeśli wystąpił opóźnienie…&#10;如有延迟，请说明原因…" rows="2"></textarea>
+    </div>
   </div>
 
   <!-- POWÓD NG -->
-  <div class="field">
-    <div class="lbl">Powód NG · NG原因 <span class="cn">– opcjonalnie</span></div>
-    <textarea id="ngReasonInput" placeholder="Opisz przyczynę NG…&#10;请说明NG原因…" rows="2"></textarea>
+  <div id="ngReasonField">
+    <div class="field">
+      <div class="lbl">Powód NG · NG原因 <span class="cn">– opcjonalnie</span></div>
+      <textarea id="ngReasonInput" placeholder="Opisz przyczynę NG…&#10;请说明NG原因…" rows="2"></textarea>
+    </div>
   </div>
 
   <div class="div"></div>
@@ -297,6 +390,45 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- OSTRZEŻENIE O OTWARTEJ AWARII -->
+<div class="warn-overlay" id="warnOverlay">
+  <div class="warn-dialog">
+    <div class="warn-icon">⚠️</div>
+    <div class="warn-title">OTWARTA AWARIA</div>
+    <div class="warn-title-cn">发现未关闭的故障记录</div>
+    <div class="warn-info">
+      <div class="warn-info-row"><span class="warn-info-lbl">Typ · 类型:</span><span class="warn-info-val" id="warnTyp">—</span></div>
+      <div class="warn-info-row"><span class="warn-info-lbl">Start · 开始:</span><span class="warn-info-val" id="warnStart">—</span></div>
+      <div class="warn-info-row"><span class="warn-info-lbl">Czas · 时长:</span><span class="warn-info-val" id="warnCzas">—</span></div>
+    </div>
+    <div class="warn-btns">
+      <button class="warn-btn-close" onclick="warnZamknijIStart()">
+        ■ ZAMKNIJ POPRZEDNIĄ I ZACZNIJ NOWĄ<br>
+        <span style="font-size:11px;opacity:0.75;">关闭上一个并开始新的</span>
+      </button>
+      <button class="warn-btn-new" onclick="warnTylkoStart()">
+        ▶ ZACZNIJ NOWĄ BEZ ZAMYKANIA<br>
+        <span style="font-size:11px;opacity:0.75;">直接开始新的（不关闭）</span>
+      </button>
+      <button class="warn-btn-cancel" onclick="warnAnuluj()">Anuluj · 取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN OVERLAY -->
+<div class="pin-overlay" id="pinOverlay">
+  <div class="pin-dialog">
+    <div class="pin-dialog-title">⚙ ADMIN</div>
+    <div class="pin-dialog-sub">PIN administratora · 管理员密码</div>
+    <input class="pin-dialog-input" type="password" id="pinOverlayInput" placeholder="••••" maxlength="8"
+      onkeydown="if(event.key==='Enter') pinOverlayConfirm()">
+    <div class="pin-dialog-btns">
+      <button class="pin-dialog-cancel" onclick="pinOverlayClose()">✕</button>
+      <button class="pin-dialog-ok" onclick="pinOverlayConfirm()">WEJDŹ · 进入</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADMIN PANEL -->
 <div class="admin-panel" id="adminPanel">
   <div class="admin-header">
@@ -307,6 +439,7 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
     <button class="admin-tab active" onclick="adminTab('workers')">Pracownicy · 员工</button>
     <button class="admin-tab" onclick="adminTab('stations')">Stanowiska · 工位</button>
     <button class="admin-tab" onclick="adminTab('webhook')">Połączenie · 连接</button>
+    <button class="admin-tab" onclick="adminTab('opcje')">Opcje · 选项</button>
   </div>
 
   <!-- PRACOWNICY -->
@@ -331,11 +464,47 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
     <label style="font-size:11px;color:var(--muted);display:block;">URL Webhook · Apps Script URL</label>
     <input class="webhook-input" type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/...">
     <button class="webhook-save" onclick="saveWebhook()">💾 Zapisz i testuj · 保存并测试</button>
-    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmień PIN · 修改密码 (domyślny: 1234)</div>
+  </div>
+
+  <!-- OPCJE -->
+  <div class="admin-section" id="admin-opcje">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Opcje formularza · 表单选项</div>
+
+    <!-- Toggle opóźnienia -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:13px;color:var(--text);font-weight:500;">Powód opóźnienia · 延迟原因</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Pokaż pole w formularzu · 显示延迟原因字段</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">
+        <input type="checkbox" id="delayToggle" onchange="toggleDelayField()" style="opacity:0;width:0;height:0;">
+        <span id="delaySlider" style="position:absolute;cursor:pointer;inset:0;background:#333;border-radius:24px;transition:0.3s;">
+          <span id="delayDot" style="position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#888;border-radius:50%;transition:0.3s;display:block;"></span>
+        </span>
+      </label>
+    </div>
+
+    <!-- Powód NG toggle -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-size:13px;color:var(--text);font-weight:500;">Powód NG · NG原因</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Pokaż pole w formularzu · 显示NG原因字段</div>
+      </div>
+      <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0;">
+        <input type="checkbox" id="ngReasonToggle" onchange="toggleNgReasonField()" style="opacity:0;width:0;height:0;" checked>
+        <span id="ngReasonSlider" style="position:absolute;cursor:pointer;inset:0;background:#1A6ED8;border-radius:24px;transition:0.3s;">
+          <span id="ngReasonDot" style="position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.3s;transform:translateX(20px);display:block;"></span>
+        </span>
+      </label>
+    </div>
+
+    <!-- PIN -->
+    <div style="padding-top:14px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmień PIN administratora · 修改管理员密码</div>
+      <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN · 当前密码: <strong style="color:var(--text);" id="currentPinDisplay">****</strong></div>
       <div class="pin-row">
-        <input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN">
-        <button class="pin-btn" onclick="savePin()">Zmień</button>
+        <input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN (min. 4 znaki)">
+        <button class="pin-btn" onclick="savePin()">Zmień · 更改</button>
       </div>
     </div>
   </div>
@@ -630,15 +799,34 @@ function getWorkers() { var s=localStorage.getItem('cfm_workers'); return s?JSON
 function getStations() { var s=localStorage.getItem('cfm_stations'); return s?JSON.parse(s):DEFAULT_STATIONS; }
 
 function openAdmin() {
-  var pin = prompt('PIN administratora · 管理员密码:');
-  if (pin === null) return;
+  // Pokaż własne okno PIN (prompt() zablokowane w Safari standalone)
+  var overlay = document.getElementById('pinOverlay');
+  var input = document.getElementById('pinOverlayInput');
+  overlay.classList.add('open');
+  input.value = '';
+  setTimeout(function(){ input.focus(); }, 100);
+}
+
+function pinOverlayConfirm() {
+  var pin = document.getElementById('pinOverlayInput').value;
   var savedPin = localStorage.getItem('cfm_pin') || '1234';
-  if (pin !== savedPin) { showToast('❌ Błędny PIN · 密码错误', 'err'); return; }
+  if (pin !== savedPin) {
+    showToast('❌ Błędny PIN · 密码错误', 'err');
+    document.getElementById('pinOverlayInput').value = '';
+    return;
+  }
+  pinOverlayClose();
   document.getElementById('adminPanel').classList.add('open');
   document.getElementById('gearBtn').classList.add('active');
   renderWorkersList(); renderStationsList(); updateWebhookStatus();
   var wh = localStorage.getItem('cfm_raport_webhook') || '';
   if (wh) document.getElementById('webhookUrlInput').value = wh;
+  initDelayToggle();
+}
+
+function pinOverlayClose() {
+  document.getElementById('pinOverlay').classList.remove('open');
+  document.getElementById('pinOverlayInput').value = '';
 }
 
 function closeAdmin() {
@@ -648,10 +836,15 @@ function closeAdmin() {
 }
 
 function adminTab(tab) {
-  var tabs = ['workers','stations','webhook'];
+  var tabs = ['workers','stations','webhook','opcje'];
   document.querySelectorAll('.admin-tab').forEach(function(t,i) { t.classList.toggle('active', tabs[i]===tab); });
   document.querySelectorAll('.admin-section').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById('admin-'+tab).classList.add('active');
+  if (tab === 'opcje') {
+    var pin = localStorage.getItem('cfm_pin') || '1234';
+    var disp = document.getElementById('currentPinDisplay');
+    if (disp) disp.textContent = pin;
+  }
 }
 
 function renderWorkersList() {
@@ -721,9 +914,229 @@ function savePin() {
   showToast('✓ PIN zmieniony · 密码已更改','ok');
 }
 
+function toggleNgReasonField() {
+  var checked = document.getElementById('ngReasonToggle').checked;
+  localStorage.setItem('cfm_ngreason_visible', checked ? '1' : '0');
+  var field = document.getElementById('ngReasonField');
+  var slider = document.getElementById('ngReasonSlider');
+  var dot = document.getElementById('ngReasonDot');
+  if (field) field.style.display = checked ? 'block' : 'none';
+  if (slider) slider.style.background = checked ? '#1A6ED8' : '#333';
+  if (dot) dot.style.transform = checked ? 'translateX(20px)' : 'translateX(0)';
+  if (dot) dot.style.background = checked ? '#fff' : '#888';
+  showToast(checked ? '✓ Pole NG włączone' : '✓ Pole NG wyłączone', 'ok');
+}
+
+function toggleDelayField() {
+  var checked = document.getElementById('delayToggle').checked;
+  localStorage.setItem('cfm_delay_visible', checked ? '1' : '0');
+  applyDelayVisibility(checked);
+  showToast(checked ? '✓ Pole opóźnienia włączone' : '✓ Pole opóźnienia wyłączone', 'ok');
+}
+
+function applyDelayVisibility(visible) {
+  var field = document.getElementById('delayField');
+  var slider = document.getElementById('delaySlider');
+  var dot = document.getElementById('delayDot');
+  if (!field) return;
+  field.style.display = visible ? 'block' : 'none';
+  if (slider) slider.style.background = visible ? '#1A6ED8' : '#333';
+  if (dot) dot.style.transform = visible ? 'translateX(20px)' : 'translateX(0)';
+}
+
+function initDelayToggle() {
+  var visible = localStorage.getItem('cfm_delay_visible') === '1';
+  var cb = document.getElementById('delayToggle');
+  if (cb) cb.checked = visible;
+  applyDelayVisibility(visible);
+  // NG reason (domyślnie widoczne)
+  var ngVisible = localStorage.getItem('cfm_ngreason_visible') !== '0';
+  var ngCb = document.getElementById('ngReasonToggle');
+  if (ngCb) ngCb.checked = ngVisible;
+  var ngField = document.getElementById('ngReasonField');
+  var ngSlider = document.getElementById('ngReasonSlider');
+  var ngDot = document.getElementById('ngReasonDot');
+  if (ngField) ngField.style.display = ngVisible ? 'block' : 'none';
+  if (ngSlider) ngSlider.style.background = ngVisible ? '#1A6ED8' : '#333';
+  if (ngDot) { ngDot.style.transform = ngVisible ? 'translateX(20px)' : 'translateX(0)'; ngDot.style.background = ngVisible ? '#fff' : '#888'; }
+}
+
+// ── PANEL AWARII W RAPORCIE ─────────────────────────────────
+var awariaState = JSON.parse(localStorage.getItem('cfm_raport_awaria') || 'null');
+var awariaTimer = null;
+var awariaCurrentType = 'Awaria maszyny';
+
+var awariaOpisy = {
+  'Awaria maszyny':        { label: 'Co się zepsuło? · 什么损坏了？',              ph: 'Np. silnik, pasek...\n例如：电机、皮带...' },
+  'Oczekiwanie na lidera': { label: 'Powód oczekiwania · 等待班长原因',            ph: 'Np. problem jakościowy...\n例如：质量问题...' },
+  'Brak materiału':        { label: 'Jakiego materiału brakuje? · 缺少什么物料？', ph: 'Nazwa / numer materiału...\n请输入物料名称...' },
+  'Szkolenie':             { label: 'Temat szkolenia · 培训主题',                  ph: 'Np. nowy produkt, BHP...\n例如：新产品、安全...' },
+  'Inne':                  { label: 'Opis przyczyny · 其他原因说明',                ph: 'Opisz przyczynę...\n请描述原因...' }
+};
+
+function toggleAwariaPanel() {
+  var panel = document.getElementById('awariaPanel');
+  var btn = document.getElementById('awariaToggleBtn');
+  var isOpen = panel.classList.toggle('active');
+  btn.classList.toggle('open', isOpen);
+  btn.innerHTML = isOpen
+    ? '✕ ZAMKNIJ · <span class="awaria-main-cn">关闭</span>'
+    : '⚡ ZGŁOŚ AWARIĘ <span class="awaria-main-cn">故障登记</span>';
+  if (isOpen && awariaState) updateAwariaBanner();
+}
+
+function awariaSelectType(btn) {
+  document.querySelectorAll('.awaria-type-btn').forEach(function(b){ b.classList.remove('sel'); });
+  btn.classList.add('sel');
+  awariaCurrentType = btn.dataset.val;
+  var descBox = document.getElementById('awariaDescBox');
+  var descLbl = document.getElementById('awariaDescLbl');
+  var descInput = document.getElementById('awariaDescInput');
+  if (awariaCurrentType === 'Mikroprzestój') {
+    descBox.classList.remove('vis');
+    descInput.value = '';
+  } else {
+    var o = awariaOpisy[awariaCurrentType];
+    if (o) {
+      descLbl.textContent = o.label + ' *';
+      descInput.placeholder = o.ph;
+    }
+    descBox.classList.add('vis');
+  }
+}
+
+var _pendingAwariaStart = null;
+var _openAwariaRaport = null;
+
+function awariaStart() {
+  if (awariaState) { showToast('⚠ Zamknij obecną awarię · 请先关闭当前故障', 'err'); return; }
+  var station = document.getElementById('stationSel').value;
+  if (!station) { showToast('⚠ Wybierz stanowisko · 请选择工位', 'err'); return; }
+  var desc = document.getElementById('awariaDescInput').value.trim();
+  if (awariaCurrentType !== 'Mikroprzestój' && !desc) {
+    showToast('⚠ Opisz przyczynę · 请填写原因', 'err');
+    document.getElementById('awariaDescInput').focus();
+    return;
+  }
+  var typFull = awariaCurrentType === 'Mikroprzestój' ? 'Mikroprzestój' : awariaCurrentType + ': ' + desc;
+  _pendingAwariaStart = { station: station, typFull: typFull };
+
+  // Sprawdź czy jest otwarta awaria w Sheets
+  var wh = localStorage.getItem('cfm_raport_webhook') || '';
+  if (wh) {
+    showToast('⏳ Sprawdzanie...', '');
+    fetch(wh + '?event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(station))
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.open && data.awaria) {
+          _openAwariaRaport = data.awaria;
+          document.getElementById('warnTyp').textContent = data.awaria.typ;
+          document.getElementById('warnStart').textContent = data.awaria.start;
+          document.getElementById('warnCzas').textContent = data.awaria.diffMin + ' min';
+          document.getElementById('warnOverlay').classList.add('open');
+        } else {
+          wykonajAwariaStart(_pendingAwariaStart.station, _pendingAwariaStart.typFull);
+        }
+      })
+      .catch(function() {
+        wykonajAwariaStart(_pendingAwariaStart.station, _pendingAwariaStart.typFull);
+      });
+    return;
+  }
+  wykonajAwariaStart(station, typFull);
+}
+
+function warnZamknijIStart() {
+  document.getElementById('warnOverlay').classList.remove('open');
+  if (_openAwariaRaport) {
+    var now = new Date();
+    var diffMin = Math.round((now - new Date(_openAwariaRaport.startIso)) / 60000);
+    var wh = localStorage.getItem('cfm_raport_webhook') || '';
+    if (wh) {
+      var url = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(_pendingAwariaStart.station)
+        + '&typ=' + encodeURIComponent(_openAwariaRaport.typ)
+        + '&start_timestamp=' + encodeURIComponent(_openAwariaRaport.startIso)
+        + '&koniec_timestamp=' + encodeURIComponent(now.toISOString())
+        + '&czas_min=' + diffMin;
+      new Image().src = url;
+    }
+    showToast('✓ Poprzednia awaria zamknięta: ' + diffMin + ' min', 'ok');
+  }
+  setTimeout(function() {
+    wykonajAwariaStart(_pendingAwariaStart.station, _pendingAwariaStart.typFull);
+  }, 500);
+}
+
+function warnTylkoStart() {
+  document.getElementById('warnOverlay').classList.remove('open');
+  wykonajAwariaStart(_pendingAwariaStart.station, _pendingAwariaStart.typFull);
+}
+
+function warnAnuluj() {
+  document.getElementById('warnOverlay').classList.remove('open');
+  _pendingAwariaStart = null;
+  _openAwariaRaport = null;
+}
+
+function wykonajAwariaStart(station, typFull) {
+  var now = new Date();
+  awariaState = { station: station, type: typFull, startTs: now.toISOString() };
+  localStorage.setItem('cfm_raport_awaria', JSON.stringify(awariaState));
+  var wh = localStorage.getItem('cfm_raport_webhook') || '';
+  if (wh) {
+    var url = wh + '?event_type=START&stanowisko=' + encodeURIComponent(station)
+      + '&typ=' + encodeURIComponent(typFull)
+      + '&timestamp=' + encodeURIComponent(now.toISOString());
+    new Image().src = url;
+  }
+  updateAwariaBanner();
+  document.getElementById('awariaTypeSection').style.display = 'none';
+  showToast('✓ Awaria zarejestrowana · 故障已登记', 'ok');
+}
+
+function awariaStop() {
+  if (!awariaState) return;
+  var now = new Date();
+  var startDate = new Date(awariaState.startTs);
+  var diffMin = Math.round((now - startDate) / 60000);
+  var wh = localStorage.getItem('cfm_raport_webhook') || '';
+  if (wh) {
+    var url = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaState.station) + '&typ=' + encodeURIComponent(awariaState.type) + '&start_timestamp=' + encodeURIComponent(awariaState.startTs) + '&koniec_timestamp=' + encodeURIComponent(now.toISOString()) + '&czas_min=' + diffMin;
+    new Image().src = url;
+  }
+  clearInterval(awariaTimer);
+  awariaState = null;
+  localStorage.removeItem('cfm_raport_awaria');
+  document.getElementById('awariaActiveBanner').style.display = 'none';
+  document.getElementById('awariaTypeSection').style.display = 'block';
+  document.getElementById('awariaDescInput').value = '';
+  showToast('✓ Czas awarii: ' + diffMin + ' min · 故障时长：' + diffMin + '分钟', 'ok');
+}
+
+function updateAwariaBanner() {
+  if (!awariaState) return;
+  document.getElementById('awariaActiveBanner').style.display = 'block';
+  document.getElementById('awariaActiveType').textContent = awariaState.type + ' · ' + awariaState.station;
+  clearInterval(awariaTimer);
+  awariaTimer = setInterval(function() {
+    var diff = Math.floor((new Date() - new Date(awariaState.startTs)) / 1000);
+    var m = Math.floor(diff/60), s = diff%60;
+    document.getElementById('awariaTimerDisplay').textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }, 1000);
+}
+
+// Inicjalizacja przy starcie – jeśli awaria była aktywna
+if (awariaState) {
+  document.getElementById('awariaPanel').classList.add('active');
+  document.getElementById('awariaToggleBtn').textContent = '− Zwiń · 收起';
+  updateAwariaBanner();
+  document.getElementById('awariaTypeSection').style.display = 'none';
+}
+
 // Przy starcie - przebuduj listy z localStorage
 window.addEventListener('load', function() {
   rebuildSelects();
+  initDelayToggle();
   // Jeśli webhook nie ustawiony - ustaw domyślny
   if (!localStorage.getItem('cfm_raport_webhook')) {
     localStorage.setItem('cfm_raport_webhook', 'https://script.google.com/macros/s/AKfycbxbdmTTx4VJpd_QdvwlMKP4_EHl8IXtL3dY_vnvF5RqCh7e4Gj6dBOhBWlfcLLqhvFN/exec');

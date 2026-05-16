@@ -383,15 +383,7 @@ html, body {
 
   <!-- STATION -->
   <div class="section-label">Stanowisko · 工位</div>
-  <select class="station-select" id="stationSelect" onchange="onStationChange()">
-    <option value="">— wybierz / 请选择 —</option>
-    <option>OP50-1</option><option>OP50-2</option><option>OP52</option>
-    <option>OP53</option><option>OP60</option><option>OP61</option>
-    <option>OP70/71</option><option>OP72</option><option>OP73</option>
-    <option>OP74/80</option><option>GP12</option><option>OP30</option>
-    <option>OP33A</option><option>OP33B</option>
-    <option>OP40-1</option><option>OP40-2</option><option>OP40-3</option>
-  </select>
+  <select class="station-select" id="stationSelect" onchange="onStationChange()"></select>
   <div class="remembered-badge" id="rememberedBadge" style="display:none;">
     Zapamiętano · 已记住此工位
   </div>
@@ -551,7 +543,25 @@ var timerInterval = null;
 window.onload = function() {
   // Restore station
   if (state.station) {
-    document.getElementById('stationSelect').value = state.station;
+    // Zbuduj listę stanowisk z localStorage (tylko aktywne)
+  (function buildStations() {
+    var DEFAULT = ['OP50-1','OP50-2','OP52','OP53','OP60','OP61',
+      'OP70/71','OP72','OP73','OP74/80','GP12','OP30',
+      'OP33A','OP33B','OP40-1','OP40-2','OP40-3'];
+    var stored   = localStorage.getItem('cfm_stations');
+    var stations = stored ? JSON.parse(stored) : DEFAULT;
+    var statusRaw = localStorage.getItem('cfm_station_status');
+    var stStatus  = statusRaw ? JSON.parse(statusRaw) : {};
+    var sel = document.getElementById('stationSelect');
+    sel.innerHTML = '<option value="">— wybierz / 请选择 —</option>';
+    stations.forEach(function(s) {
+      if (stStatus[s] === false) return;
+      var opt = document.createElement('option');
+      opt.value = opt.textContent = s;
+      sel.appendChild(opt);
+    });
+  })();
+  document.getElementById('stationSelect').value = state.station;
     showRememberedBadge();
   }
 
@@ -806,16 +816,15 @@ function enableEndButton() {
 function sendToSheets(eventType, data) {
   var url = state.webhookUrl;
   if (!url) {
-    console.log('Brak webhook URL – dane lokalne tylko:', eventType, data);
+    console.log('Brak webhook URL:', eventType, data);
     return;
   }
+  // Użyj GET z parametrami – jedyna metoda działająca z Apps Script no-cors
   data.event_type = eventType;
-  fetch(url, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  }).catch(function(e) { console.error('Webhook error:', e); });
+  var params = Object.keys(data).map(function(k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(data[k] || '');
+  }).join('&');
+  new Image().src = url + '?' + params;
 }
 
 // ── HISTORY ──────────────────────────────────────────────────
@@ -995,6 +1004,30 @@ function formatTs(d) {
   return d.toLocaleDateString('pl-PL') + ' ' +
     String(d.getHours()).padStart(2,'0') + ':' +
     String(d.getMinutes()).padStart(2,'0');
+}
+</script>
+
+<script>
+// Rejestracja Service Worker – automatyczne odświeżanie cache
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/cfm-awaria/sw.js').then(function(reg) {
+    console.log('SW zarejestrowany: CFM-Awaria v202605162146');
+    // Sprawdź czy jest nowa wersja
+    reg.addEventListener('updatefound', function() {
+      var newWorker = reg.installing;
+      newWorker.addEventListener('statechange', function() {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // Nowa wersja gotowa – odśwież stronę
+          window.location.reload();
+        }
+      });
+    });
+  });
+  // Jeśli SW przejął kontrolę – odśwież
+  var refreshed = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function() {
+    if (!refreshed) { refreshed = true; window.location.reload(); }
+  });
 }
 </script>
 </body>

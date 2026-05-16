@@ -435,7 +435,7 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
   </button>
 
   <!-- HISTORIA STANOWISKA -->
-  <div class="historia-card" id="historiaCard" style="margin-top:14px;">
+  <div class="historia-card" style="margin-top:14px;">
     <div class="historia-header">
       <div class="historia-title">Historia · 记录</div>
       <button class="historia-refresh" onclick="odswiezHistorie()">&#8635; Odśwież · 刷新</button>
@@ -592,18 +592,20 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
 
     <!-- Cel produkcyjny -->
     <div style="padding:10px 0;border-bottom:1px solid var(--border);">
-      <div style="font-size:13px;color:var(--text);font-weight:500;margin-bottom:8px;">Cel produkcyjny · 生产目标</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div style="font-size:13px;color:var(--text);font-weight:500;margin-bottom:4px;">Cel produkcyjny · 生产目标</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Cel dzienny dzielony przez liczbę zmian = cel zmiany · 按班次自动分配</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Szt/godzinę · 每小时</div>
-          <input type="number" id="celHInput" min="1" max="999" placeholder="50" style="font-size:18px;text-align:center;width:100%;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Cel dzienny · 每日目标 (szt)</div>
+          <input type="number" id="celHInput" min="1" max="9999" placeholder="850" style="font-size:18px;text-align:center;width:100%;">
         </div>
         <div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Szt/zmianę · 每班</div>
-          <input type="number" id="celZmianaInput" min="1" max="9999" placeholder="400" style="font-size:18px;text-align:center;width:100%;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Cel/godzinę · 每小时 (szt)</div>
+          <input type="number" id="celGodInput" min="1" max="999" placeholder="53" style="font-size:18px;text-align:center;width:100%;">
         </div>
       </div>
-      <button onclick="saveCele()" style="margin-top:8px;width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:14px;font-weight:900;padding:10px;cursor:pointer;">
+      <div id="celPreview" style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:8px;"></div>
+      <button onclick="saveCele()" style="width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:14px;font-weight:900;padding:10px;cursor:pointer;">
         Zapisz cele · 保存目标
       </button>
     </div>
@@ -1014,8 +1016,14 @@ function pinOverlayConfirm() {
   var wh = localStorage.getItem('cfm_raport_webhook') || '';
   if (wh) document.getElementById('webhookUrlInput').value = wh;
   initDelayToggle();
-  var celH = localStorage.getItem('cfm_cel_h') || '50';
-  var celZ = localStorage.getItem('cfm_cel_zmiana') || '400';
+  // Załaduj pola celu
+  var celHEl = document.getElementById('celHInput');
+  var celGEl = document.getElementById('celGodInput');
+  if (celHEl) celHEl.value = localStorage.getItem('cfm_cel_h') || '850';
+  if (celGEl) celGEl.value = localStorage.getItem('cfm_cel_god') || '53';
+  updateCelPreview();
+  var celH   = document.getElementById('celHInput').value   || localStorage.getItem('cfm_cel_h') || '850';
+  var celGod = document.getElementById('celGodInput').value || localStorage.getItem('cfm_cel_god') || '53';
   var iH = document.getElementById('celHInput');
   var iZ = document.getElementById('celZmianaInput');
   if (iH) iH.value = celH;
@@ -1108,12 +1116,24 @@ function saveWebhook() {
 function saveCele() {
   var celH = Number(document.getElementById('celHInput').value) || 50;
   var celZ = Number(document.getElementById('celZmianaInput').value) || 400;
-  localStorage.setItem('cfm_cel_h', celH);
-  localStorage.setItem('cfm_cel_zmiana', celZ);
+  localStorage.setItem('cfm_cel_h', celH);       // cel dzienny
+  localStorage.setItem('cfm_cel_god', celGod);   // cel godzinowy
+  // cel zmiany = cel dzienny / liczba zmian (obliczane dynamicznie)
+  showToast('✓ Cel zapisany · 目标已保存', 'ok');
+  updateCelPreview();
   CEL_GODZINA = celH;
   CEL_ZMIANA = celZ;
   showToast('✓ Cele zapisane · 已保存', 'ok');
   ladujHistorie();
+}
+
+function updateCelPreview() {
+  var celH   = Number(document.getElementById('celHInput')  && document.getElementById('celHInput').value   || localStorage.getItem('cfm_cel_h')  || 850);
+  var celGod = Number(document.getElementById('celGodInput') && document.getElementById('celGodInput').value || localStorage.getItem('cfm_cel_god') || 53);
+  var z = (typeof getZmiany === 'function') ? getZmiany() : {liczba:2};
+  var celZmiana = Math.round(celH / (z.liczba || 2));
+  var el = document.getElementById('celPreview');
+  if (el) el.innerHTML = 'Cel zmiany: <strong style="color:var(--text);">' + celZmiana + ' szt</strong> · Cel/h: <strong style="color:var(--text);">' + celGod + ' szt</strong>';
 }
 
 function savePin() {
@@ -1598,7 +1618,7 @@ function odswiezHistorie() {
     return;
   }
 
-  var cel = Number(localStorage.getItem('cfm_cel_h') || '50');
+  var cel = Number(localStorage.getItem('cfm_cel_god') || localStorage.getItem('cfm_cel_h') || '53');
 
   // Pobierz historię + GP12 równolegle
   var urlH   = wh + '?event_type=HISTORIA&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator);
@@ -1621,7 +1641,13 @@ function odswiezHistorie() {
 
 function renderHistoriaDane(historia, suma, ng, gp12, cel) {
   cel = cel || 50;
-  var celZmiana = Number(localStorage.getItem('cfm_cel_zmiana') || (cel * 8));
+
+  // Cel zmiany = cel_dzien / liczba_zmian
+  var celDzien = Number(localStorage.getItem('cfm_cel_h') || '850'); // cel dzienny
+  var z = (typeof getZmiany === 'function') ? getZmiany() : {liczba:2};
+  var celZmiana = Math.round(celDzien / (z.liczba || 2));
+
+  // GP12 = suma zmiany, brakuje = celZmiana - gp12
   var gp12Pct = celZmiana > 0 ? Math.round(gp12 / celZmiana * 100) : 0;
   var brakuje  = Math.max(0, celZmiana - gp12);
   var pctColor = gp12Pct >= 100 ? '#1A9E50' : gp12Pct >= 80 ? '#D97706' : '#D92B2B';
@@ -1632,14 +1658,14 @@ function renderHistoriaDane(historia, suma, ng, gp12, cel) {
   // GP12 baner
   html += '<div class="gp12-band">';
   html += '<div><div class="gp12-lbl">Suma zmiany GP12 · 班次合计</div>';
-  html += '<div style="font-size:10px;color:var(--muted);">全线计数器</div></div>';
+  html += '<div style="font-size:10px;color:var(--muted);">licznik całej linii · 全线计数器</div></div>';
   html += '<div class="gp12-val">' + gp12 + ' szt</div></div>';
 
-  // Statystyki
+  // 4 kafelki
   html += '<div class="stats-grid">';
   html += '<div class="stat-box"><div class="stat-lbl">Moje szt. · 我的产量</div><div class="stat-val ok">' + suma + '</div></div>';
   html += '<div class="stat-box"><div class="stat-lbl">Cel zmiana · 班次目标</div><div class="stat-val">' + celZmiana + '</div></div>';
-  html += '<div class="stat-box"><div class="stat-lbl">Brakuje · 差距</div><div class="stat-val ' + (brakuje === 0 ? 'ok' : 'warn') + '">' + brakuje + '</div></div>';
+  html += '<div class="stat-box"><div class="stat-lbl">Brakuje (GP12) · 差距</div><div class="stat-val ' + (brakuje === 0 ? 'ok' : brakuje < celZmiana * 0.2 ? 'warn' : 'bad') + '">' + brakuje + '</div></div>';
   html += '<div class="stat-box"><div class="stat-lbl">Realizacja · 完成率</div><div class="stat-val ' + (gp12Pct >= 100 ? 'ok' : gp12Pct >= 80 ? 'warn' : 'bad') + '">' + gp12Pct + '%</div></div>';
   html += '</div>';
 
@@ -1647,16 +1673,17 @@ function renderHistoriaDane(historia, suma, ng, gp12, cel) {
   html += '<div class="progress-labels"><span>0</span><span>cel: ' + celZmiana + ' · 目标</span><span>' + celZmiana + '</span></div>';
   html += '<div class="progress-outer"><div class="progress-inner" style="width:' + barW + '%;background:' + pctColor + ';"></div></div>';
 
-  // Historia godzinowa
+  // Historia godzinowa – skrócone etykiety "15:00"
   if (historia.length > 0) {
     html += '<div class="hist-section-lbl">Moje godziny · 每小时记录</div>';
     historia.forEach(function(row) {
-      var pct  = cel > 0 ? Math.round(row.qty / cel * 100) : 0;
-      var barW2 = Math.min(100, pct);
-      var barColor = pct >= 100 ? '#639922' : pct >= 80 ? '#97C459' : pct >= 60 ? '#C0DD97' : '#EF9F27';
-      var pctColor2 = pct >= 80 ? '#27500A' : '#854F0B';
+      var shortH = (row.godzina || '').split(/[-\.]/)[0].trim();
+      var pct    = cel > 0 ? Math.round(row.qty / cel * 100) : 0;
+      var barW2  = Math.min(100, pct);
+      var barColor  = pct >= 100 ? '#639922' : pct >= 80 ? '#97C459' : pct >= 60 ? '#EF9F27' : '#D92B2B';
+      var pctColor2 = pct >= 80 ? '#27500A' : pct >= 60 ? '#854F0B' : '#791F1F';
       html += '<div class="hist-row">';
-      html += '<div class="hist-time">' + row.godzina + '</div>';
+      html += '<div class="hist-time">' + shortH + '</div>';
       html += '<div class="hist-bar-wrap"><div class="hist-bar" style="width:' + barW2 + '%;background:' + barColor + ';"></div></div>';
       html += '<div class="hist-qty">' + row.qty + '</div>';
       html += '<div class="hist-pct" style="color:' + pctColor2 + ';">' + pct + '%</div>';
@@ -1666,7 +1693,7 @@ function renderHistoriaDane(historia, suma, ng, gp12, cel) {
     html += '<div class="hist-loading" style="padding:10px;">Brak danych na dziś · 今日暂无数据</div>';
   }
 
-  // NG
+  // Stopka
   html += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);">';
   html += '<span>Cel godz. · 每小时目标: <strong style="color:var(--text);">' + cel + ' szt</strong></span>';
   html += '<span>NG dziś · 今日不良品: <strong style="color:#D92B2B;">' + ng + '</strong></span>';
@@ -1674,7 +1701,6 @@ function renderHistoriaDane(historia, suma, ng, gp12, cel) {
 
   document.getElementById('historiaContent').innerHTML = html;
 }
-
 window.addEventListener('load', function() {
   rebuildSelects();
   initDelayToggle();

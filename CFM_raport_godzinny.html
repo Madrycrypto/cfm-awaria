@@ -53,6 +53,8 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--fb); 
 .list-item-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .list-item-input { flex:1; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--fb); font-size:14px; padding:8px 10px; }
 .list-item-del { background:rgba(217,43,43,0.15); border:1px solid rgba(217,43,43,0.3); border-radius:6px; color:#ff7070; font-size:18px; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.st-toggle { width:32px; height:32px; border-radius:6px; border:1.5px solid var(--border); background:rgba(217,43,43,0.15); color:#ff7070; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.15s; }
+.st-toggle.on { background:rgba(26,158,80,0.2); border-color:rgba(26,158,80,0.4); color:#1A9E50; }
 .list-add-btn { width:100%; background:rgba(26,110,216,0.1); border:1px dashed rgba(26,110,216,0.3); border-radius:6px; color:#5b9bd5; font-family:var(--fh); font-size:13px; font-weight:700; padding:9px; cursor:pointer; margin-top:4px; }
 .list-save-btn { width:100%; background:#1A6ED8; color:#fff; border:none; border-radius:8px; font-family:var(--fh); font-size:16px; font-weight:900; padding:13px; cursor:pointer; margin-top:14px; }
 .webhook-input { width:100%; background:var(--bg); border:1.5px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--fb); font-size:12px; padding:9px 12px; margin-top:6px; }
@@ -572,7 +574,12 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
 
   <!-- STANOWISKA -->
   <div class="admin-section" id="admin-stations">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Zarządzaj listą stanowisk · 管理工位列表</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zarządzaj listą stanowisk · 管理工位列表</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(26,158,80,0.08);border-radius:6px;">
+      <span style="color:#1A9E50;">●</span> Aktywne (pojawia się w liście) &nbsp;
+      <span style="color:#ff7070;">○</span> Nieaktywne (ukryte) · 
+      <span style="font-size:10px;">Kliknij kółko aby zmienić · 点击圆圈切换状态</span>
+    </div>
     <div id="stationsList"></div>
     <button class="list-add-btn" onclick="addStation()">+ Dodaj stanowisko · 添加工位</button>
     <button class="list-save-btn" onclick="saveStations()">💾 Zapisz listę · 保存</button>
@@ -1061,10 +1068,41 @@ function renderWorkersList() {
   }).join('');
 }
 
+function getStationStatus() {
+  var s = localStorage.getItem('cfm_station_status');
+  return s ? JSON.parse(s) : {};
+}
+
+function toggleStationActive(i) {
+  var stations = getStations();
+  var status = getStationStatus();
+  var name = document.getElementById('s-'+i) ? document.getElementById('s-'+i).value : stations[i];
+  // domyślnie aktywne (undefined = true), kliknięcie toggleuje
+  if (status[name] === undefined) status[name] = false; // pierwsze kliknięcie = wyłącz
+  else status[name] = !status[name];
+  localStorage.setItem('cfm_station_status', JSON.stringify(status));
+  renderStationsList();
+  rebuildSelects();
+}
+
+function isStationActive(name) {
+  var status = getStationStatus();
+  return status[name] !== false; // domyślnie aktywne
+}
+
 function renderStationsList() {
   var stations = getStations();
+  var status = getStationStatus();
   document.getElementById('stationsList').innerHTML = stations.map(function(s,i) {
-    return '<div class="list-item-row"><input class="list-item-input" id="s-'+i+'" value="'+s+'"><button class="list-item-del" onclick="delStation('+i+')">×</button></div>';
+    var active = status[s] !== false; // domyślnie aktywne
+    var toggleClass = active ? 'st-toggle on' : 'st-toggle';
+    var toggleIcon  = active ? '●' : '○';
+    var toggleTitle = active ? 'Aktywne · 已启用' : 'Nieaktywne · 已停用';
+    return '<div class="list-item-row">' +
+      '<button class="' + toggleClass + '" id="st-btn-'+i+'" onclick="toggleStationActive('+i+')" title="' + toggleTitle + '">' + toggleIcon + '</button>' +
+      '<input class="list-item-input" id="s-'+i+'" value="'+s+'" style="' + (active ? '' : 'opacity:0.4;text-decoration:line-through;') + '">' +
+      '<button class="list-item-del" onclick="delStation('+i+')">×</button>' +
+    '</div>';
   }).join('');
 }
 
@@ -1080,10 +1118,20 @@ function saveWorkers() {
 function addStation() { var s=getStations(); s.push('NOWE'); localStorage.setItem('cfm_stations',JSON.stringify(s)); renderStationsList(); }
 function delStation(i) { var s=getStations(); s.splice(i,1); localStorage.setItem('cfm_stations',JSON.stringify(s)); renderStationsList(); }
 function saveStations() {
-  var s=getStations();
-  var saved=s.map(function(x,i){var el=document.getElementById('s-'+i);return el?el.value.trim():x;}).filter(Boolean);
-  localStorage.setItem('cfm_stations',JSON.stringify(saved));
-  showToast('✓ Stanowiska zapisane · 已保存','ok');
+  var s = getStations();
+  var oldStatus = getStationStatus();
+  var newStatus = {};
+  var saved = s.map(function(x,i) {
+    var el = document.getElementById('s-'+i);
+    var newName = el ? el.value.trim() : x;
+    // Przenieś status ze starej nazwy na nową
+    newStatus[newName] = oldStatus[x] !== undefined ? oldStatus[x] : true;
+    return newName;
+  }).filter(Boolean);
+  localStorage.setItem('cfm_stations', JSON.stringify(saved));
+  localStorage.setItem('cfm_station_status', JSON.stringify(newStatus));
+  showToast('✓ Stanowiska zapisane · 已保存', 'ok');
+  rebuildSelects();
 }
 
 function rebuildSelects() {
@@ -1093,9 +1141,11 @@ function rebuildSelects() {
   var opSel=document.getElementById('operatorSel');
   opSel.innerHTML='<option value="">— wybierz / 请选择 —</option>'+
     workers.map(function(w){return '<option'+(w===curOp?' selected':'')+'>'+w+'</option>';}).join('');
-  var stSel=document.getElementById('stationSel');
-  stSel.innerHTML='<option value="">— wybierz / 请选择 —</option>'+
-    stations.map(function(s){return '<option'+(s===curSt?' selected':'')+'>'+s+'</option>';}).join('');
+  var stSel = document.getElementById('stationSel');
+  var stStatus = getStationStatus ? getStationStatus() : {};
+  var activeStations = stations.filter(function(s) { return stStatus[s] !== false; });
+  stSel.innerHTML = '<option value="">— wybierz / 请选择 —</option>' +
+    activeStations.map(function(s) { return '<option'+(s===curSt?' selected':'')+'>'+s+'</option>'; }).join('');
 }
 
 function updateWebhookStatus() {

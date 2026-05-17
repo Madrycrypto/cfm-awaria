@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>CFM Raport · TMT · Lark</title>
+<title>CFM Raport · TMT</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{--bg:#0f0f0f;--surface:#1a1a1a;--border:#2a2a2a;--text:#f0f0f0;--muted:#666;--blue:#1A6ED8;--blue-dk:#1558b0;--green:#1A9E50;--red:#D92B2B;--fh:'Barlow Condensed','Arial Narrow',sans-serif;--fb:'Barlow','Arial',sans-serif}
@@ -20,9 +20,6 @@ button{cursor:pointer}
 .topbar-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.4}
 .gear-btn{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:2px 6px}
 .gear-btn.active{color:var(--text)}
-.sync-badge{font-size:9px;padding:2px 6px;border-radius:10px;margin-top:2px;display:inline-block}
-.sync-badge.ok{background:rgba(26,158,80,0.15);color:#1A9E50}
-.sync-badge.err{background:rgba(217,43,43,0.15);color:#D92B2B}
 .main{padding:14px;max-width:480px;margin:0 auto;padding-bottom:40px}
 .lbl{font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .req{color:var(--red)}
@@ -63,6 +60,7 @@ button{cursor:pointer}
 .awaria-type-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--fb);font-size:12px;font-weight:500;padding:8px 10px;cursor:pointer;text-align:left;line-height:1.3}
 .awaria-type-btn.sel{border-color:var(--red);background:rgba(217,43,43,0.12);color:#ff7070}
 .awaria-type-btn .cn{display:block;font-size:10px;color:#555;margin-top:2px}
+.awaria-type-btn.sel .cn{color:rgba(255,112,112,0.6)}
 .awaria-desc-box{display:none;margin-top:8px}
 .awaria-desc-box.vis{display:block}
 .awaria-desc-lbl{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--red);margin-bottom:5px;display:block}
@@ -102,7 +100,8 @@ button{cursor:pointer}
 .warn-overlay.open{display:flex}
 .warn-dialog{background:var(--surface);border:2px solid #D92B2B;border-radius:14px;padding:20px;width:100%;max-width:360px}
 .warn-icon{font-size:36px;text-align:center;margin-bottom:8px}
-.warn-title{font-family:var(--fh);font-size:18px;font-weight:900;color:#D92B2B;text-align:center;letter-spacing:0.04em;margin-bottom:14px}
+.warn-title{font-family:var(--fh);font-size:18px;font-weight:900;color:#D92B2B;text-align:center;letter-spacing:0.04em;margin-bottom:4px}
+.warn-title-cn{font-size:12px;color:#888;text-align:center;margin-bottom:14px}
 .warn-info{background:rgba(217,43,43,0.08);border-radius:8px;padding:10px 12px;margin-bottom:14px}
 .warn-info-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
 .warn-info-lbl{color:var(--muted)}.warn-info-val{color:var(--text);font-weight:600}
@@ -148,8 +147,8 @@ button{cursor:pointer}
 <body>
 
 <div class="topbar">
-  <div class="logo">CFM<span>&#8226;</span>RAPORT <span style="font-size:11px;opacity:0.5;">LARK</span></div>
-  <div class="topbar-right">TMT Karlino<br><span id="clockDisplay" style="color:var(--text);font-weight:600;"></span><br><span id="syncBadge" class="sync-badge err">offline</span></div>
+  <div class="logo">CFM<span>&#8226;</span>RAPORT</div>
+  <div class="topbar-right">TMT Karlino &#183; Raport godzinny<br><span id="clockDisplay" style="color:var(--text);font-weight:600;"></span></div>
   <button class="gear-btn" id="gearBtn" onclick="openAdmin()">&#9881;</button>
 </div>
 
@@ -168,7 +167,9 @@ button{cursor:pointer}
   </div>
 
   <div style="margin-top:4px;margin-bottom:14px;">
-    <button class="awaria-main-btn" onclick="toggleAwariaPanel()" id="awariaToggleBtn">&#9889; ZGŁOŚ AWARIĘ</button>
+    <button class="awaria-main-btn" onclick="toggleAwariaPanel()" id="awariaToggleBtn">
+      &#9889; ZG&#321;O&#346; AWARI&#280; <span class="awaria-main-cn">故障登记</span>
+    </button>
     <div class="awaria-panel" id="awariaPanel">
       <div id="awariaActiveBanner" style="display:none;background:rgba(217,43,43,0.1);border-radius:8px;padding:8px 12px;margin-bottom:10px;">
         <div class="awaria-timer-row">
@@ -181,16 +182,16 @@ button{cursor:pointer}
       </div>
       <div id="awariaTypeSection">
         <div class="awaria-type-grid">
-          <button class="awaria-type-btn sel" data-val="Awaria maszyny" onclick="awariaSelectType(this)">Awaria maszyny</button>
-          <button class="awaria-type-btn" data-val="Oczekiwanie na lidera" onclick="awariaSelectType(this)">Oczekiwanie na lidera</button>
-          <button class="awaria-type-btn" data-val="Brak materiału" onclick="awariaSelectType(this)">Brak materiału</button>
-          <button class="awaria-type-btn" data-val="Mikroprzestój" onclick="awariaSelectType(this)">Mikroprzestój</button>
-          <button class="awaria-type-btn" data-val="Szkolenie" onclick="awariaSelectType(this)">Szkolenie</button>
-          <button class="awaria-type-btn" data-val="Inne" onclick="awariaSelectType(this)">Inne</button>
+          <button class="awaria-type-btn sel" data-val="Awaria maszyny" onclick="awariaSelectType(this)">Awaria maszyny<span class="cn">设备故障</span></button>
+          <button class="awaria-type-btn" data-val="Oczekiwanie na lidera" onclick="awariaSelectType(this)">Oczekiwanie na lidera<span class="cn">等待班长</span></button>
+          <button class="awaria-type-btn" data-val="Brak materia&#322;u" onclick="awariaSelectType(this)">Brak materia&#322;u<span class="cn">缺料</span></button>
+          <button class="awaria-type-btn" data-val="Mikroprze&#347;t&#243;j" onclick="awariaSelectType(this)">Mikroprze&#347;t&#243;j<span class="cn">短停机</span></button>
+          <button class="awaria-type-btn" data-val="Szkolenie" onclick="awariaSelectType(this)">Szkolenie<span class="cn">培训</span></button>
+          <button class="awaria-type-btn" data-val="Inne" onclick="awariaSelectType(this)">Inne<span class="cn">其他</span></button>
         </div>
         <div class="awaria-desc-box" id="awariaDescBox">
           <span class="awaria-desc-lbl" id="awariaDescLbl">Opis *</span>
-          <textarea class="awaria-desc-input" id="awariaDescInput" rows="2" placeholder="Opisz przyczynę..."></textarea>
+          <textarea class="awaria-desc-input" id="awariaDescInput" rows="2" placeholder="Opisz przyczyn&#281;..."></textarea>
         </div>
         <button class="btn-awaria-start" id="btnAwariaStart" onclick="awariaStart()">&#9654; START AWARII</button>
       </div>
@@ -199,20 +200,20 @@ button{cursor:pointer}
 
   <div class="div"></div>
 
-  <div class="lbl">Godzina <span class="req">*</span> <span class="cn">&#8211; automatycznie</span></div>
+  <div class="lbl">Godzina <span class="req">*</span> <span class="cn">&#8211; wykryta automatycznie</span></div>
   <div class="hour-badge" id="hourBadge">
-    <div><div class="hour-val" id="hourVal">&#8211;</div></div>
-    <div class="hour-sub">Raport za ukończoną godzinę<br><a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);font-size:11px;">Zmień ręcznie</a></div>
+    <div><div class="hour-val" id="hourVal">&#8211;</div><div style="font-size:10px;color:var(--muted);margin-top:2px;" id="hourCn">&#8211;</div></div>
+    <div class="hour-sub">Raport za uko&#324;czon&#261; godzin&#281;<br><a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);font-size:11px;">Zmie&#324; r&#281;cznie</a></div>
   </div>
   <div class="hour-manual" id="hourManual">
     <select id="hourManualSel" onchange="setManualHour()">
-      <option value="">&#8212; wybierz &#8212;</option>
-      <option>6:00-7:00</option><option>7:00-8:00</option><option>8:00-9:00</option><option>9:00-10:00</option>
-      <option>10:00-11:00</option><option>11:00-12:00</option><option>12:00-13:00</option><option>13:00-14:00</option>
-      <option>14:00-15:00</option><option>15:00-16:00</option><option>16:00-17:00</option><option>17:00-18:00</option>
-      <option>18:00-19:00</option><option>19:00-20:00</option><option>20:00-21:00</option><option>21:00-22:00</option>
-      <option>22:00-23:00</option><option>23:00-0:00</option><option>0:00-1:00</option><option>1:00-2:00</option>
-      <option>2:00-3:00</option><option>3:00-4:00</option><option>4:00-5:00</option><option>5:00-6:00</option>
+      <option value="">&#8212; wybierz godzin&#281; &#8212;</option>
+      <option>7:00-8:00</option><option>8:00-9:00</option><option>9:00-10.00</option>
+      <option>10:00-11:00</option><option>11:00-12:00</option><option>12:00-13:00</option>
+      <option>13:00-14:00</option><option>14:00-15:00</option><option>15:00-16:00</option>
+      <option>16:00-17:00</option><option>17:00-18.00</option><option>18:00-19:00</option>
+      <option>19:00-20:00</option><option>20:00-21:00</option><option>21:00-22:00</option>
+      <option>22:00-23:00</option><option>23:00-0:00</option><option>0:00-1:00</option>
     </select>
   </div>
 
@@ -220,7 +221,7 @@ button{cursor:pointer}
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
     <div class="field">
-      <div class="lbl">Ilość szt. <span class="req">*</span></div>
+      <div class="lbl">Ilo&#347;&#263; szt. <span class="req">*</span></div>
       <div class="counter-row">
         <button class="counter-btn" onclick="adjustQty(-1)">&#8722;</button>
         <input class="counter-input" type="number" id="qtyInput" min="0" max="9999" placeholder="0" inputmode="numeric">
@@ -240,24 +241,26 @@ button{cursor:pointer}
 
   <div id="delayField" style="display:none;">
     <div class="field" style="margin-top:12px;">
-      <div class="lbl">Powód opóźnienia <span class="cn">&#8211; opcjonalnie</span></div>
-      <textarea id="delayInput" placeholder="Opisz powód..." rows="2"></textarea>
+      <div class="lbl">Pow&#243;d op&#243;&#378;nienia <span class="cn">&#8211; opcjonalnie</span></div>
+      <textarea id="delayInput" placeholder="Opisz pow&#243;d..." rows="2"></textarea>
     </div>
   </div>
 
   <div id="ngReasonField">
     <div class="field">
-      <div class="lbl">Powód NG <span class="cn">&#8211; opcjonalnie</span></div>
-      <textarea id="ngReasonInput" placeholder="Opisz przyczynę NG..." rows="2"></textarea>
+      <div class="lbl">Pow&#243;d NG <span class="cn">&#8211; opcjonalnie</span></div>
+      <textarea id="ngReasonInput" placeholder="Opisz przyczyn&#281; NG..." rows="2"></textarea>
     </div>
   </div>
 
-  <button class="btn-submit" id="btnSubmit" onclick="submitForm()">WYŚLIJ RAPORT</button>
+  <button class="btn-submit" id="btnSubmit" onclick="submitForm()">
+    WY&#346;LIJ RAPORT <span class="cn">提交报告 · 发送</span>
+  </button>
 
   <div class="historia-card" style="margin-top:14px;">
     <div class="historia-header">
       <div class="historia-title">Historia</div>
-      <button class="historia-refresh" onclick="odswiezHistorie()">&#8635; Odśwież</button>
+      <button class="historia-refresh" onclick="odswiezHistorie()">&#8635; Od&#347;wie&#380;</button>
     </div>
     <div id="historiaContent"><div class="hist-loading">Wybierz stanowisko i operatora</div></div>
   </div>
@@ -265,7 +268,7 @@ button{cursor:pointer}
 
 <div class="success-screen" id="successScreen">
   <div class="success-icon">&#10003;</div>
-  <div class="success-title">WYSŁANO!</div>
+  <div class="success-title">WYS&#321;ANO!</div>
   <div class="success-sub" id="successDetails"></div>
   <button class="btn-next" onclick="resetForm()">Nowy raport</button>
 </div>
@@ -276,14 +279,15 @@ button{cursor:pointer}
   <div class="warn-dialog">
     <div class="warn-icon">&#9888;&#65039;</div>
     <div class="warn-title">OTWARTA AWARIA</div>
+    <div class="warn-title-cn">发现未关闭的故障记录</div>
     <div class="warn-info">
       <div class="warn-info-row"><span class="warn-info-lbl">Typ:</span><span class="warn-info-val" id="warnTyp">&#8212;</span></div>
       <div class="warn-info-row"><span class="warn-info-lbl">Start:</span><span class="warn-info-val" id="warnStart">&#8212;</span></div>
       <div class="warn-info-row"><span class="warn-info-lbl">Czas:</span><span class="warn-info-val" id="warnCzas">&#8212;</span></div>
     </div>
     <div class="warn-btns">
-      <button class="warn-btn-close" onclick="warnZamknijIStart()">ZAMKNIJ I ZACZNIJ NOWĄ</button>
-      <button class="warn-btn-new" onclick="warnTylkoStart()">ZACZNIJ NOWĄ BEZ ZAMYKANIA</button>
+      <button class="warn-btn-close" onclick="warnZamknijIStart()">ZAMKNIJ POPRZEDNI&#260; I ZACZNIJ NOW&#260;</button>
+      <button class="warn-btn-new" onclick="warnTylkoStart()">ZACZNIJ NOW&#260; BEZ ZAMYKANIA</button>
       <button class="warn-btn-cancel" onclick="warnAnuluj()">Anuluj</button>
     </div>
   </div>
@@ -296,7 +300,7 @@ button{cursor:pointer}
     <input class="pin-dialog-input" type="password" id="pinOverlayInput" placeholder="&#8226;&#8226;&#8226;&#8226;" maxlength="8" onkeydown="if(event.key==='Enter')pinOverlayConfirm()">
     <div class="pin-dialog-btns">
       <button class="pin-dialog-cancel" onclick="pinOverlayClose()">&#10005;</button>
-      <button class="pin-dialog-ok" onclick="pinOverlayConfirm()">WEJDŹ</button>
+      <button class="pin-dialog-ok" onclick="pinOverlayConfirm()">WEJ&#346;</button>
     </div>
   </div>
 </div>
@@ -309,182 +313,114 @@ button{cursor:pointer}
   <div class="admin-tabs">
     <button class="admin-tab active" onclick="adminTab('workers')">Pracownicy</button>
     <button class="admin-tab" onclick="adminTab('stations')">Stanowiska</button>
-    <button class="admin-tab" onclick="adminTab('connection')">Połączenie</button>
-    <button class="admin-tab" onclick="adminTab('goals')">Cele</button>
-    <button class="admin-tab" onclick="adminTab('shifts')">Zmiany</button>
-    <button class="admin-tab" onclick="adminTab('options')">Opcje</button>
+    <button class="admin-tab" onclick="adminTab('webhook')">Po&#322;&#261;czenie</button>
+    <button class="admin-tab" onclick="adminTab('opcje')">Opcje</button>
   </div>
-
   <div class="admin-section active" id="admin-workers">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Lista pracowników (zapisywane na serwer)</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Lista pracownik&#243;w</div>
     <div id="workersList"></div>
     <button class="list-add-btn" onclick="addWorker()">+ Dodaj</button>
-    <button class="list-save-btn" onclick="saveWorkers()">Zapisz na serwer</button>
+    <button class="list-save-btn" onclick="saveWorkers()">Zapisz</button>
   </div>
-
   <div class="admin-section" id="admin-stations">
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">&#9679; Aktywne &nbsp; &#9675; Nieaktywne</div>
     <div id="stationsList"></div>
     <button class="list-add-btn" onclick="addStation()">+ Dodaj</button>
-    <button class="list-save-btn" onclick="saveStations()">Zapisz na serwer</button>
+    <button class="list-save-btn" onclick="saveStations()">Zapisz</button>
   </div>
-
-  <div class="admin-section" id="admin-connection">
-    <div id="connStatusLine" style="font-size:12px;margin-bottom:10px;"></div>
-    <div style="font-size:11px;color:var(--muted);">Worker URL (Cloudflare)</div>
-    <input type="text" id="workerUrlInput" placeholder="https://cfm-raport.your-name.workers.dev" style="margin-top:6px;font-size:12px;">
-    <button onclick="saveConnection()" style="width:100%;margin-top:10px;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz i testuj</button>
+  <div class="admin-section" id="admin-webhook">
+    <div id="webhookStatusLine" style="font-size:12px;margin-bottom:10px;"></div>
+    <label style="font-size:11px;color:var(--muted);">Webhook URL</label>
+    <input type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/..." style="margin-top:6px;font-size:12px;">
+    <button onclick="saveWebhook()" style="width:100%;margin-top:10px;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz i testuj</button>
   </div>
+  <div class="admin-section" id="admin-opcje">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Opcje formularza</div>
 
-  <div class="admin-section" id="admin-goals">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Cele produkcyjne (zapisywane na serwer)</div>
-    <div style="margin-bottom:8px;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Cel dzienny (szt)</div>
-      <input type="number" id="celHInput" min="1" max="99999" placeholder="1000" oninput="przeliczCele()" style="font-size:22px;text-align:center;background:var(--bg);border:1.5px solid var(--blue);border-radius:8px;color:var(--text);padding:10px;">
-    </div>
-    <div style="margin-bottom:8px;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Przerwa na zmianę (min)</div>
-      <input type="number" id="celPrzerwaInput" min="0" max="120" placeholder="30" oninput="przeliczCele()" style="font-size:18px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px;">
-    </div>
-    <div id="celPreview" style="background:rgba(26,110,216,0.08);border:1px solid rgba(26,110,216,0.2);border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;line-height:1.8;color:var(--text);">Uzupełnij cel dzienny</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-      <div style="background:var(--surface);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:10px;color:var(--muted);">Cel/godzinę</div><div id="celGodPreview" style="font-size:20px;font-weight:700;color:var(--blue);">&#8212;</div></div>
-      <div style="background:var(--surface);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:10px;color:var(--muted);">Cel/zmianę</div><div id="celZmianaPreview" style="font-size:20px;font-weight:700;color:#1A9E50;">&#8212;</div></div>
-    </div>
-    <input type="hidden" id="celGodInput">
-    <button onclick="saveCele()" style="width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:14px;font-weight:900;padding:12px;cursor:pointer;">Zapisz cele na serwer</button>
-  </div>
+    <!-- ===== PRODUCTION GOALS SECTION ===== -->
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:13px;color:var(--text);font-weight:500;margin-bottom:4px;">Cel produkcyjny</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Wpisz cel dzienny → reszta liczona automatycznie</div>
 
-  <div class="admin-section" id="admin-shifts">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Zmiany robocze (zapisywane na serwer)</div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Liczba zmian</div>
-      <div style="display:flex;gap:8px;">
-        <button id="zmBtn2" onclick="setZmiany(2)" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--blue);background:var(--bg);color:#5b9bd5;font-family:var(--fh);font-size:15px;font-weight:700;cursor:pointer;">2 zmiany</button>
-        <button id="zmBtn3" onclick="setZmiany(3)" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--fh);font-size:15px;font-weight:700;cursor:pointer;">3 zmiany</button>
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Cel dzienny (szt)</div>
+        <input type="number" id="celHInput" min="1" max="99999" placeholder="1000" oninput="przeliczCele()" style="font-size:22px;text-align:center;background:var(--bg);border:1.5px solid var(--blue);border-radius:8px;color:var(--text);padding:10px;">
       </div>
-    </div>
-    <div style="margin-bottom:10px;"><div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Godziny zmian</div><div id="zmHoursGrid" style="display:flex;flex-direction:column;gap:6px;"></div></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
-      <div><div style="font-size:13px;color:var(--text);font-weight:500;">Nadgodziny</div><div style="font-size:11px;color:var(--muted);" id="nadgSubLabel">Wyłączone</div></div>
-      <label class="toggle-wrap"><input type="checkbox" id="nadgToggle" onchange="toggleNadgodziny()" style="opacity:0;width:0;height:0;"><span id="nadgSlider" class="toggle-slider"><span id="nadgDot" class="toggle-dot"></span></span></label>
-    </div>
-    <div id="nadgDetails" style="display:none;margin-top:10px;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Nadgodziny na zmianie</div>
-      <div style="display:flex;gap:6px;margin-bottom:8px;" id="nadgZmianaGrid"></div>
-      <div style="display:flex;gap:8px;align-items:center;"><input type="number" id="nadgHours" min="0.5" max="4" step="0.5" value="1.5" style="width:80px;font-size:18px;text-align:center;" onchange="przeliczCele()"><span style="font-size:12px;color:var(--muted);">godz.</span></div>
-    </div>
-    <button onclick="saveShiftsToServer()" style="width:100%;margin-top:12px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz zmiany na serwer</button>
-  </div>
 
-  <div class="admin-section" id="admin-options">
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Przerwa na zmianę (min)</div>
+        <input type="number" id="celPrzerwaInput" min="0" max="120" placeholder="30" oninput="przeliczCele()" style="font-size:18px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px;">
+      </div>
+
+      <!-- Auto-calculated preview -->
+      <div id="celPreview" style="background:rgba(26,110,216,0.08);border:1px solid rgba(26,110,216,0.2);border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;line-height:1.8;color:var(--text);">Uzupełnij cel dzienny</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div style="background:var(--surface);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:var(--muted);">Cel/godzinę</div>
+          <div id="celGodPreview" style="font-size:20px;font-weight:700;color:var(--blue);">&#8212;</div>
+        </div>
+        <div style="background:var(--surface);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:var(--muted);">Cel/zmianę</div>
+          <div id="celZmianaPreview" style="font-size:20px;font-weight:700;color:#1A9E50;">&#8212;</div>
+        </div>
+      </div>
+
+      <button onclick="saveCele()" style="width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:14px;font-weight:900;padding:12px;cursor:pointer;">Zapisz cele</button>
+    </div>
+
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
-      <div><div style="font-size:13px;color:var(--text);font-weight:500;">Powód opóźnienia</div><div style="font-size:11px;color:var(--muted);">Pokaż pole</div></div>
+      <div><div style="font-size:13px;color:var(--text);font-weight:500;">Pow&#243;d op&#243;&#378;nienia</div><div style="font-size:11px;color:var(--muted);">Poka&#380; pole</div></div>
       <label class="toggle-wrap"><input type="checkbox" id="delayToggle" onchange="toggleDelayField()"><span class="toggle-slider" id="delaySlider"><span id="delayDot" class="toggle-dot"></span></span></label>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
-      <div><div style="font-size:13px;color:var(--text);font-weight:500;">Powód NG</div><div style="font-size:11px;color:var(--muted);">Pokaż pole</div></div>
+      <div><div style="font-size:13px;color:var(--text);font-weight:500;">Pow&#243;d NG</div><div style="font-size:11px;color:var(--muted);">Poka&#380; pole</div></div>
       <label class="toggle-wrap"><input type="checkbox" id="ngReasonToggle" onchange="toggleNgReasonField()" checked><span class="toggle-slider" id="ngReasonSlider" style="background:#1A6ED8;"><span id="ngReasonDot" class="toggle-dot" style="transform:translateX(20px);background:#fff;"></span></span></label>
     </div>
-    <div style="padding-top:14px;border-top:1px solid var(--border);margin-top:14px;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmień PIN</div>
-      <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN: <strong id="currentPinDisplay" style="color:var(--text);">****</strong></div>
-      <div class="pin-row"><input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN"><button class="pin-btn" onclick="savePin()">Zmień</button></div>
+
+    <!-- ===== SHIFTS SECTION ===== -->
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+      <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px;">Zmiany robocze</div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Liczba zmian</div>
+        <div style="display:flex;gap:8px;">
+          <button id="zmBtn2" onclick="setZmiany(2)" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--blue);background:var(--bg);color:#5b9bd5;font-family:var(--fh);font-size:15px;font-weight:700;cursor:pointer;">2 zmiany</button>
+          <button id="zmBtn3" onclick="setZmiany(3)" style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--fh);font-size:15px;font-weight:700;cursor:pointer;">3 zmiany</button>
+        </div>
+      </div>
+      <div style="margin-bottom:10px;"><div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Godziny zmian</div><div id="zmHoursGrid" style="display:flex;flex-direction:column;gap:6px;"></div></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+        <div><div style="font-size:13px;color:var(--text);font-weight:500;">Nadgodziny</div><div style="font-size:11px;color:var(--muted);" id="nadgSubLabel">Wy&#322;&#261;czone</div></div>
+        <label class="toggle-wrap"><input type="checkbox" id="nadgToggle" onchange="toggleNadgodziny()" style="opacity:0;width:0;height:0;"><span id="nadgSlider" class="toggle-slider"><span id="nadgDot" class="toggle-dot"></span></span></label>
+      </div>
+      <div id="nadgDetails" style="display:none;margin-top:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Nadgodziny na zmianie</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;" id="nadgZmianaGrid"></div>
+        <div style="display:flex;gap:8px;align-items:center;"><input type="number" id="nadgHours" min="0.5" max="4" step="0.5" value="1.5" style="width:80px;font-size:18px;text-align:center;" onchange="saveZmiany()"><span style="font-size:12px;color:var(--muted);">godz.</span></div>
+      </div>
+      <button onclick="saveZmiany()" style="width:100%;margin-top:12px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz zmiany</button>
     </div>
-    <button onclick="saveFormOptionsToServer()" style="width:100%;margin-top:14px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz opcje na serwer</button>
+
+    <div style="padding-top:14px;border-top:1px solid var(--border);margin-top:14px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmie&#324; PIN</div>
+      <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN: <strong id="currentPinDisplay" style="color:var(--text);">****</strong></div>
+      <div class="pin-row"><input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN"><button class="pin-btn" onclick="savePin()">Zmie&#324;</button></div>
+    </div>
   </div>
 </div>
 
 <script>
-/* ════════════════════════════════════════════════════════
-   CFM RAPORT — Lark/Feishu Bitable Version
-   All data synced via Cloudflare Worker → Feishu Bitable
-   ════════════════════════════════════════════════════════ */
-
-// ── API Layer ────────────────────────────────────────────
-var WORKER_URL = '';
-
-function getWorkerUrl() { return localStorage.getItem('cfm_worker_url') || ''; }
-
-async function api(method, path, body) {
-  var url = getWorkerUrl();
-  if (!url) return null;
-  var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
-  if (body) opts.body = JSON.stringify(body);
-  try {
-    var r = await fetch(url + path, opts);
-    var data = await r.json();
-    updateSyncBadge(true);
-    return data;
-  } catch (e) {
-    updateSyncBadge(false);
-    return null;
-  }
-}
-
-function updateSyncBadge(ok) {
-  var el = document.getElementById('syncBadge');
-  if (!el) return;
-  el.className = 'sync-badge ' + (ok ? 'ok' : 'err');
-  el.textContent = ok ? 'online' : 'offline';
-}
-
-// ── Settings Sync (load from server) ─────────────────────
-async function loadSettingsFromServer() {
-  var data = await api('GET', '/api/settings');
-  if (!data || data.status !== 'ok') return;
-
-  var s = data.settings;
-  if (s.workers) {
-    try { localStorage.setItem('cfm_workers', s.workers); } catch(e){}
-  }
-  if (s.stations) {
-    try { localStorage.setItem('cfm_stations', s.stations); } catch(e){}
-  }
-  if (s.station_status) {
-    try { localStorage.setItem('cfm_station_status', s.station_status); } catch(e){}
-  }
-  if (s.shifts) {
-    try { localStorage.setItem('cfm_zmiany', s.shifts); } catch(e){}
-  }
-  if (s.goals) {
-    try {
-      var g = JSON.parse(s.goals);
-      if (g.daily) localStorage.setItem('cfm_cel_h', String(g.daily));
-      if (g.hourly) localStorage.setItem('cfm_cel_god', String(g.hourly));
-      if (g.per_shift) localStorage.setItem('cfm_cel_zmiana', String(g.per_shift));
-      if (g.break_min !== undefined) localStorage.setItem('cfm_cel_przerwa', String(g.break_min));
-    } catch(e){}
-  }
-  if (s.form_options) {
-    try {
-      var fo = JSON.parse(s.form_options);
-      if (fo.delay_visible !== undefined) localStorage.setItem('cfm_delay_visible', fo.delay_visible ? '1' : '0');
-      if (fo.ng_reason_visible !== undefined) localStorage.setItem('cfm_ngreason_visible', fo.ng_reason_visible ? '1' : '0');
-    } catch(e){}
-  }
-  rebuildSelects();
-  initDelayToggle();
-  odswiezHistorie();
-}
-
-// ── Push settings to server ──────────────────────────────
-async function pushSettingsToServer(settingsObj) {
-  return await api('POST', '/api/settings', settingsObj);
-}
-
-// ── Clock ────────────────────────────────────────────────
+var WH='';
+function getWH(){return localStorage.getItem('cfm_raport_webhook')||'';}
 function updateClock(){var n=new Date();document.getElementById('clockDisplay').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
 setInterval(updateClock,30000);updateClock();
-
-// ── Hour Detection ───────────────────────────────────────
 var manualHour=null;
-var HOUR_LABELS={};
-for(var _hi=0;_hi<24;_hi++){var _hn=(_hi+1)%24;HOUR_LABELS[_hi]=_hi+':00-'+_hn+':00';}
-function getAutoHour(){var n=new Date(),h=n.getHours(),m=n.getMinutes();var rH=(m<=10&&h>0)?h-1:(m<=10&&h===0)?23:h;return HOUR_LABELS[rH]||(rH+':00-'+((rH+1)%24)+':00');}
+var HOUR_LABELS={7:'7:00-8:00',8:'8:00-9:00',9:'9:00-10.00',10:'10:00-11:00',11:'11:00-12:00',12:'12:00-13:00',13:'13:00-14:00',14:'14:00-15:00',15:'15:00-16:00',16:'16:00-17:00',17:'17:00-18.00',18:'18:00-19:00',19:'19:00-20:00',20:'20:00-21:00',21:'21:00-22:00',22:'22:00-23:00',23:'23:00-0:00',0:'0:00-1:00',1:'1:00-2:00',2:'2:00-3:00',3:'3:00-4:00',4:'4:00-5:00',5:'5:00-6:00',6:'6:00-7:00'};
+function getAutoHour(){var n=new Date(),h=n.getHours(),m=n.getMinutes();var rH=(m<=10&&h>0)?h-1:(m<=10&&h===0)?23:h;return HOUR_LABELS[rH]||(rH+':00-'+(rH+1)+':00');}
 function getSelectedHour(){return manualHour||getAutoHour();}
 function updateHourDisplay(){
-  var h=getSelectedHour();document.getElementById('hourVal').textContent=h;
+  var h=getSelectedHour();
+  document.getElementById('hourVal').textContent=h;
   var lq=localStorage.getItem('cfm_last_qty'),lh=localStorage.getItem('cfm_last_qty_hour');
   var hint=document.getElementById('qtyHint');
   if(lq&&lh&&lh!==h){hint.style.display='inline-block';hint.textContent='Ostatnio: '+lq+' szt. ('+lh+')';}
@@ -494,14 +430,12 @@ function toggleManualHour(){document.getElementById('hourManual').classList.togg
 function setManualHour(){var v=document.getElementById('hourManualSel').value;manualHour=v||null;updateHourDisplay();document.getElementById('hourManual').classList.remove('open');}
 setInterval(updateHourDisplay,60000);
 
-// ── Form Basics ──────────────────────────────────────────
 function saveOperator(){var v=document.getElementById('operatorSel').value;if(v){localStorage.setItem('cfm_operator',v);document.getElementById('remOperator').style.display='inline-flex';}odswiezHistorie();}
 function saveStation(){var v=document.getElementById('stationSel').value;if(v){localStorage.setItem('cfm_station',v);document.getElementById('remStation').style.display='inline-flex';}odswiezHistorie();}
 function adjustQty(d){var e=document.getElementById('qtyInput');e.value=Math.max(0,(parseInt(e.value)||0)+d);}
 function adjustNg(d){var e=document.getElementById('ngInput');e.value=Math.max(0,(parseInt(e.value)||0)+d);}
 
-// ── Submit Report ────────────────────────────────────────
-async function submitForm(){
+function submitForm(){
   var op=document.getElementById('operatorSel').value,st=document.getElementById('stationSel').value,hour=getSelectedHour();
   var qty=document.getElementById('qtyInput').value,ng=document.getElementById('ngInput').value;
   var delay=document.getElementById('delayInput').value,ngR=document.getElementById('ngReasonInput').value;
@@ -510,29 +444,17 @@ async function submitForm(){
   if(qty===''){showToast('Podaj ilość!','err');return;}
   if(ng===''){showToast('Podaj NG (0 jeśli brak)!','err');return;}
   var btn=document.getElementById('btnSubmit');btn.disabled=true;btn.innerHTML='Wysyłanie…';
-
-  var payload = {
-    operator: op,
-    station: st,
-    hour: hour,
-    qty: qty,
-    ng: ng,
-    delay: delay,
-    ng_reason: ngR
-  };
-
-  var result = await api('POST', '/api/raport', payload);
-
-  localStorage.setItem('cfm_last_qty',qty);
-  localStorage.setItem('cfm_last_qty_hour',hour);
-  btn.disabled=false;btn.innerHTML='WYŚLIJ RAPORT';
-  showSuccess(op,st,hour,qty,ng);
+  var wh=getWH();
+  var payload={event_type:'RAPORT',operator:op,station:st,hour:hour,qty:qty,ng:ng,delay:delay,ng_reason:ngR,timestamp:new Date().toISOString()};
+  var done=function(){localStorage.setItem('cfm_last_qty',qty);localStorage.setItem('cfm_last_qty_hour',hour);showSuccess(op,st,hour,qty,ng);};
+  if(wh){new Image().src=wh+'?'+Object.keys(payload).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(payload[k]||'');}).join('&');setTimeout(done,1500);}
+  else{done();}
 }
-
 function showSuccess(op,st,h,qty,ng){
+  var btn=document.getElementById('btnSubmit');btn.disabled=false;btn.innerHTML='WYŚLIJ RAPORT<span class="cn">提交报告 · 发送</span>';
   document.getElementById('successDetails').innerHTML=st+' · '+h+'<br>'+qty+' szt · NG: '+ng+'<br>'+op;
   document.getElementById('successScreen').classList.add('open');
-  setTimeout(function(){resetForm();odswiezHistorie();},2500);
+  setTimeout(function(){resetForm();odswiezHistorie();},3000);
 }
 function resetForm(){
   document.getElementById('successScreen').classList.remove('open');
@@ -540,184 +462,228 @@ function resetForm(){
   document.getElementById('delayInput').value='';document.getElementById('ngReasonInput').value='';
   manualHour=null;updateHourDisplay();
 }
-
 var _tt;
 function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'');clearTimeout(_tt);setTimeout(function(){t.classList.add('show');},10);_tt=setTimeout(function(){t.classList.remove('show');},3000);}
 
-// ── Awaria System ────────────────────────────────────────
+/* ===== AWARIA SYSTEM ===== */
 var awariaState=JSON.parse(localStorage.getItem('cfm_raport_awaria')||'null');
 var awariaTimer=null,awariaCurrentType='Awaria maszyny',_pendingAwariaStart=null,_openAwariaRaport=null;
+var awariaOpisy={'Awaria maszyny':{label:'Co się zepsuło? *',ph:'Np. silnik, pasek...'},'Oczekiwanie na lidera':{label:'Powód oczekiwania *',ph:'Np. problem jakościowy...'},'Brak materiału':{label:'Jakiego brakuje? *',ph:'Nazwa/numer materiału...'},'Szkolenie':{label:'Temat szkolenia *',ph:'Np. nowy produkt...'},'Inne':{label:'Opis przyczyny *',ph:'Opisz przyczynę...'}};
 
-function toggleAwariaPanel(){var p=document.getElementById('awariaPanel'),btn=document.getElementById('awariaToggleBtn');var o=p.classList.toggle('active');btn.classList.toggle('open',o);btn.innerHTML=o?'✕ ZAMKNIJ':'⚡ ZGŁOŚ AWARIĘ';if(o&&awariaState)updateAwariaBanner();}
-function awariaSelectType(btn){document.querySelectorAll('.awaria-type-btn').forEach(function(b){b.classList.remove('sel');});btn.classList.add('sel');awariaCurrentType=btn.dataset.val;var db=document.getElementById('awariaDescBox');if(awariaCurrentType==='Mikroprzestój'){db.classList.remove('vis');}else{db.classList.add('vis');}}
+function toggleAwariaPanel(){var p=document.getElementById('awariaPanel'),btn=document.getElementById('awariaToggleBtn');var o=p.classList.toggle('active');btn.classList.toggle('open',o);btn.innerHTML=o?'✕ ZAMKNIJ':'⚡ ZGŁOŚ AWARIĘ <span class="awaria-main-cn">故障登记</span>';if(o&&awariaState)updateAwariaBanner();}
+function awariaSelectType(btn){document.querySelectorAll('.awaria-type-btn').forEach(function(b){b.classList.remove('sel');});btn.classList.add('sel');awariaCurrentType=btn.dataset.val;var db=document.getElementById('awariaDescBox');if(awariaCurrentType==='Mikroprześtój'){db.classList.remove('vis');}else{var o=awariaOpisy[awariaCurrentType];if(o){document.getElementById('awariaDescLbl').textContent=o.label;document.getElementById('awariaDescInput').placeholder=o.ph;}db.classList.add('vis');}}
 
-async function awariaStart(){
+function awariaStart(){
   if(awariaState){showToast('Zamknij obecną awarię!','err');return;}
   var station=document.getElementById('stationSel').value;
   if(!station){showToast('Wybierz stanowisko!','err');return;}
   var desc=document.getElementById('awariaDescInput').value.trim();
-  if(awariaCurrentType!=='Mikroprzestój'&&!desc){showToast('Opisz przyczynę!','err');document.getElementById('awariaDescInput').focus();return;}
-  var typFull=awariaCurrentType==='Mikroprzestój'?'Mikroprzestój':awariaCurrentType+': '+desc;
+  if(awariaCurrentType!=='Mikroprześtój'&&!desc){showToast('Opisz przyczynę!','err');document.getElementById('awariaDescInput').focus();return;}
+  var typFull=awariaCurrentType==='Mikroprześtój'?'Mikroprześtój':awariaCurrentType+': '+desc;
   _pendingAwariaStart={station:station,typFull:typFull};
-
-  var btnSt=document.getElementById('btnAwariaStart');btnSt.disabled=true;btnSt.textContent='⧗ Sprawdzanie...';
-
-  // Check for open awaria on server
-  var check = await api('GET', '/api/awaria/check?station='+encodeURIComponent(station));
-
-  btnSt.disabled=false;btnSt.textContent='▶ START AWARII';
-
-  if(check && check.open && check.awaria){
-    _openAwariaRaport=check.awaria;
-    document.getElementById('warnTyp').textContent=check.awaria.typ;
-    document.getElementById('warnStart').textContent=check.awaria.start;
-    document.getElementById('warnCzas').textContent=check.awaria.diffMin+' min';
-    document.getElementById('warnOverlay').classList.add('open');
-  } else {
-    wykonajAwariaStart(station, typFull);
+  var wh=getWH(),btnSt=document.getElementById('btnAwariaStart');
+  if(wh){
+    if(btnSt){btnSt.disabled=true;btnSt.textContent='⧗ Sprawdzanie...';}
+    fetch(wh+'?event_type=SPRAWDZ&stanowisko='+encodeURIComponent(station))
+      .then(function(r){return r.json();})
+      .then(function(data){
+        if(btnSt){btnSt.disabled=false;btnSt.textContent='▶ START AWARII';}
+        if(data.open&&data.awaria){_openAwariaRaport=data.awaria;document.getElementById('warnTyp').textContent=data.awaria.typ;document.getElementById('warnStart').textContent=data.awaria.start;document.getElementById('warnCzas').textContent=data.awaria.diffMin+' min';document.getElementById('warnOverlay').classList.add('open');}
+        else{wykonajAwariaStart(_pendingAwariaStart.station,_pendingAwariaStart.typFull);}
+      })
+      .catch(function(){if(btnSt){btnSt.disabled=false;btnSt.textContent='▶ START AWARII';}wykonajAwariaStart(_pendingAwariaStart.station,_pendingAwariaStart.typFull);});
+    return;
   }
+  wykonajAwariaStart(station,typFull);
 }
-
-async function warnZamknijIStart(){
+function warnZamknijIStart(){
   document.getElementById('warnOverlay').classList.remove('open');
-  if(_openAwariaRaport&&_pendingAwariaStart){
-    await api('POST', '/api/awaria/end', { station: _pendingAwariaStart.station });
-    showToast('Poprzednia zamknięta','ok');
-  }
-  setTimeout(function(){wykonajAwariaStart(_pendingAwariaStart.station,_pendingAwariaStart.typFull);},300);
+  if(_openAwariaRaport){var now=new Date(),dm=Math.round((now-new Date(_openAwariaRaport.startIso))/60000),wh=getWH();if(wh){new Image().src=wh+'?event_type=KONIEC&stanowisko='+encodeURIComponent(_pendingAwariaStart.station)+'&typ='+encodeURIComponent(_openAwariaRaport.typ)+'&start_timestamp='+encodeURIComponent(_openAwariaRaport.startIso)+'&koniec_timestamp='+encodeURIComponent(now.toISOString())+'&czas_min='+dm;}showToast('Poprzednia zamknięta: '+dm+' min','ok');}
+  setTimeout(function(){wykonajAwariaStart(_pendingAwariaStart.station,_pendingAwariaStart.typFull);},500);
 }
 function warnTylkoStart(){document.getElementById('warnOverlay').classList.remove('open');wykonajAwariaStart(_pendingAwariaStart.station,_pendingAwariaStart.typFull);}
 function warnAnuluj(){document.getElementById('warnOverlay').classList.remove('open');_pendingAwariaStart=null;_openAwariaRaport=null;}
-
-async function wykonajAwariaStart(station, typFull){
-  var now=new Date();
-  awariaState={station:station,type:typFull,startTs:now.toISOString()};
-  localStorage.setItem('cfm_raport_awaria',JSON.stringify(awariaState));
-
-  // Send to server
-  await api('POST', '/api/awaria/start', { station: station, typ: typFull, description: '' });
-
-  updateAwariaBanner();
-  document.getElementById('awariaTypeSection').style.display='none';
-  showToast('Awaria zarejestrowana!','ok');
+function wykonajAwariaStart(station,typFull){
+  var now=new Date();awariaState={station:station,type:typFull,startTs:now.toISOString()};localStorage.setItem('cfm_raport_awaria',JSON.stringify(awariaState));
+  var wh=getWH();if(wh){new Image().src=wh+'?event_type=START&stanowisko='+encodeURIComponent(station)+'&typ='+encodeURIComponent(typFull)+'&timestamp='+encodeURIComponent(now.toISOString());}
+  updateAwariaBanner();document.getElementById('awariaTypeSection').style.display='none';showToast('Awaria zarejestrowana!','ok');
 }
-
-async function awariaStop(){
-  if(!awariaState)return;
-  // End on server
-  await api('POST', '/api/awaria/end', { station: awariaState.station });
-
-  var now=new Date(),dm=Math.round((now-new Date(awariaState.startTs))/60000);
+function awariaStop(){
+  if(!awariaState)return;var now=new Date(),dm=Math.round((now-new Date(awariaState.startTs))/60000),wh=getWH();
+  if(wh){new Image().src=wh+'?event_type=KONIEC&stanowisko='+encodeURIComponent(awariaState.station)+'&typ='+encodeURIComponent(awariaState.type)+'&start_timestamp='+encodeURIComponent(awariaState.startTs)+'&koniec_timestamp='+encodeURIComponent(now.toISOString())+'&czas_min='+dm;}
   clearInterval(awariaTimer);awariaState=null;localStorage.removeItem('cfm_raport_awaria');
   document.getElementById('awariaActiveBanner').style.display='none';document.getElementById('awariaTypeSection').style.display='block';document.getElementById('awariaDescInput').value='';
   showToast('Czas awarii: '+dm+' min','ok');
 }
-
 function updateAwariaBanner(){
   if(!awariaState)return;document.getElementById('awariaActiveBanner').style.display='block';document.getElementById('awariaActiveType').textContent=awariaState.type+' · '+awariaState.station;
   clearInterval(awariaTimer);awariaTimer=setInterval(function(){var d=Math.floor((new Date()-new Date(awariaState.startTs))/1000),m=Math.floor(d/60),s=d%60;document.getElementById('awariaTimerDisplay').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');},1000);
 }
-if(awariaState){document.getElementById('awariaPanel').classList.add('active');document.getElementById('awariaToggleBtn').classList.add('open');document.getElementById('awariaToggleBtn').innerHTML='✕ ZAMKNIJ';updateAwariaBanner();document.getElementById('awariaTypeSection').style.display='none';}
+if(awariaState){document.getElementById('awariaPanel').classList.add('active');document.getElementById('awariaToggleBtn').classList.add('open');document.getElementById('awariaToggleBtn').innerHTML='✕ ZAMKNIJ <span class="awaria-main-cn">关闭</span>';updateAwariaBanner();document.getElementById('awariaTypeSection').style.display='none';}
 
-// ── History ──────────────────────────────────────────────
-async function odswiezHistorie(){
+/* ===== HISTORY ===== */
+function odswiezHistorie(){
   var station=document.getElementById('stationSel').value,operator=document.getElementById('operatorSel').value,el=document.getElementById('historiaContent');
   if(!station||!operator){el.innerHTML='<div class="hist-loading">Wybierz stanowisko i operatora</div>';return;}
   el.innerHTML='<div class="hist-loading">Ładowanie...</div>';
-
-  var cel=getCelGodzinny();
-
-  // Fetch from server
-  var [hData, gpData] = await Promise.all([
-    api('GET', '/api/historia?station='+encodeURIComponent(station)+'&operator='+encodeURIComponent(operator)),
-    api('GET', '/api/gp12')
-  ]);
-
-  var historia=[], suma=0, ng=0, gp12=0;
-  if(hData && hData.status==='ok'){historia=hData.historia||[];suma=hData.suma||0;ng=hData.ng||0;}
-  if(gpData){gp12=gpData.gp12||0;}
-
-  renderHistoriaDane(historia, suma, ng, gp12, cel);
+  var wh=getWH(),cel=getCelGodzinny();
+  if(!wh){renderHistoriaDane([],0,0,0,cel);return;}
+  Promise.all([
+    fetch(wh+'?event_type=HISTORIA&stanowisko='+encodeURIComponent(station)+'&operator='+encodeURIComponent(operator)).then(function(r){return r.json();}).catch(function(){return {status:'error'};}),
+    fetch(wh+'?event_type=GP12').then(function(r){return r.json();}).catch(function(){return {gp12:0};})
+  ]).then(function(res){
+    var hD=res[0],gp12=res[1].gp12||0;
+    if(hD.status==='error'){el.innerHTML='<div class="hist-loading">Błąd połączenia</div>';return;}
+    renderHistoriaDane(hD.historia||[],hD.suma||0,hD.ng||0,gp12,cel);
+  });
 }
-
 function renderHistoriaDane(historia,suma,ng,gp12,cel){
   cel=cel||53;
+  var z=getZmiany();
+  var celDzien=Number(localStorage.getItem('cfm_cel_h')||'1000');
   var celZmiana=getCelZmiana();
   var pct=celZmiana>0?Math.round(gp12/celZmiana*100):0,brak=Math.max(0,celZmiana-gp12);
   var pc=pct>=100?'#1A9E50':pct>=80?'#D97706':'#D92B2B',bw=Math.min(100,pct);
   var h='';
-  h+='<div class="gp12-band"><div><div class="gp12-lbl">Suma zmiany GP12</div></div><div class="gp12-val">'+gp12+' szt</div></div>';
-  h+='<div class="stats-grid"><div class="stat-box"><div class="stat-lbl">Moje szt.</div><div class="stat-val ok">'+suma+'</div></div><div class="stat-box"><div class="stat-lbl">Cel/zmianę</div><div class="stat-val">'+celZmiana+'</div></div><div class="stat-box"><div class="stat-lbl">Brakuje (GP12)</div><div class="stat-val '+(brak===0?'ok':brak<celZmiana*0.2?'warn':'bad')+'">'+brak+'</div></div><div class="stat-box"><div class="stat-lbl">Realizacja</div><div class="stat-val '+(pct>=100?'ok':pct>=80?'warn':'bad')+'">'+pct+'%</div></div></div>';
-  h+='<div class="progress-labels"><span>0</span><span>cel: '+celZmiana+'</span></div>';
+  h+='<div class="gp12-band"><div><div class="gp12-lbl">Suma zmiany GP12</div><div style="font-size:10px;color:var(--muted);">全线计数器</div></div><div class="gp12-val">'+gp12+' szt</div></div>';
+  h+='<div class="stats-grid"><div class="stat-box"><div class="stat-lbl">Moje szt.</div><div class="stat-val ok">'+suma+'</div></div><div class="stat-box"><div class="stat-lbl">Cel zmiana</div><div class="stat-val">'+celZmiana+'</div></div><div class="stat-box"><div class="stat-lbl">Brakuje (GP12)</div><div class="stat-val '+(brak===0?'ok':brak<celZmiana*0.2?'warn':'bad')+'">'+brak+'</div></div><div class="stat-box"><div class="stat-lbl">Realizacja</div><div class="stat-val '+(pct>=100?'ok':pct>=80?'warn':'bad')+'">'+pct+'%</div></div></div>';
+  h+='<div class="progress-labels"><span>0</span><span>cel: '+celZmiana+'</span><span>'+celZmiana+'</span></div>';
   h+='<div class="progress-outer"><div class="progress-inner" style="width:'+bw+'%;background:'+pc+';"></div></div>';
   if(historia.length>0){
     h+='<div class="hist-section-lbl">Moje godziny</div>';
     historia.forEach(function(r){
       var sh=(r.godzina||'').split(/[-\.]/)[0].trim(),p=cel>0?Math.round(r.qty/cel*100):0,bw2=Math.min(100,p);
-      var bc=p>=100?'#639922':p>=80?'#97C459':p>=60?'#EF9F27':'#D92B2B';
-      h+='<div class="hist-row"><div class="hist-time">'+sh+'</div><div class="hist-bar-wrap"><div class="hist-bar" style="width:'+bw2+'%;background:'+bc+';"></div></div><div class="hist-qty">'+r.qty+'</div><div class="hist-pct">'+p+'%</div></div>';
+      var bc=p>=100?'#639922':p>=80?'#97C459':p>=60?'#EF9F27':'#D92B2B',pc2=p>=80?'#27500A':p>=60?'#854F0B':'#791F1F';
+      h+='<div class="hist-row"><div class="hist-time">'+sh+'</div><div class="hist-bar-wrap"><div class="hist-bar" style="width:'+bw2+'%;background:'+bc+';"></div></div><div class="hist-qty">'+r.qty+'</div><div class="hist-pct" style="color:'+pc2+';">'+p+'%</div></div>';
     });
   }else{h+='<div class="hist-loading" style="padding:10px;">Brak danych na dziś</div>';}
   h+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);"><span>Cel/h: <strong style="color:var(--text);">'+cel+' szt</strong></span><span>NG: <strong style="color:#D92B2B;">'+ng+'</strong></span></div>';
   document.getElementById('historiaContent').innerHTML=h;
 }
 
-// ── Toggles ──────────────────────────────────────────────
+/* ===== TOGGLES ===== */
 function applyDelayVis(v){var f=document.getElementById('delayField'),cb=document.getElementById('delayToggle'),sl=document.getElementById('delaySlider'),dot=document.getElementById('delayDot');if(f)f.style.display=v?'block':'none';if(cb)cb.checked=v;if(sl)sl.style.background=v?'#1A6ED8':'#333';if(dot){dot.style.transform=v?'translateX(20px)':'translateX(0)';dot.style.background=v?'#fff':'#888';}}
 function toggleDelayField(){var v=document.getElementById('delayToggle').checked;localStorage.setItem('cfm_delay_visible',v?'1':'0');applyDelayVis(v);}
 function toggleNgReasonField(){var v=document.getElementById('ngReasonToggle').checked;localStorage.setItem('cfm_ngreason_visible',v?'1':'0');var f=document.getElementById('ngReasonField'),sl=document.getElementById('ngReasonSlider'),dot=document.getElementById('ngReasonDot');if(f)f.style.display=v?'block':'none';if(sl)sl.style.background=v?'#1A6ED8':'#333';if(dot){dot.style.transform=v?'translateX(20px)':'translateX(0)';dot.style.background=v?'#fff':'#888';}}
 function initDelayToggle(){applyDelayVis(localStorage.getItem('cfm_delay_visible')==='1');var ng=localStorage.getItem('cfm_ngreason_visible')!=='0';document.getElementById('ngReasonToggle').checked=ng;var f=document.getElementById('ngReasonField'),sl=document.getElementById('ngReasonSlider'),dot=document.getElementById('ngReasonDot');if(f)f.style.display=ng?'block':'none';if(sl)sl.style.background=ng?'#1A6ED8':'#333';if(dot){dot.style.transform=ng?'translateX(20px)':'translateX(0)';dot.style.background=ng?'#fff':'#888';}}
 
-// ── Production Goals ─────────────────────────────────────
-function shiftHours(od,do_){var oh=parseInt(od.split(':')[0]),om=parseInt(od.split(':')[1]||'0');var dh=parseInt(do_.split(':')[0]),dm=parseInt(do_.split(':')[1]||'0');var diff=(dh*60+dm)-(oh*60+om);if(diff<0)diff+=24*60;return diff/60;}
-function getCelGodzinny(){return Number(localStorage.getItem('cfm_cel_god')||'53');}
-function getCelZmiana(){return Number(localStorage.getItem('cfm_cel_zmiana')||'500');}
+/* ===== PRODUCTION GOALS - FIXED ===== */
 
+// Calculate shift duration in hours from time strings
+function shiftHours(od, do_){
+  var oh=parseInt(od.split(':')[0]), om=parseInt(od.split(':')[1]||'0');
+  var dh=parseInt(do_.split(':')[0]), dm=parseInt(do_.split(':')[1]||'0');
+  var diff=(dh*60+dm)-(oh*60+om);
+  if(diff<0) diff+=24*60;
+  return diff/60;
+}
+
+// Get hourly goal from saved settings
+function getCelGodzinny(){
+  return Number(localStorage.getItem('cfm_cel_god')||'53');
+}
+
+// Get per-shift goal from saved settings
+function getCelZmiana(){
+  return Number(localStorage.getItem('cfm_cel_zmiana')||'500');
+}
+
+// Core calculation - recalculates everything from inputs
 function przeliczCele(){
   var celDzienny=Number(document.getElementById('celHInput').value)||0;
   var przerwaMin=Number(document.getElementById('celPrzerwaInput').value)||0;
   var z=getZmiany();
-  if(!celDzienny){var p=document.getElementById('celPreview');if(p)p.innerHTML='Uzupełnij cel dzienny';document.getElementById('celGodPreview').textContent='—';document.getElementById('celZmianaPreview').textContent='—';return;}
-  var totalShiftH=0;for(var i=0;i<z.liczba;i++){var zm=z.zmiany[i]||{od:'07:00',do:'15:00'};totalShiftH+=shiftHours(zm.od,zm.do);}
-  var overtimeH=(z.nadgodziny&&z.nadgHours)?Number(z.nadgHours):0;
+
+  if(!celDzienny){
+    var p=document.getElementById('celPreview');
+    if(p) p.innerHTML='Uzupełnij cel dzienny';
+    var g=document.getElementById('celGodPreview'), zp=document.getElementById('celZmianaPreview');
+    if(g) g.textContent='—';
+    if(zp) zp.textContent='—';
+    return;
+  }
+
+  // Sum actual shift hours from configured shift times
+  var totalShiftH=0;
+  for(var i=0;i<z.liczba;i++){
+    var zm=z.zmiany[i]||{od:'07:00',do:'15:00'};
+    totalShiftH+=shiftHours(zm.od, zm.do);
+  }
+
+  // Add overtime if enabled
+  var overtimeH=0;
+  if(z.nadgodziny&&z.nadgHours){
+    overtimeH=Number(z.nadgHours);
+  }
   var totalBrutto=totalShiftH+overtimeH;
+
+  // Subtract break time per shift
   var breakTotalH=(przerwaMin/60)*z.liczba;
-  var totalNet=Math.max(0.5,totalBrutto-breakTotalH);
+  var totalNet=Math.max(0.5, totalBrutto-breakTotalH);
+
+  // Calculate goals
   var celGodzinny=Math.ceil(celDzienny/totalNet);
   var celZmiana=Math.round(celDzienny/z.liczba);
+
+  // Update preview
   var p=document.getElementById('celPreview');
-  if(p){var info='Zmian: <strong>'+z.liczba+'</strong> | Brutto: <strong>'+totalBrutto.toFixed(1)+'h</strong>';if(breakTotalH>0)info+=' | Przerwa: <strong>'+przerwaMin+'min × '+z.liczba+' = '+breakTotalH.toFixed(1)+'h</strong>';info+=' | Net: <strong>'+totalNet.toFixed(1)+'h</strong>';if(overtimeH>0)info+=' | Nadgodziny: <strong>+'+overtimeH+'h</strong>';p.innerHTML=info;}
-  document.getElementById('celGodPreview').textContent=celGodzinny+' szt';
-  document.getElementById('celZmianaPreview').textContent=celZmiana+' szt';
-  document.getElementById('celGodInput').value=celGodzinny;
+  if(p){
+    var info='Zmian: <strong>'+z.liczba+'</strong>';
+    info+=' | Brutto: <strong>'+totalBrutto.toFixed(1)+'h</strong>';
+    if(breakTotalH>0) info+=' | Przerwa: <strong>'+przerwaMin+'min × '+z.liczba+' = '+breakTotalH.toFixed(1)+'h</strong>';
+    info+=' | Net: <strong>'+totalNet.toFixed(1)+'h</strong>';
+    if(overtimeH>0) info+=' | Nadgodziny: <strong>+'+overtimeH+'h</strong>';
+    p.innerHTML=info;
+  }
+
+  var g=document.getElementById('celGodPreview'), zp=document.getElementById('celZmianaPreview');
+  if(g) g.textContent=celGodzinny+' szt';
+  if(zp) zp.textContent=celZmiana+' szt';
+
+  // Store in hidden field for saveCele
+  var hi=document.getElementById('celGodInput');
+  if(hi) hi.value=celGodzinny;
 }
 
-async function saveCele(){
+// Save goals to localStorage and refresh display
+function saveCele(){
   var celDzienny=Number(document.getElementById('celHInput').value);
   var przerwaMin=Number(document.getElementById('celPrzerwaInput').value)||0;
+
   if(!celDzienny){showToast('Podaj cel dzienny','err');return;}
+
+  // Recalculate first
   przeliczCele();
+
+  // Get calculated values
   var celGodzinny=Number(document.getElementById('celGodInput').value)||Math.ceil(celDzienny/14);
-  var celZmiana=Math.round(celDzienny/getZmiany().liczba);
-  localStorage.setItem('cfm_cel_h',String(celDzienny));
-  localStorage.setItem('cfm_cel_god',String(celGodzinny));
-  localStorage.setItem('cfm_cel_zmiana',String(celZmiana));
-  localStorage.setItem('cfm_cel_przerwa',String(przerwaMin));
-  // Push to server
-  await pushSettingsToServer({
-    goals: JSON.stringify({daily:celDzienny,hourly:celGodzinny,per_shift:celZmiana,break_min:przerwaMin})
-  });
-  showToast('Cele zapisane! '+celGodzinny+' szt/h','ok');
+  var z=getZmiany();
+  var celZmiana=Math.round(celDzienny/z.liczba);
+
+  // Save ALL values to localStorage
+  localStorage.setItem('cfm_cel_h', String(celDzienny));
+  localStorage.setItem('cfm_cel_god', String(celGodzinny));
+  localStorage.setItem('cfm_cel_zmiana', String(celZmiana));
+  localStorage.setItem('cfm_cel_przerwa', String(przerwaMin));
+
+  showToast('Cele zapisane! '+celGodzinny+' szt/h · '+celZmiana+'/zmianę','ok');
+
+  // Immediately refresh the history card with new goals
   odswiezHistorie();
 }
 
+// Load saved goals into admin fields when panel opens
 function updateCelPreview(){
-  document.getElementById('celHInput').value=localStorage.getItem('cfm_cel_h')||'1000';
-  document.getElementById('celPrzerwaInput').value=localStorage.getItem('cfm_cel_przerwa')||'30';
+  var celDzienny=localStorage.getItem('cfm_cel_h')||'1000';
+  var przerwa=localStorage.getItem('cfm_cel_przerwa')||'30';
+
+  document.getElementById('celHInput').value=celDzienny;
+  document.getElementById('celPrzerwaInput').value=przerwa;
+
   przeliczCele();
 }
 
-// ── Shifts ───────────────────────────────────────────────
+/* ===== SHIFTS CONFIG ===== */
 var DZ={liczba:2,zmiany:[{nr:1,od:'07:00',do:'15:00'},{nr:2,od:'15:00',do:'23:00'},{nr:3,od:'23:00',do:'07:00'}],nadgodziny:false,nadgZmiana:2,nadgHours:1.5};
 function getZmiany(){var s=localStorage.getItem('cfm_zmiany');return s?JSON.parse(s):DZ;}
 function setZmiany(n){var z=getZmiany();z.liczba=n;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);przeliczCele();}
@@ -725,7 +691,7 @@ function renderZmianyUI(z){
   z=z||getZmiany();
   ['zmBtn2','zmBtn3'].forEach(function(id,i){var b=document.getElementById(id),act=z.liczba===(i+2);if(b){b.style.borderColor=act?'#1A6ED8':'var(--border)';b.style.color=act?'#5b9bd5':'var(--text)';}});
   var grid=document.getElementById('zmHoursGrid');if(!grid)return;
-  var html='';for(var i=0;i<z.liczba;i++){var zm=z.zmiany[i];html+='<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:12px;color:var(--muted);width:70px;">Zmiana '+(i+1)+'</span><input type="time" id="zmOd'+i+'" value="'+zm.od+'" style="flex:1;font-size:14px;padding:6px;"><span style="font-size:11px;color:var(--muted);">→</span><input type="time" id="zmDo'+i+'" value="'+zm.do+'" style="flex:1;font-size:14px;padding:6px;"></div>';}
+  var html='';for(var i=0;i<z.liczba;i++){var zm=z.zmiany[i];html+='<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:12px;color:var(--muted);width:70px;">Zmiana '+(i+1)+'</span><input type="time" id="zmOd'+i+'" value="'+zm.od+'" style="flex:1;font-size:14px;padding:6px;"><span style="font-size:11px;color:var(--muted);">&rarr;</span><input type="time" id="zmDo'+i+'" value="'+zm.do+'" style="flex:1;font-size:14px;padding:6px;"></div>';}
   grid.innerHTML=html;
   var cb=document.getElementById('nadgToggle');if(cb)cb.checked=z.nadgodziny;
   var sl=document.getElementById('nadgSlider'),dot=document.getElementById('nadgDot');if(sl)sl.style.background=z.nadgodziny?'#1A6ED8':'#333';if(dot){dot.style.transform=z.nadgodziny?'translateX(20px)':'translateX(0)';dot.style.background=z.nadgodziny?'#fff':'#888';}
@@ -736,19 +702,22 @@ function renderZmianyUI(z){
 }
 function setNadgZmiana(n){var z=getZmiany();z.nadgZmiana=n;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);}
 function toggleNadgodziny(){var z=getZmiany();z.nadgodziny=document.getElementById('nadgToggle').checked;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);przeliczCele();}
-
-async function saveShiftsToServer(){
+function saveZmiany(){
   var z=getZmiany();
-  for(var i=0;i<z.liczba;i++){var od=document.getElementById('zmOd'+i),do_=document.getElementById('zmDo'+i);if(od)z.zmiany[i].od=od.value;if(do_)z.zmiany[i].do=do_.value;}
+  for(var i=0;i<z.liczba;i++){
+    var od=document.getElementById('zmOd'+i),do_=document.getElementById('zmDo'+i);
+    if(od)z.zmiany[i].od=od.value;
+    if(do_)z.zmiany[i].do=do_.value;
+  }
   var nh=document.getElementById('nadgHours');if(nh)z.nadgHours=parseFloat(nh.value)||1.5;
   localStorage.setItem('cfm_zmiany',JSON.stringify(z));
-  await pushSettingsToServer({ shifts: JSON.stringify(z) });
-  showToast('Zmiany zapisane na serwer!','ok');
+  showToast('Zmiany zapisane!','ok');
   renderZmianyUI(z);
+  // Recalculate goals since shift hours may have changed
   przeliczCele();
 }
 
-// ── Workers & Stations ───────────────────────────────────
+/* ===== WORKERS & STATIONS ===== */
 var DW=['Magda Bak','Fabian Baginski','Ewa Baczynska','Karolina Ceterska','Szymon Chrzanowski','Patryk Makarewicz','Sebastian Purgat','Adam Zbikowski','Marlena Tomczyk','Marta Laskowska','Anna Juszkiewicz','Katarzyna Kotala','Sylwia Pytlik','Dorota Szpiler','Jakub Waldowski','Patryk Andreasik','Patryk Przydatek','Arkadiusz Przydatek','Przemek Purtak','Artur Wassiliew','Szymon Hubicki','Oskar Sobczak','Ewelina Kedzior','Malgorzata Dobrowolska','Karolina Koszalka','Damian Lysiak','Rafal Krupko','Ewa Kielar','Barbara Kuczko','Mateusz Kubala','Szymon Olesik','Paulina Filocha'];
 var DS=['OP50-1','OP50-2','OP52','OP53','OP60','OP61','OP70/71','OP72','OP73','OP74/80','GP12','OP30','OP33A','OP33B','OP40-1','OP40-2','OP40-3'];
 function getWorkers(){var s=localStorage.getItem('cfm_workers');return s?JSON.parse(s):DW;}
@@ -764,74 +733,31 @@ function renderStationsList(){var s=getStations(),st=getStationStatus();document
 function toggleStationActive(i){var s=getStations(),st=getStationStatus(),n=document.getElementById('s-'+i)?document.getElementById('s-'+i).value:s[i];if(st[n]===undefined)st[n]=false;else st[n]=!st[n];localStorage.setItem('cfm_station_status',JSON.stringify(st));renderStationsList();rebuildSelects();}
 function addWorker(){var w=getWorkers();w.push('Nowy');localStorage.setItem('cfm_workers',JSON.stringify(w));renderWorkersList();}
 function delWorker(i){var w=getWorkers();w.splice(i,1);localStorage.setItem('cfm_workers',JSON.stringify(w));renderWorkersList();}
+function saveWorkers(){var w=getWorkers(),sv=w.map(function(x,i){var e=document.getElementById('w-'+i);return e?e.value.trim():x;}).filter(Boolean);localStorage.setItem('cfm_workers',JSON.stringify(sv));showToast('Zapisano!','ok');rebuildSelects();}
 function addStation(){var s=getStations();s.push('NOWE');localStorage.setItem('cfm_stations',JSON.stringify(s));renderStationsList();}
 function delStation(i){var s=getStations();s.splice(i,1);localStorage.setItem('cfm_stations',JSON.stringify(s));renderStationsList();}
+function saveStations(){var s=getStations(),os=getStationStatus(),ns={},sv=s.map(function(x,i){var e=document.getElementById('s-'+i),n=e?e.value.trim():x;ns[n]=os[x]!==undefined?os[x]:true;return n;}).filter(Boolean);localStorage.setItem('cfm_stations',JSON.stringify(sv));localStorage.setItem('cfm_station_status',JSON.stringify(ns));showToast('Zapisano!','ok');rebuildSelects();}
 
-async function saveWorkers(){
-  var w=getWorkers(),sv=w.map(function(x,i){var e=document.getElementById('w-'+i);return e?e.value.trim():x;}).filter(Boolean);
-  localStorage.setItem('cfm_workers',JSON.stringify(sv));
-  await pushSettingsToServer({ workers: JSON.stringify(sv) });
-  showToast('Pracownicy zapisani na serwer!','ok');
-  rebuildSelects();
-}
+/* ===== WEBHOOK ===== */
+function updateWebhookStatus(){var url=getWH(),el=document.getElementById('webhookStatusLine');if(url){el.innerHTML='<span style="color:#1A9E50;">●</span> Webhook aktywny';el.style.color='#1A9E50';}else{el.innerHTML='<span style="color:#D92B2B;">●</span> Brak webhook';el.style.color='#D92B2B';}}
+function saveWebhook(){var url=document.getElementById('webhookUrlInput').value.trim();localStorage.setItem('cfm_raport_webhook',url);updateWebhookStatus();if(url)new Image().src=url+'?event_type=TEST';showToast('Webhook zapisany!','ok');}
 
-async function saveStations(){
-  var s=getStations(),os=getStationStatus(),ns={},sv=s.map(function(x,i){var e=document.getElementById('s-'+i),n=e?e.value.trim():x;ns[n]=os[x]!==undefined?os[x]:true;return n;}).filter(Boolean);
-  localStorage.setItem('cfm_stations',JSON.stringify(sv));
-  localStorage.setItem('cfm_station_status',JSON.stringify(ns));
-  await pushSettingsToServer({ stations: JSON.stringify(sv), station_status: JSON.stringify(ns) });
-  showToast('Stanowiska zapisane na serwer!','ok');
-  rebuildSelects();
-}
-
-async function saveFormOptionsToServer(){
-  var fo = {
-    delay_visible: localStorage.getItem('cfm_delay_visible')==='1',
-    ng_reason_visible: localStorage.getItem('cfm_ngreason_visible')!=='0'
-  };
-  await pushSettingsToServer({ form_options: JSON.stringify(fo) });
-  showToast('Opcje zapisane na serwer!','ok');
-}
-
-// ── Connection ───────────────────────────────────────────
-function updateConnStatus(){
-  var url=getWorkerUrl(),el=document.getElementById('connStatusLine');
-  if(url){el.innerHTML='<span style="color:#1A9E50;">●</span> Worker połączony';el.style.color='#1A9E50';}
-  else{el.innerHTML='<span style="color:#D92B2B;">●</span> Brak połączenia';el.style.color='#D92B2B';}
-}
-
-async function saveConnection(){
-  var url=document.getElementById('workerUrlInput').value.trim();
-  localStorage.setItem('cfm_worker_url',url);
-  updateConnStatus();
-  if(url){
-    var r=await api('GET','/api/test');
-    if(r&&r.status==='ok'){showToast('Połączono! '+r.message,'ok');await loadSettingsFromServer();}
-    else{showToast('Błąd połączenia','err');}
-  }
-}
-
-// ── Admin ────────────────────────────────────────────────
+/* ===== ADMIN PANEL ===== */
 function openAdmin(){var o=document.getElementById('pinOverlay'),i=document.getElementById('pinOverlayInput');o.classList.add('open');i.value='';setTimeout(function(){i.focus();},100);}
-function pinOverlayConfirm(){var p=document.getElementById('pinOverlayInput').value,sp=localStorage.getItem('cfm_pin')||'1234';if(p!==sp){showToast('Błędny PIN!','err');document.getElementById('pinOverlayInput').value='';return;}pinOverlayClose();document.getElementById('adminPanel').classList.add('open');document.getElementById('gearBtn').classList.add('active');renderWorkersList();renderStationsList();updateConnStatus();var wu=getWorkerUrl();if(wu)document.getElementById('workerUrlInput').value=wu;initDelayToggle();renderZmianyUI();updateCelPreview();document.getElementById('currentPinDisplay').textContent=localStorage.getItem('cfm_pin')||'1234';}
+function pinOverlayConfirm(){var p=document.getElementById('pinOverlayInput').value,sp=localStorage.getItem('cfm_pin')||'1234';if(p!==sp){showToast('Błędny PIN!','err');document.getElementById('pinOverlayInput').value='';return;}pinOverlayClose();document.getElementById('adminPanel').classList.add('open');document.getElementById('gearBtn').classList.add('active');renderWorkersList();renderStationsList();updateWebhookStatus();var wh=getWH();if(wh)document.getElementById('webhookUrlInput').value=wh;initDelayToggle();renderZmianyUI();updateCelPreview();var d=document.getElementById('currentPinDisplay');if(d)d.textContent=localStorage.getItem('cfm_pin')||'1234';}
 function pinOverlayClose(){document.getElementById('pinOverlay').classList.remove('open');document.getElementById('pinOverlayInput').value='';}
 function closeAdmin(){document.getElementById('adminPanel').classList.remove('open');document.getElementById('gearBtn').classList.remove('active');rebuildSelects();}
-function adminTab(tab){var tabs=['workers','stations','connection','goals','shifts','options'];document.querySelectorAll('.admin-tab').forEach(function(t,i){t.classList.toggle('active',tabs[i]===tab);});document.querySelectorAll('.admin-section').forEach(function(s){s.classList.remove('active');});document.getElementById('admin-'+tab).classList.add('active');if(tab==='goals'){updateCelPreview();}if(tab==='shifts'){renderZmianyUI();}if(tab==='options'){document.getElementById('currentPinDisplay').textContent=localStorage.getItem('cfm_pin')||'1234';initDelayToggle();}}
-function savePin(){var p=document.getElementById('newPinInput').value.trim();if(!p||p.length<4){showToast('PIN min. 4 znaki','err');return;}localStorage.setItem('cfm_pin',p);document.getElementById('newPinInput').value='';document.getElementById('currentPinDisplay').textContent=p;showToast('PIN zmieniony!','ok');}
+function adminTab(tab){var tabs=['workers','stations','webhook','opcje'];document.querySelectorAll('.admin-tab').forEach(function(t,i){t.classList.toggle('active',tabs[i]===tab);});document.querySelectorAll('.admin-section').forEach(function(s){s.classList.remove('active');});document.getElementById('admin-'+tab).classList.add('active');if(tab==='opcje'){var d=document.getElementById('currentPinDisplay');if(d)d.textContent=localStorage.getItem('cfm_pin')||'1234';renderZmianyUI();updateCelPreview();}}
+function savePin(){var p=document.getElementById('newPinInput').value.trim();if(!p||p.length<4){showToast('PIN min. 4 znaki','err');return;}localStorage.setItem('cfm_pin',p);document.getElementById('newPinInput').value='';var d=document.getElementById('currentPinDisplay');if(d)d.textContent=p;showToast('PIN zmieniony!','ok');}
 
-// ── Init ─────────────────────────────────────────────────
+/* ===== INIT ===== */
 window.addEventListener('load',function(){
-  rebuildSelects();
-  initDelayToggle();
-  updateHourDisplay();
-  // Try to load settings from server
-  if(getWorkerUrl()){
-    loadSettingsFromServer();
-    setTimeout(odswiezHistorie,1000);
-  } else {
-    setTimeout(odswiezHistorie,500);
-  }
+  rebuildSelects();initDelayToggle();updateHourDisplay();setTimeout(odswiezHistorie,800);
+  if(!localStorage.getItem('cfm_raport_webhook'))localStorage.setItem('cfm_raport_webhook','https://script.google.com/macros/s/AKfycbxbdmTTx4VJpd_QdvwlMKP4_EHl8IXtL3dY_vnvF5RqCh7e4Gj6dBOhBWlfcLLqhvFN/exec');
 });
+</script>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/cfm-awaria/sw.js').then(function(r){r.addEventListener('updatefound',function(){var w=r.installing;w.addEventListener('statechange',function(){if(w.state==='installed'&&navigator.serviceWorker.controller)window.location.reload();});});});var ref=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(!ref){ref=true;window.location.reload();}});}
 </script>
 </body>
 </html>

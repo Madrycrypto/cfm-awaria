@@ -7,168 +7,202 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>CFM Raport · TMT</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-:root{--bg:#0f0f0f;--surface:#1a1a1a;--border:#2a2a2a;--text:#f0f0f0;--muted:#666;--blue:#1A6ED8;--blue-dk:#1558b0;--green:#1A9E50;--red:#D92B2B;--fh:'Barlow Condensed','Arial Narrow',sans-serif;--fb:'Barlow','Arial',sans-serif}
+:root{
+  --bg:#0d0d0d;--surface:#161616;--border:#252525;--text:#f2f2f2;--muted:#555;
+  --blue:#1A6ED8;--blue-dk:#1558b0;--green:#1A9E50;--red:#D92B2B;
+  --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;
+}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:16px}
-input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--fb);font-size:15px;padding:10px 12px;width:100%;outline:none}
+input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:16px;padding:12px 14px;width:100%;outline:none;-webkit-appearance:none;appearance:none}
 input:focus,select:focus,textarea:focus{border-color:var(--blue)}
-select option{background:#1a1a1a}
-button{cursor:pointer}
-.topbar{background:#0a0a0a;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
-.logo{font-family:var(--fh);font-size:20px;font-weight:900;letter-spacing:0.04em;color:var(--text)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23666' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+select option{background:#161616}
+button{cursor:pointer;font-family:var(--fh)}
+
+/* TOPBAR */
+.topbar{background:#0a0a0a;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{font-family:var(--fh);font-size:22px;font-weight:900;letter-spacing:0.08em;color:var(--text);text-transform:uppercase}
 .logo span{color:var(--blue)}
-.topbar-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.4}
-.gear-btn{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:2px 6px}
+.topbar-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.5}
+.gear-btn{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:2px 8px;line-height:1}
 .gear-btn.active{color:var(--text)}
-.main{padding:14px;max-width:480px;margin:0 auto;padding-bottom:40px}
-.lbl{font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+
+/* MAIN */
+.main{padding:16px;max-width:480px;margin:0 auto;padding-bottom:60px}
+
+/* LABELS */
+.lbl{font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:6px}
 .req{color:var(--red)}
-.cn{font-size:10px;color:var(--muted);font-weight:400}
-.field{margin-bottom:14px}
-.div{height:1px;background:var(--border);margin:14px 0}
-.remembered{font-size:10px;color:var(--blue);margin-top:4px}
-.hour-badge{background:var(--surface);border:1.5px solid var(--blue);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.hour-val{font-family:var(--fh);font-size:28px;font-weight:900;color:var(--blue)}
-.hour-sub{font-size:11px;color:var(--muted);text-align:right;line-height:1.5}
+.cn{font-size:10px;font-weight:400;letter-spacing:0.02em;font-family:var(--fb)}
+.field{margin-bottom:16px}
+.div{height:1px;background:var(--border);margin:16px 0}
+.remembered{font-size:10px;color:var(--blue);margin-top:5px;display:flex;align-items:center;gap:4px}
+
+/* HOUR BADGE */
+.hour-badge{background:var(--surface);border:1.5px solid var(--blue);border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.hour-val{font-family:var(--fh);font-size:48px;font-weight:900;color:var(--blue);letter-spacing:0.02em;line-height:1}
+.hour-sub{font-size:11px;color:var(--muted);text-align:right;line-height:1.6}
 .hour-manual{display:none}
 .hour-manual.open{display:block;margin-top:8px}
+
+/* COUNTERS */
 .counter-row{display:flex;align-items:center;gap:8px}
-.counter-btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:22px;font-weight:300;width:48px;height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-.counter-btn:active{background:var(--border)}
-.counter-input{flex:1;font-size:28px;font-weight:700;text-align:center;height:48px;padding:0}
-.btn-submit{width:100%;background:var(--blue);color:#fff;border:none;border-radius:12px;font-family:var(--fh);font-size:24px;font-weight:900;letter-spacing:0.06em;padding:18px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;margin-top:6px}
+.counter-btn{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:28px;font-weight:300;width:54px;height:54px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.1s}
+.counter-btn:active{background:#222;transform:scale(0.94)}
+.counter-input{flex:1;font-size:32px;font-weight:700;text-align:center;height:54px;padding:0;border-radius:10px}
+
+/* SUBMIT */
+.btn-submit{width:100%;background:var(--blue);color:#fff;border:none;border-radius:12px;font-family:var(--fh);font-size:28px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;padding:20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:8px;transition:all 0.15s}
 .btn-submit:active{transform:scale(0.98);background:var(--blue-dk)}
 .btn-submit:disabled{opacity:0.4;pointer-events:none}
-.btn-submit .cn{font-family:var(--fb);font-size:12px;opacity:0.75}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#222;border:1px solid var(--border);border-radius:20px;color:var(--text);font-size:14px;padding:10px 20px;z-index:500;transition:transform 0.3s;white-space:nowrap;max-width:90vw;text-align:center}
+.btn-submit .cn{font-family:var(--fb);font-size:13px;font-weight:400;opacity:0.75;letter-spacing:0.03em;text-transform:none}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1e1e1e;border:1px solid var(--border);border-radius:24px;color:var(--text);font-size:14px;padding:11px 22px;z-index:500;transition:transform 0.3s;white-space:nowrap;max-width:90vw;text-align:center}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .toast.ok{border-color:var(--green);color:#7fff9f}
 .toast.err{border-color:var(--red);color:#ff9090}
-.qty-hint{font-size:11px;color:var(--blue);margin-top:5px;padding:4px 10px;background:rgba(26,110,216,0.08);border:1px solid rgba(26,110,216,0.2);border-radius:20px;display:inline-block}
-.success-screen{display:none;position:fixed;inset:0;background:var(--bg);z-index:300;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
+.qty-hint{font-size:11px;color:var(--blue);margin-top:6px;padding:4px 12px;background:rgba(26,110,216,0.08);border:1px solid rgba(26,110,216,0.2);border-radius:20px;display:inline-block}
+
+/* SUCCESS */
+.success-screen{display:none;position:fixed;inset:0;background:var(--bg);z-index:300;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px}
 .success-screen.open{display:flex}
-.success-icon{font-size:72px;margin-bottom:16px;color:var(--green)}
-.success-title{font-family:var(--fh);font-size:40px;font-weight:900;letter-spacing:0.04em;margin-bottom:8px}
-.success-sub{font-size:14px;color:var(--muted);margin-bottom:30px;line-height:1.6}
-.btn-next{background:var(--blue);color:#fff;border:none;border-radius:10px;font-family:var(--fh);font-size:18px;font-weight:900;padding:14px 32px;cursor:pointer}
-.awaria-main-btn{width:100%;background:rgba(217,43,43,0.1);border:2px solid rgba(217,43,43,0.4);border-radius:12px;color:#ff6b6b;font-family:var(--fh);font-size:20px;font-weight:900;letter-spacing:0.06em;padding:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
-.awaria-main-btn.open{background:rgba(217,43,43,0.15);border-color:var(--red);color:#fff}
-.awaria-main-cn{font-family:var(--fb);font-size:12px;font-weight:400;opacity:0.7}
-.awaria-panel{display:none;background:rgba(217,43,43,0.06);border:1.5px solid rgba(217,43,43,0.2);border-radius:12px;padding:14px;margin-top:6px}
+.success-icon{font-size:80px;margin-bottom:16px;color:var(--green)}
+.success-title{font-family:var(--fh);font-size:48px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:10px}
+.success-sub{font-size:15px;color:var(--muted);margin-bottom:32px;line-height:1.7}
+.btn-next{background:var(--blue);color:#fff;border:none;border-radius:10px;font-family:var(--fh);font-size:20px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;padding:14px 36px;cursor:pointer}
+
+/* AWARIA */
+.awaria-main-btn{width:100%;background:rgba(217,43,43,0.12);border:2px solid rgba(217,43,43,0.5);border-radius:12px;color:#ff5555;font-family:var(--fh);font-size:22px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;padding:16px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all 0.15s}
+.awaria-main-btn:active{transform:scale(0.98)}
+.awaria-main-btn.open{background:rgba(30,0,0,0.8);border:2px solid var(--blue);color:#fff}
+.awaria-main-cn{font-family:var(--fb);font-size:13px;font-weight:400;opacity:0.65;letter-spacing:0.02em;text-transform:none}
+.awaria-panel{display:none;background:rgba(30,0,0,0.5);border:1.5px solid rgba(217,43,43,0.25);border-radius:12px;padding:16px;margin-top:6px}
 .awaria-panel.active{display:block}
-.awaria-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
-.awaria-type-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:8px;color:var(--muted);font-family:var(--fb);font-size:12px;font-weight:500;padding:8px 10px;cursor:pointer;text-align:left;line-height:1.3}
-.awaria-type-btn.sel{border-color:var(--red);background:rgba(217,43,43,0.12);color:#ff7070}
-.awaria-type-btn .cn{display:block;font-size:10px;color:#555;margin-top:2px}
-.awaria-type-btn.sel .cn{color:rgba(255,112,112,0.6)}
-.awaria-desc-box{display:none;margin-top:8px}
+.awaria-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.awaria-type-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:14px;font-weight:500;padding:12px 14px;cursor:pointer;text-align:left;line-height:1.3;transition:all 0.15s}
+.awaria-type-btn.sel{border-color:var(--red);background:rgba(217,43,43,0.15);color:#ff7070}
+.awaria-type-btn .cn{display:block;font-size:11px;color:#555;margin-top:3px}
+.awaria-type-btn.sel .cn{color:rgba(255,112,112,0.5)}
+.awaria-desc-box{display:none;margin-top:10px}
 .awaria-desc-box.vis{display:block}
-.awaria-desc-lbl{font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--red);margin-bottom:5px;display:block}
-.awaria-desc-input{background:var(--bg);border:1.5px solid rgba(217,43,43,0.4);border-radius:8px;color:var(--text);font-size:14px;padding:10px 12px;resize:none;min-height:60px;width:100%}
+.awaria-desc-lbl{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--red);margin-bottom:6px;display:block}
+.awaria-desc-input{background:rgba(0,0,0,0.4);border:1.5px solid rgba(217,43,43,0.4);border-radius:10px;color:var(--text);font-size:15px;padding:12px;resize:none;min-height:64px;width:100%}
 .awaria-timer-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
-.awaria-timer{font-family:var(--fh);font-size:22px;font-weight:900;color:var(--red);letter-spacing:0.04em}
+.awaria-timer{font-family:var(--fh);font-size:28px;font-weight:900;color:var(--red);letter-spacing:0.06em}
 .blink{animation:blink 1s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-.btn-awaria-start{background:var(--red);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:14px;font-weight:900;padding:10px 18px;cursor:pointer;width:100%;margin-top:10px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+.btn-awaria-start{background:var(--red);color:#fff;border:none;border-radius:10px;font-family:var(--fh);font-size:18px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;padding:14px;cursor:pointer;width:100%;margin-top:12px;transition:all 0.15s}
+.btn-awaria-start:active{transform:scale(0.98)}
 .btn-awaria-start:disabled{opacity:0.5}
-.btn-awaria-stop{background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:14px;font-weight:900;padding:10px 18px;cursor:pointer}
-.historia-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;margin-top:14px}
-.historia-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.historia-title{font-family:var(--fh);font-size:14px;font-weight:800;letter-spacing:0.06em;color:var(--text);text-transform:uppercase}
-.historia-refresh{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:12px;padding:4px 10px;cursor:pointer}
-.gp12-band{background:rgba(26,158,80,0.08);border:1px solid rgba(26,158,80,0.25);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
-.gp12-lbl{font-size:11px;color:var(--muted);line-height:1.4}
-.gp12-val{font-family:var(--fh);font-size:22px;font-weight:900;color:#1A9E50}
-.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
-.stat-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
-.stat-lbl{font-size:10px;color:var(--muted);margin-bottom:3px;line-height:1.3}
-.stat-val{font-family:var(--fh);font-size:20px;font-weight:900;color:var(--text)}
+.btn-awaria-stop{background:var(--green);color:#fff;border:none;border-radius:10px;font-family:var(--fh);font-size:16px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;padding:12px 20px;cursor:pointer}
+
+/* HISTORIA */
+.historia-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:16px;margin-top:16px}
+.historia-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.historia-title{font-family:var(--fh);font-size:15px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:var(--text)}
+.historia-refresh{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:12px;padding:5px 12px;cursor:pointer;font-family:var(--fb)}
+.gp12-band{background:rgba(26,158,80,0.08);border:1px solid rgba(26,158,80,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.gp12-lbl{font-size:11px;color:var(--muted);line-height:1.5}
+.gp12-val{font-family:var(--fh);font-size:26px;font-weight:900;color:#1A9E50;letter-spacing:0.04em}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stat-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.stat-lbl{font-size:10px;color:var(--muted);margin-bottom:3px;line-height:1.4;font-family:var(--fb)}
+.stat-val{font-family:var(--fh);font-size:24px;font-weight:900;color:var(--text);letter-spacing:0.03em}
 .stat-val.ok{color:#1A9E50}.stat-val.warn{color:#D97706}.stat-val.bad{color:#D92B2B}
 .progress-outer{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:10px}
-.progress-inner{height:100%;border-radius:4px;transition:width 0.3s}
-.progress-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px}
-.hist-section-lbl{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-.hist-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:0.5px solid var(--border)}
+.progress-inner{height:100%;border-radius:4px;transition:width 0.4s}
+.progress-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px;font-family:var(--fb)}
+.hist-section-lbl{font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:block}
+.hist-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)}
 .hist-row:last-child{border-bottom:none}
-.hist-time{font-size:11px;color:var(--muted);width:42px;flex-shrink:0}
-.hist-bar-wrap{flex:1;height:14px;background:var(--border);border-radius:3px;overflow:hidden}
-.hist-bar{height:100%;border-radius:3px}
-.hist-qty{font-size:12px;font-weight:500;color:var(--text);width:28px;text-align:right;flex-shrink:0}
-.hist-pct{font-size:10px;width:30px;text-align:right;flex-shrink:0}
-.hist-loading{text-align:center;padding:16px;font-size:13px;color:var(--muted)}
-.warn-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:300;align-items:center;justify-content:center;padding:20px}
+.hist-time{font-family:var(--fh);font-size:13px;font-weight:600;color:var(--muted);width:42px;flex-shrink:0}
+.hist-bar-wrap{flex:1;height:16px;background:var(--border);border-radius:4px;overflow:hidden}
+.hist-bar{height:100%;border-radius:4px}
+.hist-qty{font-family:var(--fh);font-size:14px;font-weight:700;color:var(--text);width:28px;text-align:right;flex-shrink:0}
+.hist-pct{font-size:11px;font-weight:600;width:30px;text-align:right;flex-shrink:0;font-family:var(--fh)}
+.hist-loading{text-align:center;padding:20px;font-size:13px;color:var(--muted);font-family:var(--fb)}
+
+/* WARN */
+.warn-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:300;align-items:center;justify-content:center;padding:20px}
 .warn-overlay.open{display:flex}
-.warn-dialog{background:var(--surface);border:2px solid #D92B2B;border-radius:14px;padding:20px;width:100%;max-width:360px}
-.warn-icon{font-size:36px;text-align:center;margin-bottom:8px}
-.warn-title{font-family:var(--fh);font-size:18px;font-weight:900;color:#D92B2B;text-align:center;letter-spacing:0.04em;margin-bottom:4px}
-.warn-title-cn{font-size:12px;color:#888;text-align:center;margin-bottom:14px}
-.warn-info{background:rgba(217,43,43,0.08);border-radius:8px;padding:10px 12px;margin-bottom:14px}
-.warn-info-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.warn-dialog{background:var(--surface);border:2px solid #D92B2B;border-radius:14px;padding:22px;width:100%;max-width:360px}
+.warn-icon{font-size:40px;text-align:center;margin-bottom:8px}
+.warn-title{font-family:var(--fh);font-size:20px;font-weight:900;color:#D92B2B;text-align:center;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px}
+.warn-title-cn{font-size:12px;color:#666;text-align:center;margin-bottom:14px;font-family:var(--fb)}
+.warn-info{background:rgba(217,43,43,0.08);border-radius:8px;padding:10px 14px;margin-bottom:16px}
+.warn-info-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;font-family:var(--fb)}
 .warn-info-lbl{color:var(--muted)}.warn-info-val{color:var(--text);font-weight:600}
 .warn-btns{display:flex;flex-direction:column;gap:8px}
-.warn-btn-close{background:#1A9E50;color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:15px;font-weight:900;padding:13px;cursor:pointer}
-.warn-btn-new{background:rgba(217,43,43,0.15);border:1px solid rgba(217,43,43,0.4);color:#ff7070;border-radius:8px;font-family:var(--fh);font-size:13px;font-weight:700;padding:11px;cursor:pointer}
-.warn-btn-cancel{background:none;border:none;color:var(--muted);font-size:13px;padding:8px;cursor:pointer;text-align:center;width:100%}
-.pin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;align-items:center;justify-content:center}
+.warn-btn-close{background:#1A9E50;color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:15px;font-weight:900;letter-spacing:0.05em;padding:14px;cursor:pointer;text-transform:uppercase}
+.warn-btn-new{background:rgba(217,43,43,0.15);border:1px solid rgba(217,43,43,0.4);color:#ff7070;border-radius:8px;font-family:var(--fh);font-size:13px;font-weight:700;padding:12px;cursor:pointer;text-transform:uppercase}
+.warn-btn-cancel{background:none;border:none;color:var(--muted);font-size:13px;padding:8px;cursor:pointer;text-align:center;width:100%;font-family:var(--fb)}
+
+/* PIN OVERLAY */
+.pin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:300;align-items:center;justify-content:center}
 .pin-overlay.open{display:flex}
-.pin-dialog{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px 20px;width:280px;text-align:center}
-.pin-dialog-title{font-family:var(--fh);font-size:18px;font-weight:900;letter-spacing:0.04em;margin-bottom:4px}
-.pin-dialog-sub{font-size:11px;color:var(--muted);margin-bottom:16px}
-.pin-dialog-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--fb);font-size:24px;letter-spacing:0.2em;text-align:center;padding:12px;margin-bottom:12px}
-.pin-dialog-btns{display:flex;gap:8px}
-.pin-dialog-ok{flex:1;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer}
-.pin-dialog-cancel{background:var(--border);color:var(--muted);border:none;border-radius:8px;font-family:var(--fh);font-size:16px;padding:12px 16px;cursor:pointer}
-.admin-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:200;overflow-y:auto;padding:20px 16px 40px}
+.pin-dialog{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 22px;width:300px;text-align:center}
+.pin-dialog-title{font-family:var(--fh);font-size:22px;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px}
+.pin-dialog-sub{font-size:12px;color:var(--muted);margin-bottom:18px;font-family:var(--fb)}
+.pin-dialog-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fh);font-size:28px;letter-spacing:0.25em;text-align:center;padding:14px;margin-bottom:14px}
+.pin-dialog-btns{display:flex;gap:10px}
+.pin-dialog-ok{flex:1;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:18px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;padding:13px;cursor:pointer}
+.pin-dialog-cancel{background:var(--border);color:var(--muted);border:none;border-radius:8px;font-family:var(--fh);font-size:18px;padding:13px 16px;cursor:pointer}
+
+/* ADMIN */
+.admin-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:200;overflow-y:auto;padding:20px 16px 60px}
 .admin-panel.open{display:block}
 .admin-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
-.admin-title{font-family:var(--fh);font-size:22px;font-weight:900;letter-spacing:0.04em}
-.admin-close{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:16px;padding:4px 12px;cursor:pointer}
-.admin-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
-.admin-tab{flex:1;min-width:70px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:var(--fh);font-size:11px;font-weight:700;padding:8px 4px;cursor:pointer;text-align:center}
+.admin-title{font-family:var(--fh);font-size:26px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase}
+.admin-close{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:16px;padding:5px 14px;cursor:pointer;font-family:var(--fb)}
+.admin-tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.admin-tab{flex:1;min-width:70px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:var(--fh);font-size:12px;font-weight:700;letter-spacing:0.05em;padding:9px 4px;cursor:pointer;text-align:center;text-transform:uppercase}
 .admin-tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .admin-section{display:none}
 .admin-section.active{display:block}
 .list-item-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.list-item-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--fb);font-size:14px;padding:8px 10px}
-.list-item-del{background:rgba(217,43,43,0.15);border:1px solid rgba(217,43,43,0.3);border-radius:6px;color:#ff7070;font-size:18px;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.st-toggle{width:32px;height:32px;border-radius:6px;border:1.5px solid var(--border);background:rgba(217,43,43,0.15);color:#ff7070;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.list-item-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--fb);font-size:15px;padding:10px 12px}
+.list-item-del{background:rgba(217,43,43,0.15);border:1px solid rgba(217,43,43,0.3);border-radius:8px;color:#ff7070;font-size:20px;width:38px;height:38px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.st-toggle{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--border);background:rgba(217,43,43,0.15);color:#ff7070;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .st-toggle.on{background:rgba(26,158,80,0.2);border-color:rgba(26,158,80,0.4);color:#1A9E50}
-.list-add-btn{width:100%;background:rgba(26,110,216,0.1);border:1px dashed rgba(26,110,216,0.3);border-radius:6px;color:#5b9bd5;font-family:var(--fh);font-size:13px;font-weight:700;padding:9px;cursor:pointer;margin-top:4px}
-.list-save-btn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:13px;cursor:pointer;margin-top:14px}
-.toggle-wrap{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0}
+.list-add-btn{width:100%;background:rgba(26,110,216,0.08);border:1px dashed rgba(26,110,216,0.3);border-radius:8px;color:#5b9bd5;font-family:var(--fh);font-size:14px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:10px;cursor:pointer;margin-top:4px}
+.list-save-btn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:10px;font-family:var(--fh);font-size:18px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;padding:14px;cursor:pointer;margin-top:16px}
+.toggle-wrap{position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0}
 .toggle-wrap input{opacity:0;width:0;height:0}
-.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#333;border-radius:24px;transition:0.3s}
-.toggle-dot{position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#888;border-radius:50%;transition:0.3s;display:block}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#2a2a2a;border-radius:26px;transition:0.3s}
+.toggle-dot{position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#666;border-radius:50%;transition:0.3s;display:block}
 .pin-row{display:flex;gap:8px;margin-top:8px}
-.pin-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--fb);font-size:18px;letter-spacing:0.1em;padding:8px 10px;text-align:center}
-.pin-btn{background:#444;border:none;border-radius:6px;color:var(--text);font-family:var(--fh);font-size:13px;font-weight:700;padding:8px 14px;cursor:pointer}
+.pin-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--fh);font-size:20px;letter-spacing:0.15em;padding:10px;text-align:center}
+.pin-btn{background:#333;border:none;border-radius:8px;color:var(--text);font-family:var(--fh);font-size:14px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;padding:10px 16px;cursor:pointer}
 </style>
 </head>
 <body>
 
 <div class="topbar">
   <div class="logo">CFM<span>&#8226;</span>RAPORT</div>
-  <div class="topbar-right">TMT Karlino &#183; Raport godzinny<br><span id="clockDisplay" style="color:var(--text);font-weight:600;"></span></div>
+  <div class="topbar-right">TMT Karlino &#183; &#27599;&#23567;&#26102;&#25253;&#21578;<br><span id="clockDisplay" style="color:var(--text);font-weight:600;"></span></div>
   <button class="gear-btn" id="gearBtn" onclick="openAdmin()">&#9881;</button>
 </div>
 
 <div class="main">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
     <div class="field">
-      <div class="lbl" style="font-size:9px;">Operator <span class="req">*</span></div>
+      <div class="lbl" style="font-size:9px;">Operator &#183; &#25805;&#20316;&#21592; <span class="req">*</span></div>
       <select id="operatorSel" onchange="saveOperator()" style="font-size:14px;padding:10px 12px;"></select>
-      <div class="remembered" id="remOperator" style="display:none;">Zapami&#281;tano</div>
+      <div class="remembered" id="remOperator" style="display:none;">Zapami&#281;tano &#183; &#24050;&#35760;&#20303;</div>
     </div>
     <div class="field">
-      <div class="lbl" style="font-size:9px;">Stanowisko <span class="req">*</span></div>
+      <div class="lbl" style="font-size:9px;">Stanowisko &#183; &#24037;&#20301; <span class="req">*</span></div>
       <select id="stationSel" onchange="saveStation()" style="font-size:14px;padding:10px 12px;"></select>
-      <div class="remembered" id="remStation" style="display:none;">Zapami&#281;tano</div>
+      <div class="remembered" id="remStation" style="display:none;">Zapami&#281;tano &#183; &#24050;&#35760;&#20303;</div>
     </div>
   </div>
 
   <div style="margin-top:4px;margin-bottom:14px;">
     <button class="awaria-main-btn" onclick="toggleAwariaPanel()" id="awariaToggleBtn">
-      &#9889; ZG&#321;O&#346; AWARI&#280; <span class="awaria-main-cn">故障登记</span>
+      &#9889; ZG&#321;O&#346; AWARI&#280; <span class="awaria-main-cn">&#25545;&#38556;&#30331;&#35760;</span>
     </button>
     <div class="awaria-panel" id="awariaPanel">
       <div id="awariaActiveBanner" style="display:none;background:rgba(217,43,43,0.1);border-radius:8px;padding:8px 12px;margin-bottom:10px;">
@@ -177,33 +211,33 @@ button{cursor:pointer}
             <div style="font-size:11px;color:var(--muted);" id="awariaActiveType">&#8212;</div>
             <div class="awaria-timer"><span class="blink">&#9679;</span> <span id="awariaTimerDisplay">00:00</span></div>
           </div>
-          <button class="btn-awaria-stop" onclick="awariaStop()">&#9632; KONIEC</button>
+          <button class="btn-awaria-stop" onclick="awariaStop()">&#9632; KONIEC &#183; &#32467;&#26463;</button>
         </div>
       </div>
       <div id="awariaTypeSection">
         <div class="awaria-type-grid">
-          <button class="awaria-type-btn sel" data-val="Awaria maszyny" onclick="awariaSelectType(this)">Awaria maszyny<span class="cn">设备故障</span></button>
-          <button class="awaria-type-btn" data-val="Oczekiwanie na lidera" onclick="awariaSelectType(this)">Oczekiwanie na lidera<span class="cn">等待班长</span></button>
-          <button class="awaria-type-btn" data-val="Brak materia&#322;u" onclick="awariaSelectType(this)">Brak materia&#322;u<span class="cn">缺料</span></button>
-          <button class="awaria-type-btn" data-val="Mikroprze&#347;t&#243;j" onclick="awariaSelectType(this)">Mikroprze&#347;t&#243;j<span class="cn">短停机</span></button>
-          <button class="awaria-type-btn" data-val="Szkolenie" onclick="awariaSelectType(this)">Szkolenie<span class="cn">培训</span></button>
-          <button class="awaria-type-btn" data-val="Inne" onclick="awariaSelectType(this)">Inne<span class="cn">其他</span></button>
+          <button class="awaria-type-btn sel" data-val="Awaria maszyny" onclick="awariaSelectType(this)">Awaria maszyny<span class="cn">&#35774;&#22791;&#25545;&#38556;</span></button>
+          <button class="awaria-type-btn" data-val="Oczekiwanie na lidera" onclick="awariaSelectType(this)">Oczekiwanie na lidera<span class="cn">&#31561;&#24453;&#29677;&#38271;</span></button>
+          <button class="awaria-type-btn" data-val="Brak materia&#322;u" onclick="awariaSelectType(this)">Brak materia&#322;u<span class="cn">&#32570;&#26009;</span></button>
+          <button class="awaria-type-btn" data-val="Mikroprze&#347;t&#243;j" onclick="awariaSelectType(this)">Mikroprze&#347;t&#243;j<span class="cn">&#30701;&#26292;&#20572;&#26426;</span></button>
+          <button class="awaria-type-btn" data-val="Szkolenie" onclick="awariaSelectType(this)">Szkolenie<span class="cn">&#22521;&#35757;</span></button>
+          <button class="awaria-type-btn" data-val="Inne" onclick="awariaSelectType(this)">Inne<span class="cn">&#20854;&#20182;</span></button>
         </div>
         <div class="awaria-desc-box" id="awariaDescBox">
-          <span class="awaria-desc-lbl" id="awariaDescLbl">Opis *</span>
-          <textarea class="awaria-desc-input" id="awariaDescInput" rows="2" placeholder="Opisz przyczyn&#281;..."></textarea>
+          <span class="awaria-desc-lbl" id="awariaDescLbl">Opis &#183; &#25551;&#36848; *</span>
+          <textarea class="awaria-desc-input" id="awariaDescInput" rows="2" placeholder="Opisz przyczyn&#281;...&#10;&#35831;&#25551;&#36848;&#21407;&#22240;..."></textarea>
         </div>
-        <button class="btn-awaria-start" id="btnAwariaStart" onclick="awariaStart()">&#9654; START AWARII</button>
+        <button class="btn-awaria-start" id="btnAwariaStart" onclick="awariaStart()">&#9654; START AWARII &#183; &#25545;&#38556;&#24320;&#22987;</button>
       </div>
     </div>
   </div>
 
   <div class="div"></div>
 
-  <div class="lbl">Godzina <span class="req">*</span> <span class="cn">&#8211; wykryta automatycznie</span></div>
+  <div class="lbl">Godzina &#183; &#26102;&#38388; <span class="req">*</span> <span class="cn">&#8211; wykryta automatycznie</span></div>
   <div class="hour-badge" id="hourBadge">
     <div><div class="hour-val" id="hourVal">&#8211;</div><div style="font-size:10px;color:var(--muted);margin-top:2px;" id="hourCn">&#8211;</div></div>
-    <div class="hour-sub">Raport za uko&#324;czon&#261; godzin&#281;<br><a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);font-size:11px;">Zmie&#324; r&#281;cznie</a></div>
+    <div class="hour-sub">Raport za uko&#324;czon&#261; godzin&#281;<br><a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);font-size:11px;">Zmie&#324; r&#281;cznie &#183; &#25163;&#21160;</a></div>
   </div>
   <div class="hour-manual" id="hourManual">
     <select id="hourManualSel" onchange="setManualHour()">
@@ -221,7 +255,7 @@ button{cursor:pointer}
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
     <div class="field">
-      <div class="lbl">Ilo&#347;&#263; szt. <span class="req">*</span></div>
+      <div class="lbl">Ilo&#347;&#263; szt. &#183; &#23436;&#25104;&#20214;&#25968; <span class="req">*</span></div>
       <div class="counter-row">
         <button class="counter-btn" onclick="adjustQty(-1)">&#8722;</button>
         <input class="counter-input" type="number" id="qtyInput" min="0" max="9999" placeholder="0" inputmode="numeric">
@@ -229,7 +263,7 @@ button{cursor:pointer}
       </div>
     </div>
     <div class="field">
-      <div class="lbl">Ile NG <span class="req">*</span></div>
+      <div class="lbl">Ile NG &#183; NG&#25968;&#37327; <span class="req">*</span></div>
       <div class="counter-row">
         <button class="counter-btn" onclick="adjustNg(-1)">&#8722;</button>
         <input class="counter-input" type="number" id="ngInput" min="0" max="9999" placeholder="0" inputmode="numeric">
@@ -241,28 +275,28 @@ button{cursor:pointer}
 
   <div id="delayField" style="display:none;">
     <div class="field" style="margin-top:12px;">
-      <div class="lbl">Pow&#243;d op&#243;&#378;nienia <span class="cn">&#8211; opcjonalnie</span></div>
+      <div class="lbl">Pow&#243;d op&#243;&#378;nienia &#183; &#24310;&#36831;&#21407;&#22240; <span class="cn">&#8211; opcjonalnie</span></div>
       <textarea id="delayInput" placeholder="Opisz pow&#243;d..." rows="2"></textarea>
     </div>
   </div>
 
   <div id="ngReasonField">
     <div class="field">
-      <div class="lbl">Pow&#243;d NG <span class="cn">&#8211; opcjonalnie</span></div>
+      <div class="lbl">Pow&#243;d NG &#183; NG&#21407;&#22240; <span class="cn">&#8211; opcjonalnie</span></div>
       <textarea id="ngReasonInput" placeholder="Opisz przyczyn&#281; NG..." rows="2"></textarea>
     </div>
   </div>
 
   <button class="btn-submit" id="btnSubmit" onclick="submitForm()">
-    WY&#346;LIJ RAPORT <span class="cn">提交报告 · 发送</span>
+    WY&#346;LIJ RAPORT <span class="cn">&#25552;&#20132;&#25253;&#21578; &#183; &#21457;&#36865;</span>
   </button>
 
   <div class="historia-card" style="margin-top:14px;">
     <div class="historia-header">
-      <div class="historia-title">Historia</div>
-      <button class="historia-refresh" onclick="odswiezHistorie()">&#8635; Od&#347;wie&#380;</button>
+      <div class="historia-title">Historia &#183; &#35760;&#24405;</div>
+      <button class="historia-refresh" onclick="odswiezHistorie()">&#8635; Od&#347;wie&#380; &#183; &#21047;&#26032;</button>
     </div>
-    <div id="historiaContent"><div class="hist-loading">Wybierz stanowisko i operatora</div></div>
+    <div id="historiaContent"><div class="hist-loading">Wybierz stanowisko i operatora &#183; &#35831;&#36873;&#25321;&#24037;&#20301;</div></div>
   </div>
 </div>
 
@@ -270,7 +304,7 @@ button{cursor:pointer}
   <div class="success-icon">&#10003;</div>
   <div class="success-title">WYS&#321;ANO!</div>
   <div class="success-sub" id="successDetails"></div>
-  <button class="btn-next" onclick="resetForm()">Nowy raport</button>
+  <button class="btn-next" onclick="resetForm()">Nowy raport &#183; &#26032;&#25253;&#21578;</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -279,7 +313,7 @@ button{cursor:pointer}
   <div class="warn-dialog">
     <div class="warn-icon">&#9888;&#65039;</div>
     <div class="warn-title">OTWARTA AWARIA</div>
-    <div class="warn-title-cn">发现未关闭的故障记录</div>
+    <div class="warn-title-cn">&#21457;&#29616;&#26410;&#20851;&#38381;&#30340;&#25545;&#38556;&#35760;&#24405;</div>
     <div class="warn-info">
       <div class="warn-info-row"><span class="warn-info-lbl">Typ:</span><span class="warn-info-val" id="warnTyp">&#8212;</span></div>
       <div class="warn-info-row"><span class="warn-info-lbl">Start:</span><span class="warn-info-val" id="warnStart">&#8212;</span></div>
@@ -288,7 +322,7 @@ button{cursor:pointer}
     <div class="warn-btns">
       <button class="warn-btn-close" onclick="warnZamknijIStart()">ZAMKNIJ POPRZEDNI&#260; I ZACZNIJ NOW&#260;</button>
       <button class="warn-btn-new" onclick="warnTylkoStart()">ZACZNIJ NOW&#260; BEZ ZAMYKANIA</button>
-      <button class="warn-btn-cancel" onclick="warnAnuluj()">Anuluj</button>
+      <button class="warn-btn-cancel" onclick="warnAnuluj()">Anuluj &#183; &#21462;&#28040;</button>
     </div>
   </div>
 </div>
@@ -296,91 +330,75 @@ button{cursor:pointer}
 <div class="pin-overlay" id="pinOverlay">
   <div class="pin-dialog">
     <div class="pin-dialog-title">&#9881; ADMIN</div>
-    <div class="pin-dialog-sub">PIN administratora</div>
+    <div class="pin-dialog-sub">PIN administratora &#183; &#31649;&#29702;&#21592;&#23494;&#30721;</div>
     <input class="pin-dialog-input" type="password" id="pinOverlayInput" placeholder="&#8226;&#8226;&#8226;&#8226;" maxlength="8" onkeydown="if(event.key==='Enter')pinOverlayConfirm()">
     <div class="pin-dialog-btns">
       <button class="pin-dialog-cancel" onclick="pinOverlayClose()">&#10005;</button>
-      <button class="pin-dialog-ok" onclick="pinOverlayConfirm()">WEJ&#346;</button>
+      <button class="pin-dialog-ok" onclick="pinOverlayConfirm()">WEJ&#346; &#183; &#36827;&#20837;</button>
     </div>
   </div>
 </div>
 
 <div class="admin-panel" id="adminPanel">
   <div class="admin-header">
-    <div class="admin-title">&#9881; ADMIN</div>
+    <div class="admin-title">&#9881; ADMIN &#183; &#31649;&#29702;</div>
     <button class="admin-close" onclick="closeAdmin()">&#10005; Zamknij</button>
   </div>
   <div class="admin-tabs">
-    <button class="admin-tab active" onclick="adminTab('workers')">Pracownicy</button>
-    <button class="admin-tab" onclick="adminTab('stations')">Stanowiska</button>
-    <button class="admin-tab" onclick="adminTab('webhook')">Po&#322;&#261;czenie</button>
-    <button class="admin-tab" onclick="adminTab('opcje')">Opcje</button>
+    <button class="admin-tab active" onclick="adminTab('workers')">Pracownicy &#183; &#21592;&#24037;</button>
+    <button class="admin-tab" onclick="adminTab('stations')">Stanowiska &#183; &#24037;&#20301;</button>
+    <button class="admin-tab" onclick="adminTab('webhook')">Po&#322;&#261;czenie &#183; &#36830;&#25509;</button>
+    <button class="admin-tab" onclick="adminTab('opcje')">Opcje &#183; &#36873;&#39033;</button>
   </div>
   <div class="admin-section active" id="admin-workers">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Lista pracownik&#243;w</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Lista pracownik&#243;w &#183; &#21592;&#24037;&#21015;&#34920;</div>
     <div id="workersList"></div>
-    <button class="list-add-btn" onclick="addWorker()">+ Dodaj</button>
-    <button class="list-save-btn" onclick="saveWorkers()">Zapisz</button>
+    <button class="list-add-btn" onclick="addWorker()">+ Dodaj &#183; &#28155;&#21152;</button>
+    <button class="list-save-btn" onclick="saveWorkers()">Zapisz &#183; &#20445;&#23384;</button>
   </div>
   <div class="admin-section" id="admin-stations">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">&#9679; Aktywne &nbsp; &#9675; Nieaktywne</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">&#9679; Aktywne &nbsp; &#9675; Nieaktywne &#183; Kliknij k&#243;&#322;ko aby zmieni&#263;</div>
     <div id="stationsList"></div>
-    <button class="list-add-btn" onclick="addStation()">+ Dodaj</button>
-    <button class="list-save-btn" onclick="saveStations()">Zapisz</button>
+    <button class="list-add-btn" onclick="addStation()">+ Dodaj &#183; &#28155;&#21152;</button>
+    <button class="list-save-btn" onclick="saveStations()">Zapisz &#183; &#20445;&#23384;</button>
   </div>
   <div class="admin-section" id="admin-webhook">
     <div id="webhookStatusLine" style="font-size:12px;margin-bottom:10px;"></div>
     <label style="font-size:11px;color:var(--muted);">Webhook URL</label>
     <input type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/..." style="margin-top:6px;font-size:12px;">
-    <button onclick="saveWebhook()" style="width:100%;margin-top:10px;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz i testuj</button>
+    <button onclick="saveWebhook()" style="width:100%;margin-top:10px;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz i testuj &#183; &#20445;&#23384;</button>
   </div>
   <div class="admin-section" id="admin-opcje">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Opcje formularza</div>
-
-    <!-- ===== PRODUCTION GOALS SECTION ===== -->
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Opcje formularza &#183; &#34920;&#21333;&#36873;&#39033;</div>
     <div style="padding:10px 0;border-bottom:1px solid var(--border);">
-      <div style="font-size:13px;color:var(--text);font-weight:500;margin-bottom:4px;">Cel produkcyjny</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Wpisz cel dzienny → reszta liczona automatycznie</div>
-
+      <div style="font-size:13px;color:var(--text);font-weight:500;margin-bottom:4px;">Cel produkcyjny &#183; &#29983;&#20135;&#30446;&#26631;</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Wpisz cel dzienny &#8594; reszta liczona automatycznie</div>
       <div style="margin-bottom:8px;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Cel dzienny (szt)</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Cel dzienny &#183; &#27599;&#26085;&#30446;&#26631; (szt)</div>
         <input type="number" id="celHInput" min="1" max="99999" placeholder="1000" oninput="przeliczCele()" style="font-size:22px;text-align:center;background:var(--bg);border:1.5px solid var(--blue);border-radius:8px;color:var(--text);padding:10px;">
       </div>
-
       <div style="margin-bottom:8px;">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Przerwa na zmianę (min)</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Przerwa/zmian&#281; &#183; &#27599;&#29677;&#20241;&#24687; (min)</div>
         <input type="number" id="celPrzerwaInput" min="0" max="120" placeholder="30" oninput="przeliczCele()" style="font-size:18px;text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px;">
       </div>
-
-      <!-- Auto-calculated preview -->
-      <div id="celPreview" style="background:rgba(26,110,216,0.08);border:1px solid rgba(26,110,216,0.2);border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;line-height:1.8;color:var(--text);">Uzupełnij cel dzienny</div>
-
+      <div id="celPreview" style="background:rgba(26,110,216,0.08);border:1px solid rgba(26,110,216,0.2);border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;line-height:1.8;color:var(--text);">Uzupe&#322;nij dane i zapisz</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <div style="background:var(--surface);border-radius:8px;padding:8px;text-align:center;">
-          <div style="font-size:10px;color:var(--muted);">Cel/godzinę</div>
-          <div id="celGodPreview" style="font-size:20px;font-weight:700;color:var(--blue);">&#8212;</div>
-        </div>
-        <div style="background:var(--surface);border-radius:8px;padding:8px;text-align:center;">
-          <div style="font-size:10px;color:var(--muted);">Cel/zmianę</div>
-          <div id="celZmianaPreview" style="font-size:20px;font-weight:700;color:#1A9E50;">&#8212;</div>
-        </div>
+        <div style="background:var(--surface);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:10px;color:var(--muted);">Cel/godzin&#281;</div><div id="celGodPreview" style="font-size:20px;font-weight:700;color:var(--blue);">&#8212;</div></div>
+        <div style="background:var(--surface);border-radius:8px;padding:8px;text-align:center;"><div style="font-size:10px;color:var(--muted);">Cel/zmian&#281;</div><div id="celZmianaPreview" style="font-size:20px;font-weight:700;color:#1A9E50;">&#8212;</div></div>
       </div>
-
-      <button onclick="saveCele()" style="width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:14px;font-weight:900;padding:12px;cursor:pointer;">Zapisz cele</button>
+      <input type="hidden" id="celGodInput">
+      <button onclick="saveCele()" style="width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:14px;font-weight:900;padding:12px;cursor:pointer;">Zapisz cele &#183; &#20445;&#23384;&#30446;&#26631;</button>
     </div>
-
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
-      <div><div style="font-size:13px;color:var(--text);font-weight:500;">Pow&#243;d op&#243;&#378;nienia</div><div style="font-size:11px;color:var(--muted);">Poka&#380; pole</div></div>
+      <div><div style="font-size:13px;color:var(--text);font-weight:500;">Pow&#243;d op&#243;&#378;nienia &#183; &#24310;&#36831;&#21407;&#22240;</div><div style="font-size:11px;color:var(--muted);">Poka&#380; pole</div></div>
       <label class="toggle-wrap"><input type="checkbox" id="delayToggle" onchange="toggleDelayField()"><span class="toggle-slider" id="delaySlider"><span id="delayDot" class="toggle-dot"></span></span></label>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">
-      <div><div style="font-size:13px;color:var(--text);font-weight:500;">Pow&#243;d NG</div><div style="font-size:11px;color:var(--muted);">Poka&#380; pole</div></div>
+      <div><div style="font-size:13px;color:var(--text);font-weight:500;">Pow&#243;d NG &#183; NG&#21407;&#22240;</div><div style="font-size:11px;color:var(--muted);">Poka&#380; pole</div></div>
       <label class="toggle-wrap"><input type="checkbox" id="ngReasonToggle" onchange="toggleNgReasonField()" checked><span class="toggle-slider" id="ngReasonSlider" style="background:#1A6ED8;"><span id="ngReasonDot" class="toggle-dot" style="transform:translateX(20px);background:#fff;"></span></span></label>
     </div>
-
-    <!-- ===== SHIFTS SECTION ===== -->
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-      <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px;">Zmiany robocze</div>
+      <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px;">Zmiany robocze &#183; &#24037;&#20316;&#29677;&#27425;</div>
       <div style="margin-bottom:10px;">
         <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Liczba zmian</div>
         <div style="display:flex;gap:8px;">
@@ -390,7 +408,7 @@ button{cursor:pointer}
       </div>
       <div style="margin-bottom:10px;"><div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Godziny zmian</div><div id="zmHoursGrid" style="display:flex;flex-direction:column;gap:6px;"></div></div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
-        <div><div style="font-size:13px;color:var(--text);font-weight:500;">Nadgodziny</div><div style="font-size:11px;color:var(--muted);" id="nadgSubLabel">Wy&#322;&#261;czone</div></div>
+        <div><div style="font-size:13px;color:var(--text);font-weight:500;">Nadgodziny &#183; &#21152;&#29677;</div><div style="font-size:11px;color:var(--muted);" id="nadgSubLabel">Wy&#322;&#261;czone</div></div>
         <label class="toggle-wrap"><input type="checkbox" id="nadgToggle" onchange="toggleNadgodziny()" style="opacity:0;width:0;height:0;"><span id="nadgSlider" class="toggle-slider"><span id="nadgDot" class="toggle-dot"></span></span></label>
       </div>
       <div id="nadgDetails" style="display:none;margin-top:10px;">
@@ -398,11 +416,10 @@ button{cursor:pointer}
         <div style="display:flex;gap:6px;margin-bottom:8px;" id="nadgZmianaGrid"></div>
         <div style="display:flex;gap:8px;align-items:center;"><input type="number" id="nadgHours" min="0.5" max="4" step="0.5" value="1.5" style="width:80px;font-size:18px;text-align:center;" onchange="saveZmiany()"><span style="font-size:12px;color:var(--muted);">godz.</span></div>
       </div>
-      <button onclick="saveZmiany()" style="width:100%;margin-top:12px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz zmiany</button>
+      <button onclick="saveZmiany()" style="width:100%;margin-top:12px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz zmiany &#183; &#20445;&#23384;</button>
     </div>
-
     <div style="padding-top:14px;border-top:1px solid var(--border);margin-top:14px;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmie&#324; PIN</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmie&#324; PIN &#183; &#20462;&#25913;&#23494;&#30721;</div>
       <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN: <strong id="currentPinDisplay" style="color:var(--text);">****</strong></div>
       <div class="pin-row"><input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN"><button class="pin-btn" onclick="savePin()">Zmie&#324;</button></div>
     </div>
@@ -443,7 +460,7 @@ function submitForm(){
   if(!st){showToast('Wybierz stanowisko!','err');return;}
   if(qty===''){showToast('Podaj ilość!','err');return;}
   if(ng===''){showToast('Podaj NG (0 jeśli brak)!','err');return;}
-  var btn=document.getElementById('btnSubmit');btn.disabled=true;btn.innerHTML='Wysyłanie…';
+  var btn=document.getElementById('btnSubmit');btn.disabled=true;btn.innerHTML='Wysyłanie…<span class="cn">发送中</span>';
   var wh=getWH();
   var payload={event_type:'RAPORT',operator:op,station:st,hour:hour,qty:qty,ng:ng,delay:delay,ng_reason:ngR,timestamp:new Date().toISOString()};
   var done=function(){localStorage.setItem('cfm_last_qty',qty);localStorage.setItem('cfm_last_qty_hour',hour);showSuccess(op,st,hour,qty,ng);};
@@ -451,7 +468,7 @@ function submitForm(){
   else{done();}
 }
 function showSuccess(op,st,h,qty,ng){
-  var btn=document.getElementById('btnSubmit');btn.disabled=false;btn.innerHTML='WYŚLIJ RAPORT<span class="cn">提交报告 · 发送</span>';
+  var btn=document.getElementById('btnSubmit');btn.disabled=false;btn.innerHTML='WYŚLIJ RAPORT<span class="cn">提交┥3;&#21578; · 发送</span>';
   document.getElementById('successDetails').innerHTML=st+' · '+h+'<br>'+qty+' szt · NG: '+ng+'<br>'+op;
   document.getElementById('successScreen').classList.add('open');
   setTimeout(function(){resetForm();odswiezHistorie();},3000);
@@ -465,12 +482,11 @@ function resetForm(){
 var _tt;
 function showToast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'');clearTimeout(_tt);setTimeout(function(){t.classList.add('show');},10);_tt=setTimeout(function(){t.classList.remove('show');},3000);}
 
-/* ===== AWARIA SYSTEM ===== */
 var awariaState=JSON.parse(localStorage.getItem('cfm_raport_awaria')||'null');
 var awariaTimer=null,awariaCurrentType='Awaria maszyny',_pendingAwariaStart=null,_openAwariaRaport=null;
 var awariaOpisy={'Awaria maszyny':{label:'Co się zepsuło? *',ph:'Np. silnik, pasek...'},'Oczekiwanie na lidera':{label:'Powód oczekiwania *',ph:'Np. problem jakościowy...'},'Brak materiału':{label:'Jakiego brakuje? *',ph:'Nazwa/numer materiału...'},'Szkolenie':{label:'Temat szkolenia *',ph:'Np. nowy produkt...'},'Inne':{label:'Opis przyczyny *',ph:'Opisz przyczynę...'}};
 
-function toggleAwariaPanel(){var p=document.getElementById('awariaPanel'),btn=document.getElementById('awariaToggleBtn');var o=p.classList.toggle('active');btn.classList.toggle('open',o);btn.innerHTML=o?'✕ ZAMKNIJ':'⚡ ZGŁOŚ AWARIĘ <span class="awaria-main-cn">故障登记</span>';if(o&&awariaState)updateAwariaBanner();}
+function toggleAwariaPanel(){var p=document.getElementById('awariaPanel'),btn=document.getElementById('awariaToggleBtn');var o=p.classList.toggle('active');btn.classList.toggle('open',o);btn.innerHTML=o?'✕ ZAMKNIJ · <span class="awaria-main-cn">关闭</span>':'⚡ ZGŁOŚ AWARIĘ <span class="awaria-main-cn">故障登记</span>';if(o&&awariaState)updateAwariaBanner();}
 function awariaSelectType(btn){document.querySelectorAll('.awaria-type-btn').forEach(function(b){b.classList.remove('sel');});btn.classList.add('sel');awariaCurrentType=btn.dataset.val;var db=document.getElementById('awariaDescBox');if(awariaCurrentType==='Mikroprześtój'){db.classList.remove('vis');}else{var o=awariaOpisy[awariaCurrentType];if(o){document.getElementById('awariaDescLbl').textContent=o.label;document.getElementById('awariaDescInput').placeholder=o.ph;}db.classList.add('vis');}}
 
 function awariaStart(){
@@ -487,11 +503,11 @@ function awariaStart(){
     fetch(wh+'?event_type=SPRAWDZ&stanowisko='+encodeURIComponent(station))
       .then(function(r){return r.json();})
       .then(function(data){
-        if(btnSt){btnSt.disabled=false;btnSt.textContent='▶ START AWARII';}
+        if(btnSt){btnSt.disabled=false;btnSt.textContent='▶ START AWARII · 故障开始';}
         if(data.open&&data.awaria){_openAwariaRaport=data.awaria;document.getElementById('warnTyp').textContent=data.awaria.typ;document.getElementById('warnStart').textContent=data.awaria.start;document.getElementById('warnCzas').textContent=data.awaria.diffMin+' min';document.getElementById('warnOverlay').classList.add('open');}
         else{wykonajAwariaStart(_pendingAwariaStart.station,_pendingAwariaStart.typFull);}
       })
-      .catch(function(){if(btnSt){btnSt.disabled=false;btnSt.textContent='▶ START AWARII';}wykonajAwariaStart(_pendingAwariaStart.station,_pendingAwariaStart.typFull);});
+      .catch(function(){if(btnSt){btnSt.disabled=false;btnSt.textContent='▶ START AWARII · 故障开始';}wykonajAwariaStart(_pendingAwariaStart.station,_pendingAwariaStart.typFull);});
     return;
   }
   wykonajAwariaStart(station,typFull);
@@ -519,38 +535,36 @@ function updateAwariaBanner(){
   if(!awariaState)return;document.getElementById('awariaActiveBanner').style.display='block';document.getElementById('awariaActiveType').textContent=awariaState.type+' · '+awariaState.station;
   clearInterval(awariaTimer);awariaTimer=setInterval(function(){var d=Math.floor((new Date()-new Date(awariaState.startTs))/1000),m=Math.floor(d/60),s=d%60;document.getElementById('awariaTimerDisplay').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');},1000);
 }
-if(awariaState){document.getElementById('awariaPanel').classList.add('active');document.getElementById('awariaToggleBtn').classList.add('open');document.getElementById('awariaToggleBtn').innerHTML='✕ ZAMKNIJ <span class="awaria-main-cn">关闭</span>';updateAwariaBanner();document.getElementById('awariaTypeSection').style.display='none';}
+if(awariaState){document.getElementById('awariaPanel').classList.add('active');document.getElementById('awariaToggleBtn').classList.add('open');document.getElementById('awariaToggleBtn').innerHTML='✕ ZAMKNIJ · <span class="awaria-main-cn">关闭</span>';updateAwariaBanner();document.getElementById('awariaTypeSection').style.display='none';}
 
-/* ===== HISTORY ===== */
 function odswiezHistorie(){
   var station=document.getElementById('stationSel').value,operator=document.getElementById('operatorSel').value,el=document.getElementById('historiaContent');
   if(!station||!operator){el.innerHTML='<div class="hist-loading">Wybierz stanowisko i operatora</div>';return;}
-  el.innerHTML='<div class="hist-loading">Ładowanie...</div>';
-  var wh=getWH(),cel=getCelGodzinny();
+  el.innerHTML='<div class="hist-loading">Ladowanie...</div>';
+  var wh=getWH(),cel=Number(localStorage.getItem('cfm_cel_god')||'53');
   if(!wh){renderHistoriaDane([],0,0,0,cel);return;}
   Promise.all([
     fetch(wh+'?event_type=HISTORIA&stanowisko='+encodeURIComponent(station)+'&operator='+encodeURIComponent(operator)).then(function(r){return r.json();}).catch(function(){return {status:'error'};}),
     fetch(wh+'?event_type=GP12').then(function(r){return r.json();}).catch(function(){return {gp12:0};})
   ]).then(function(res){
     var hD=res[0],gp12=res[1].gp12||0;
-    if(hD.status==='error'){el.innerHTML='<div class="hist-loading">Błąd połączenia</div>';return;}
+    if(hD.status==='error'){el.innerHTML='<div class="hist-loading">Blad polaczenia</div>';return;}
     renderHistoriaDane(hD.historia||[],hD.suma||0,hD.ng||0,gp12,cel);
   });
 }
 function renderHistoriaDane(historia,suma,ng,gp12,cel){
-  cel=cel||53;
-  var z=getZmiany();
+  cel=cel||53;var z=(typeof getZmiany==='function')?getZmiany():{liczba:2};
   var celDzien=Number(localStorage.getItem('cfm_cel_h')||'1000');
-  var celZmiana=getCelZmiana();
+  var celZmiana=Math.round(celDzien/(z.liczba||2));
   var pct=celZmiana>0?Math.round(gp12/celZmiana*100):0,brak=Math.max(0,celZmiana-gp12);
   var pc=pct>=100?'#1A9E50':pct>=80?'#D97706':'#D92B2B',bw=Math.min(100,pct);
   var h='';
-  h+='<div class="gp12-band"><div><div class="gp12-lbl">Suma zmiany GP12</div><div style="font-size:10px;color:var(--muted);">全线计数器</div></div><div class="gp12-val">'+gp12+' szt</div></div>';
-  h+='<div class="stats-grid"><div class="stat-box"><div class="stat-lbl">Moje szt.</div><div class="stat-val ok">'+suma+'</div></div><div class="stat-box"><div class="stat-lbl">Cel zmiana</div><div class="stat-val">'+celZmiana+'</div></div><div class="stat-box"><div class="stat-lbl">Brakuje (GP12)</div><div class="stat-val '+(brak===0?'ok':brak<celZmiana*0.2?'warn':'bad')+'">'+brak+'</div></div><div class="stat-box"><div class="stat-lbl">Realizacja</div><div class="stat-val '+(pct>=100?'ok':pct>=80?'warn':'bad')+'">'+pct+'%</div></div></div>';
+  h+='<div class="gp12-band"><div><div class="gp12-lbl">Suma zmiany GP12 · 班次合计</div><div style="font-size:10px;color:var(--muted);">全线计数器</div></div><div class="gp12-val">'+gp12+' szt</div></div>';
+  h+='<div class="stats-grid"><div class="stat-box"><div class="stat-lbl">Moje szt. · 我的产量</div><div class="stat-val ok">'+suma+'</div></div><div class="stat-box"><div class="stat-lbl">Cel zmiana · 班次目标</div><div class="stat-val">'+celZmiana+'</div></div><div class="stat-box"><div class="stat-lbl">Brakuje (GP12) · 差距</div><div class="stat-val '+(brak===0?'ok':brak<celZmiana*0.2?'warn':'bad')+'">'+brak+'</div></div><div class="stat-box"><div class="stat-lbl">Realizacja · 完成率</div><div class="stat-val '+(pct>=100?'ok':pct>=80?'warn':'bad')+'">'+pct+'%</div></div></div>';
   h+='<div class="progress-labels"><span>0</span><span>cel: '+celZmiana+'</span><span>'+celZmiana+'</span></div>';
   h+='<div class="progress-outer"><div class="progress-inner" style="width:'+bw+'%;background:'+pc+';"></div></div>';
   if(historia.length>0){
-    h+='<div class="hist-section-lbl">Moje godziny</div>';
+    h+='<div class="hist-section-lbl">Moje godziny · 每小时记录</div>';
     historia.forEach(function(r){
       var sh=(r.godzina||'').split(/[-\.]/)[0].trim(),p=cel>0?Math.round(r.qty/cel*100):0,bw2=Math.min(100,p);
       var bc=p>=100?'#639922':p>=80?'#97C459':p>=60?'#EF9F27':'#D92B2B',pc2=p>=80?'#27500A':p>=60?'#854F0B':'#791F1F';
@@ -561,132 +575,35 @@ function renderHistoriaDane(historia,suma,ng,gp12,cel){
   document.getElementById('historiaContent').innerHTML=h;
 }
 
-/* ===== TOGGLES ===== */
 function applyDelayVis(v){var f=document.getElementById('delayField'),cb=document.getElementById('delayToggle'),sl=document.getElementById('delaySlider'),dot=document.getElementById('delayDot');if(f)f.style.display=v?'block':'none';if(cb)cb.checked=v;if(sl)sl.style.background=v?'#1A6ED8':'#333';if(dot){dot.style.transform=v?'translateX(20px)':'translateX(0)';dot.style.background=v?'#fff':'#888';}}
 function toggleDelayField(){var v=document.getElementById('delayToggle').checked;localStorage.setItem('cfm_delay_visible',v?'1':'0');applyDelayVis(v);}
 function toggleNgReasonField(){var v=document.getElementById('ngReasonToggle').checked;localStorage.setItem('cfm_ngreason_visible',v?'1':'0');var f=document.getElementById('ngReasonField'),sl=document.getElementById('ngReasonSlider'),dot=document.getElementById('ngReasonDot');if(f)f.style.display=v?'block':'none';if(sl)sl.style.background=v?'#1A6ED8':'#333';if(dot){dot.style.transform=v?'translateX(20px)':'translateX(0)';dot.style.background=v?'#fff':'#888';}}
 function initDelayToggle(){applyDelayVis(localStorage.getItem('cfm_delay_visible')==='1');var ng=localStorage.getItem('cfm_ngreason_visible')!=='0';document.getElementById('ngReasonToggle').checked=ng;var f=document.getElementById('ngReasonField'),sl=document.getElementById('ngReasonSlider'),dot=document.getElementById('ngReasonDot');if(f)f.style.display=ng?'block':'none';if(sl)sl.style.background=ng?'#1A6ED8':'#333';if(dot){dot.style.transform=ng?'translateX(20px)':'translateX(0)';dot.style.background=ng?'#fff':'#888';}}
 
-/* ===== PRODUCTION GOALS - FIXED ===== */
-
-// Calculate shift duration in hours from time strings
-function shiftHours(od, do_){
-  var oh=parseInt(od.split(':')[0]), om=parseInt(od.split(':')[1]||'0');
-  var dh=parseInt(do_.split(':')[0]), dm=parseInt(do_.split(':')[1]||'0');
-  var diff=(dh*60+dm)-(oh*60+om);
-  if(diff<0) diff+=24*60;
-  return diff/60;
-}
-
-// Get hourly goal from saved settings
-function getCelGodzinny(){
-  return Number(localStorage.getItem('cfm_cel_god')||'53');
-}
-
-// Get per-shift goal from saved settings
-function getCelZmiana(){
-  return Number(localStorage.getItem('cfm_cel_zmiana')||'500');
-}
-
-// Core calculation - recalculates everything from inputs
 function przeliczCele(){
-  var celDzienny=Number(document.getElementById('celHInput').value)||0;
-  var przerwaMin=Number(document.getElementById('celPrzerwaInput').value)||0;
-  var z=getZmiany();
-
-  if(!celDzienny){
-    var p=document.getElementById('celPreview');
-    if(p) p.innerHTML='Uzupełnij cel dzienny';
-    var g=document.getElementById('celGodPreview'), zp=document.getElementById('celZmianaPreview');
-    if(g) g.textContent='—';
-    if(zp) zp.textContent='—';
-    return;
-  }
-
-  // Sum actual shift hours from configured shift times
-  var totalShiftH=0;
-  for(var i=0;i<z.liczba;i++){
-    var zm=z.zmiany[i]||{od:'07:00',do:'15:00'};
-    totalShiftH+=shiftHours(zm.od, zm.do);
-  }
-
-  // Add overtime if enabled
-  var overtimeH=0;
-  if(z.nadgodziny&&z.nadgHours){
-    overtimeH=Number(z.nadgHours);
-  }
-  var totalBrutto=totalShiftH+overtimeH;
-
-  // Subtract break time per shift
-  var breakTotalH=(przerwaMin/60)*z.liczba;
-  var totalNet=Math.max(0.5, totalBrutto-breakTotalH);
-
-  // Calculate goals
-  var celGodzinny=Math.ceil(celDzienny/totalNet);
-  var celZmiana=Math.round(celDzienny/z.liczba);
-
-  // Update preview
-  var p=document.getElementById('celPreview');
-  if(p){
-    var info='Zmian: <strong>'+z.liczba+'</strong>';
-    info+=' | Brutto: <strong>'+totalBrutto.toFixed(1)+'h</strong>';
-    if(breakTotalH>0) info+=' | Przerwa: <strong>'+przerwaMin+'min × '+z.liczba+' = '+breakTotalH.toFixed(1)+'h</strong>';
-    info+=' | Net: <strong>'+totalNet.toFixed(1)+'h</strong>';
-    if(overtimeH>0) info+=' | Nadgodziny: <strong>+'+overtimeH+'h</strong>';
-    p.innerHTML=info;
-  }
-
-  var g=document.getElementById('celGodPreview'), zp=document.getElementById('celZmianaPreview');
-  if(g) g.textContent=celGodzinny+' szt';
-  if(zp) zp.textContent=celZmiana+' szt';
-
-  // Store in hidden field for saveCele
-  var hi=document.getElementById('celGodInput');
-  if(hi) hi.value=celGodzinny;
+  var cd=Number(document.getElementById('celHInput').value)||0,przEl=document.getElementById('celPrzerwaInput'),prz=przEl?(Number(przEl.value)||0):0;
+  var z=(typeof getZmiany==='function')?getZmiany():{liczba:2,nadgodziny:false,nadgHours:0};
+  if(!cd){var p=document.getElementById('celPreview');if(p)p.innerHTML='Uzupełnij cel dzienny';['celGodPreview','celZmianaPreview'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='-';});return;}
+  var gm=8;if(z.zmiany&&z.zmiany.length>0){var od=parseInt((z.zmiany[0].od||'07:00').split(':')[0]),do_=parseInt((z.zmiany[0].do||'15:00').split(':')[0]);gm=do_>od?do_-od:24-od+do_;}
+  var calH=gm*(z.liczba||2);if(z.nadgodziny&&z.nadgHours)calH+=Number(z.nadgHours);
+  var netH=Math.max(0.5,calH-(prz/60)*(z.liczba||2));
+  var cg=Math.ceil(cd/netH),cz=Math.round(cd/(z.liczba||2));
+  var p=document.getElementById('celPreview');if(p)p.innerHTML='Zmian: <strong>'+(z.liczba||2)+'</strong>'+(z.nadgodziny?' + '+z.nadgHours+'h nadgodz.':'')+' | Przerwa: <strong>'+prz+' min</strong> | Net: <strong>'+netH.toFixed(1)+'h</strong>';
+  var g=document.getElementById('celGodPreview'),zp=document.getElementById('celZmianaPreview');if(g)g.textContent=cg+' szt';if(zp)zp.textContent=cz+' szt';var hi=document.getElementById('celGodInput');if(hi)hi.value=cg;
 }
-
-// Save goals to localStorage and refresh display
 function saveCele(){
-  var celDzienny=Number(document.getElementById('celHInput').value);
-  var przerwaMin=Number(document.getElementById('celPrzerwaInput').value)||0;
-
-  if(!celDzienny){showToast('Podaj cel dzienny','err');return;}
-
-  // Recalculate first
+  var cd=Number(document.getElementById('celHInput').value),przEl=document.getElementById('celPrzerwaInput'),prz=przEl?(Number(przEl.value)||0):0;
+  if(!cd){showToast('Podaj cel dzienny','err');return;}
   przeliczCele();
-
-  // Get calculated values
-  var celGodzinny=Number(document.getElementById('celGodInput').value)||Math.ceil(celDzienny/14);
-  var z=getZmiany();
-  var celZmiana=Math.round(celDzienny/z.liczba);
-
-  // Save ALL values to localStorage
-  localStorage.setItem('cfm_cel_h', String(celDzienny));
-  localStorage.setItem('cfm_cel_god', String(celGodzinny));
-  localStorage.setItem('cfm_cel_zmiana', String(celZmiana));
-  localStorage.setItem('cfm_cel_przerwa', String(przerwaMin));
-
-  showToast('Cele zapisane! '+celGodzinny+' szt/h · '+celZmiana+'/zmianę','ok');
-
-  // Immediately refresh the history card with new goals
-  odswiezHistorie();
+  var hi=document.getElementById('celGodInput'),cg=hi?(Number(hi.value)||Math.ceil(cd/14)):Math.ceil(cd/14);
+  localStorage.setItem('cfm_cel_h',String(cd));localStorage.setItem('cfm_cel_god',String(cg));localStorage.setItem('cfm_cel_przerwa',String(prz));
+  showToast('Cel zapisany: '+cg+' szt/h','ok');
 }
+function updateCelPreview(){var eh=document.getElementById('celHInput'),ep=document.getElementById('celPrzerwaInput');if(eh&&!eh.value)eh.value=localStorage.getItem('cfm_cel_h')||'1000';if(ep&&!ep.value)ep.value=localStorage.getItem('cfm_cel_przerwa')||'30';przeliczCele();}
 
-// Load saved goals into admin fields when panel opens
-function updateCelPreview(){
-  var celDzienny=localStorage.getItem('cfm_cel_h')||'1000';
-  var przerwa=localStorage.getItem('cfm_cel_przerwa')||'30';
-
-  document.getElementById('celHInput').value=celDzienny;
-  document.getElementById('celPrzerwaInput').value=przerwa;
-
-  przeliczCele();
-}
-
-/* ===== SHIFTS CONFIG ===== */
 var DZ={liczba:2,zmiany:[{nr:1,od:'07:00',do:'15:00'},{nr:2,od:'15:00',do:'23:00'},{nr:3,od:'23:00',do:'07:00'}],nadgodziny:false,nadgZmiana:2,nadgHours:1.5};
 function getZmiany(){var s=localStorage.getItem('cfm_zmiany');return s?JSON.parse(s):DZ;}
-function setZmiany(n){var z=getZmiany();z.liczba=n;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);przeliczCele();}
+function setZmiany(n){var z=getZmiany();z.liczba=n;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);}
 function renderZmianyUI(z){
   z=z||getZmiany();
   ['zmBtn2','zmBtn3'].forEach(function(id,i){var b=document.getElementById(id),act=z.liczba===(i+2);if(b){b.style.borderColor=act?'#1A6ED8':'var(--border)';b.style.color=act?'#5b9bd5':'var(--text)';}});
@@ -701,23 +618,9 @@ function renderZmianyUI(z){
   var nh2=document.getElementById('nadgHours');if(nh2)nh2.value=z.nadgHours;
 }
 function setNadgZmiana(n){var z=getZmiany();z.nadgZmiana=n;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);}
-function toggleNadgodziny(){var z=getZmiany();z.nadgodziny=document.getElementById('nadgToggle').checked;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);przeliczCele();}
-function saveZmiany(){
-  var z=getZmiany();
-  for(var i=0;i<z.liczba;i++){
-    var od=document.getElementById('zmOd'+i),do_=document.getElementById('zmDo'+i);
-    if(od)z.zmiany[i].od=od.value;
-    if(do_)z.zmiany[i].do=do_.value;
-  }
-  var nh=document.getElementById('nadgHours');if(nh)z.nadgHours=parseFloat(nh.value)||1.5;
-  localStorage.setItem('cfm_zmiany',JSON.stringify(z));
-  showToast('Zmiany zapisane!','ok');
-  renderZmianyUI(z);
-  // Recalculate goals since shift hours may have changed
-  przeliczCele();
-}
+function toggleNadgodziny(){var z=getZmiany();z.nadgodziny=document.getElementById('nadgToggle').checked;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);}
+function saveZmiany(){var z=getZmiany();for(var i=0;i<z.liczba;i++){var od=document.getElementById('zmOd'+i),do_=document.getElementById('zmDo'+i);if(od)z.zmiany[i].od=od.value;if(do_)z.zmiany[i].do=do_.value;}var nh=document.getElementById('nadgHours');if(nh)z.nadgHours=parseFloat(nh.value)||1.5;localStorage.setItem('cfm_zmiany',JSON.stringify(z));showToast('Zmiany zapisane!','ok');renderZmianyUI(z);przeliczCele();}
 
-/* ===== WORKERS & STATIONS ===== */
 var DW=['Magda Bak','Fabian Baginski','Ewa Baczynska','Karolina Ceterska','Szymon Chrzanowski','Patryk Makarewicz','Sebastian Purgat','Adam Zbikowski','Marlena Tomczyk','Marta Laskowska','Anna Juszkiewicz','Katarzyna Kotala','Sylwia Pytlik','Dorota Szpiler','Jakub Waldowski','Patryk Andreasik','Patryk Przydatek','Arkadiusz Przydatek','Przemek Purtak','Artur Wassiliew','Szymon Hubicki','Oskar Sobczak','Ewelina Kedzior','Malgorzata Dobrowolska','Karolina Koszalka','Damian Lysiak','Rafal Krupko','Ewa Kielar','Barbara Kuczko','Mateusz Kubala','Szymon Olesik','Paulina Filocha'];
 var DS=['OP50-1','OP50-2','OP52','OP53','OP60','OP61','OP70/71','OP72','OP73','OP74/80','GP12','OP30','OP33A','OP33B','OP40-1','OP40-2','OP40-3'];
 function getWorkers(){var s=localStorage.getItem('cfm_workers');return s?JSON.parse(s):DW;}
@@ -738,19 +641,16 @@ function addStation(){var s=getStations();s.push('NOWE');localStorage.setItem('c
 function delStation(i){var s=getStations();s.splice(i,1);localStorage.setItem('cfm_stations',JSON.stringify(s));renderStationsList();}
 function saveStations(){var s=getStations(),os=getStationStatus(),ns={},sv=s.map(function(x,i){var e=document.getElementById('s-'+i),n=e?e.value.trim():x;ns[n]=os[x]!==undefined?os[x]:true;return n;}).filter(Boolean);localStorage.setItem('cfm_stations',JSON.stringify(sv));localStorage.setItem('cfm_station_status',JSON.stringify(ns));showToast('Zapisano!','ok');rebuildSelects();}
 
-/* ===== WEBHOOK ===== */
 function updateWebhookStatus(){var url=getWH(),el=document.getElementById('webhookStatusLine');if(url){el.innerHTML='<span style="color:#1A9E50;">●</span> Webhook aktywny';el.style.color='#1A9E50';}else{el.innerHTML='<span style="color:#D92B2B;">●</span> Brak webhook';el.style.color='#D92B2B';}}
 function saveWebhook(){var url=document.getElementById('webhookUrlInput').value.trim();localStorage.setItem('cfm_raport_webhook',url);updateWebhookStatus();if(url)new Image().src=url+'?event_type=TEST';showToast('Webhook zapisany!','ok');}
 
-/* ===== ADMIN PANEL ===== */
 function openAdmin(){var o=document.getElementById('pinOverlay'),i=document.getElementById('pinOverlayInput');o.classList.add('open');i.value='';setTimeout(function(){i.focus();},100);}
-function pinOverlayConfirm(){var p=document.getElementById('pinOverlayInput').value,sp=localStorage.getItem('cfm_pin')||'1234';if(p!==sp){showToast('Błędny PIN!','err');document.getElementById('pinOverlayInput').value='';return;}pinOverlayClose();document.getElementById('adminPanel').classList.add('open');document.getElementById('gearBtn').classList.add('active');renderWorkersList();renderStationsList();updateWebhookStatus();var wh=getWH();if(wh)document.getElementById('webhookUrlInput').value=wh;initDelayToggle();renderZmianyUI();updateCelPreview();var d=document.getElementById('currentPinDisplay');if(d)d.textContent=localStorage.getItem('cfm_pin')||'1234';}
+function pinOverlayConfirm(){var p=document.getElementById('pinOverlayInput').value,sp=localStorage.getItem('cfm_pin')||'1234';if(p!==sp){showToast('Bledny PIN!','err');document.getElementById('pinOverlayInput').value='';return;}pinOverlayClose();document.getElementById('adminPanel').classList.add('open');document.getElementById('gearBtn').classList.add('active');renderWorkersList();renderStationsList();updateWebhookStatus();var wh=getWH();if(wh)document.getElementById('webhookUrlInput').value=wh;initDelayToggle();renderZmianyUI();updateCelPreview();var d=document.getElementById('currentPinDisplay');if(d)d.textContent=localStorage.getItem('cfm_pin')||'1234';}
 function pinOverlayClose(){document.getElementById('pinOverlay').classList.remove('open');document.getElementById('pinOverlayInput').value='';}
 function closeAdmin(){document.getElementById('adminPanel').classList.remove('open');document.getElementById('gearBtn').classList.remove('active');rebuildSelects();}
 function adminTab(tab){var tabs=['workers','stations','webhook','opcje'];document.querySelectorAll('.admin-tab').forEach(function(t,i){t.classList.toggle('active',tabs[i]===tab);});document.querySelectorAll('.admin-section').forEach(function(s){s.classList.remove('active');});document.getElementById('admin-'+tab).classList.add('active');if(tab==='opcje'){var d=document.getElementById('currentPinDisplay');if(d)d.textContent=localStorage.getItem('cfm_pin')||'1234';renderZmianyUI();updateCelPreview();}}
 function savePin(){var p=document.getElementById('newPinInput').value.trim();if(!p||p.length<4){showToast('PIN min. 4 znaki','err');return;}localStorage.setItem('cfm_pin',p);document.getElementById('newPinInput').value='';var d=document.getElementById('currentPinDisplay');if(d)d.textContent=p;showToast('PIN zmieniony!','ok');}
 
-/* ===== INIT ===== */
 window.addEventListener('load',function(){
   rebuildSelects();initDelayToggle();updateHourDisplay();setTimeout(odswiezHistorie,800);
   if(!localStorage.getItem('cfm_raport_webhook'))localStorage.setItem('cfm_raport_webhook','https://script.google.com/macros/s/AKfycbxbdmTTx4VJpd_QdvwlMKP4_EHl8IXtL3dY_vnvF5RqCh7e4Gj6dBOhBWlfcLLqhvFN/exec');

@@ -484,18 +484,19 @@ function showToast(msg,type){var t=document.getElementById('toast');t.textConten
 
 var awariaState=JSON.parse(localStorage.getItem('cfm_raport_awaria')||'null');
 var awariaTimer=null,awariaCurrentType='Awaria maszyny',_pendingAwariaStart=null,_openAwariaRaport=null;
-var awariaOpisy={'Awaria maszyny':{label:'Co się zepsuło? *',ph:'Np. silnik, pasek...'},'Oczekiwanie na lidera':{label:'Powód oczekiwania *',ph:'Np. problem jakościowy...'},'Brak materiału':{label:'Jakiego brakuje? *',ph:'Nazwa/numer materiału...'},'Szkolenie':{label:'Temat szkolenia *',ph:'Np. nowy produkt...'},'Inne':{label:'Opis przyczyny *',ph:'Opisz przyczynę...'}};
+var awariaOpisy={'Awaria maszyny':{label:'Co się zepsuło? *',ph:'Np. silnik, pasek...'},'Brak materiału':{label:'Jakiego brakuje? *',ph:'Nazwa/numer materiału...'},'Szkolenie':{label:'Temat szkolenia *',ph:'Np. nowy produkt...'},'Inne':{label:'Opis przyczyny *',ph:'Opisz przyczynę...'}};
+var NO_DESC_TYPES=['Mikroprześtój','Oczekiwanie na lidera'];
 
 function toggleAwariaPanel(){var p=document.getElementById('awariaPanel'),btn=document.getElementById('awariaToggleBtn');var o=p.classList.toggle('active');btn.classList.toggle('open',o);btn.innerHTML=o?'✕ ZAMKNIJ · <span class="awaria-main-cn">关闭</span>':'⚡ ZGŁOŚ AWARIĘ <span class="awaria-main-cn">故障登记</span>';if(o&&awariaState)updateAwariaBanner();}
-function awariaSelectType(btn){document.querySelectorAll('.awaria-type-btn').forEach(function(b){b.classList.remove('sel');});btn.classList.add('sel');awariaCurrentType=btn.dataset.val;var db=document.getElementById('awariaDescBox');if(awariaCurrentType==='Mikroprześtój'){db.classList.remove('vis');}else{var o=awariaOpisy[awariaCurrentType];if(o){document.getElementById('awariaDescLbl').textContent=o.label;document.getElementById('awariaDescInput').placeholder=o.ph;}db.classList.add('vis');}}
+function awariaSelectType(btn){document.querySelectorAll('.awaria-type-btn').forEach(function(b){b.classList.remove('sel');});btn.classList.add('sel');awariaCurrentType=btn.dataset.val;var db=document.getElementById('awariaDescBox');if(NO_DESC_TYPES.indexOf(awariaCurrentType)>=0){db.classList.remove('vis');document.getElementById('awariaDescInput').value='';}else{var o=awariaOpisy[awariaCurrentType];if(o){document.getElementById('awariaDescLbl').textContent=o.label;document.getElementById('awariaDescInput').placeholder=o.ph;}db.classList.add('vis');}}
 
 function awariaStart(){
   if(awariaState){showToast('Zamknij obecną awarię!','err');return;}
   var station=document.getElementById('stationSel').value;
   if(!station){showToast('Wybierz stanowisko!','err');return;}
   var desc=document.getElementById('awariaDescInput').value.trim();
-  if(awariaCurrentType!=='Mikroprześtój'&&!desc){showToast('Opisz przyczynę!','err');document.getElementById('awariaDescInput').focus();return;}
-  var typFull=awariaCurrentType==='Mikroprześtój'?'Mikroprześtój':awariaCurrentType+': '+desc;
+  if(NO_DESC_TYPES.indexOf(awariaCurrentType)<0&&!desc){showToast('Opisz przyczynę!','err');document.getElementById('awariaDescInput').focus();return;}
+  var typFull=NO_DESC_TYPES.indexOf(awariaCurrentType)>=0?awariaCurrentType:awariaCurrentType+': '+desc;
   _pendingAwariaStart={station:station,typFull:typFull};
   var wh=getWH(),btnSt=document.getElementById('btnAwariaStart');
   if(wh){

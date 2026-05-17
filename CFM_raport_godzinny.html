@@ -599,6 +599,7 @@ function saveCele(){
   var hi=document.getElementById('celGodInput'),cg=hi?(Number(hi.value)||Math.ceil(cd/14)):Math.ceil(cd/14);
   localStorage.setItem('cfm_cel_h',String(cd));localStorage.setItem('cfm_cel_god',String(cg));localStorage.setItem('cfm_cel_przerwa',String(prz));
   showToast('Cel zapisany: '+cg+' szt/h','ok');
+  syncUstawieniaDoPlatformy();
 }
 function updateCelPreview(){var eh=document.getElementById('celHInput'),ep=document.getElementById('celPrzerwaInput');if(eh&&!eh.value)eh.value=localStorage.getItem('cfm_cel_h')||'1000';if(ep&&!ep.value)ep.value=localStorage.getItem('cfm_cel_przerwa')||'30';przeliczCele();}
 
@@ -620,7 +621,7 @@ function renderZmianyUI(z){
 }
 function setNadgZmiana(n){var z=getZmiany();z.nadgZmiana=n;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);}
 function toggleNadgodziny(){var z=getZmiany();z.nadgodziny=document.getElementById('nadgToggle').checked;localStorage.setItem('cfm_zmiany',JSON.stringify(z));renderZmianyUI(z);}
-function saveZmiany(){var z=getZmiany();for(var i=0;i<z.liczba;i++){var od=document.getElementById('zmOd'+i),do_=document.getElementById('zmDo'+i);if(od)z.zmiany[i].od=od.value;if(do_)z.zmiany[i].do=do_.value;}var nh=document.getElementById('nadgHours');if(nh)z.nadgHours=parseFloat(nh.value)||1.5;localStorage.setItem('cfm_zmiany',JSON.stringify(z));showToast('Zmiany zapisane!','ok');renderZmianyUI(z);przeliczCele();}
+function saveZmiany(){var z=getZmiany();for(var i=0;i<z.liczba;i++){var od=document.getElementById('zmOd'+i),do_=document.getElementById('zmDo'+i);if(od)z.zmiany[i].od=od.value;if(do_)z.zmiany[i].do=do_.value;}var nh=document.getElementById('nadgHours');if(nh)z.nadgHours=parseFloat(nh.value)||1.5;localStorage.setItem('cfm_zmiany',JSON.stringify(z));showToast('Zmiany zapisane!','ok');renderZmianyUI(z);przeliczCele();syncUstawieniaDoPlatformy();}
 
 var DW=['Magda Bak','Fabian Baginski','Ewa Baczynska','Karolina Ceterska','Szymon Chrzanowski','Patryk Makarewicz','Sebastian Purgat','Adam Zbikowski','Marlena Tomczyk','Marta Laskowska','Anna Juszkiewicz','Katarzyna Kotala','Sylwia Pytlik','Dorota Szpiler','Jakub Waldowski','Patryk Andreasik','Patryk Przydatek','Arkadiusz Przydatek','Przemek Purtak','Artur Wassiliew','Szymon Hubicki','Oskar Sobczak','Ewelina Kedzior','Malgorzata Dobrowolska','Karolina Koszalka','Damian Lysiak','Rafal Krupko','Ewa Kielar','Barbara Kuczko','Mateusz Kubala','Szymon Olesik','Paulina Filocha'];
 var DS=['OP50-1','OP50-2','OP52','OP53','OP60','OP61','OP70/71','OP72','OP73','OP74/80','GP12','OP30','OP33A','OP33B','OP40-1','OP40-2','OP40-3'];
@@ -640,22 +641,29 @@ function delWorker(i){var w=getWorkers();w.splice(i,1);localStorage.setItem('cfm
 function saveWorkers(){var w=getWorkers(),sv=w.map(function(x,i){var e=document.getElementById('w-'+i);return e?e.value.trim():x;}).filter(Boolean);localStorage.setItem('cfm_workers',JSON.stringify(sv));showToast('Zapisano!','ok');rebuildSelects();}
 function addStation(){var s=getStations();s.push('NOWE');localStorage.setItem('cfm_stations',JSON.stringify(s));renderStationsList();}
 function delStation(i){var s=getStations();s.splice(i,1);localStorage.setItem('cfm_stations',JSON.stringify(s));renderStationsList();}
-function saveStations(){var s=getStations(),os=getStationStatus(),ns={},sv=s.map(function(x,i){var e=document.getElementById('s-'+i),n=e?e.value.trim():x;ns[n]=os[x]!==undefined?os[x]:true;return n;}).filter(Boolean);localStorage.setItem('cfm_stations',JSON.stringify(sv));localStorage.setItem('cfm_station_status',JSON.stringify(ns));showToast('Zapisano!','ok');rebuildSelects();}
+function saveStations(){var s=getStations(),os=getStationStatus(),ns={},sv=s.map(function(x,i){var e=document.getElementById('s-'+i),n=e?e.value.trim():x;ns[n]=os[x]!==undefined?os[x]:true;return n;}).filter(Boolean);localStorage.setItem('cfm_stations',JSON.stringify(sv));localStorage.setItem('cfm_station_status',JSON.stringify(ns));showToast('Zapisano!','ok');rebuildSelects();syncUstawieniaDoPlatformy();}
 
+function syncUstawieniaDoPlatformy() {
+  var wh = getWH(); if (!wh) return;
+  var z = (typeof getZmiany==='function') ? getZmiany() : {liczba:2,zmiany:[{od:'07:00',do:'15:00'},{od:'15:00',do:'23:00'},{od:'23:00',do:'07:00'}],nadgodziny:false,nadgZmiana:2,nadgHours:1.5};
+  var stations = getStations(), stStatus = getStationStatus();
+  var activeStations = stations.filter(function(s){return stStatus[s]!==false;}).join(',');
+  var params = {event_type:'USTAWIENIA',cel_dzien:localStorage.getItem('cfm_cel_h')||'',cel_godzina:localStorage.getItem('cfm_cel_god')||'',cel_przerwa:localStorage.getItem('cfm_cel_przerwa')||'',liczba_zmian:String(z.liczba||2),zmiana1_od:z.zmiany[0]?z.zmiany[0].od:'07:00',zmiana1_do:z.zmiany[0]?z.zmiany[0].do:'15:00',zmiana2_od:z.zmiany[1]?z.zmiany[1].od:'15:00',zmiana2_do:z.zmiany[1]?z.zmiany[1].do:'23:00',zmiana3_od:z.zmiany[2]?z.zmiany[2].od:'23:00',zmiana3_do:z.zmiany[2]?z.zmiany[2].do:'07:00',nadgodziny:String(z.nadgodziny||false),nadg_zmiana:String(z.nadgZmiana||''),nadg_hours:String(z.nadgHours||''),aktywne_stanowiska:activeStations};
+  new Image().src = wh+'?'+Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
+}
 function updateWebhookStatus(){var url=getWH(),el=document.getElementById('webhookStatusLine');if(url){el.innerHTML='<span style="color:#1A9E50;">●</span> Webhook aktywny';el.style.color='#1A9E50';}else{el.innerHTML='<span style="color:#D92B2B;">●</span> Brak webhook';el.style.color='#D92B2B';}}
 function saveWebhook(){var url=document.getElementById('webhookUrlInput').value.trim();localStorage.setItem('cfm_raport_webhook',url);updateWebhookStatus();if(url)new Image().src=url+'?event_type=TEST';showToast('Webhook zapisany!','ok');}
-
 function openAdmin(){var o=document.getElementById('pinOverlay'),i=document.getElementById('pinOverlayInput');o.classList.add('open');i.value='';setTimeout(function(){i.focus();},100);}
 function pinOverlayConfirm(){var p=document.getElementById('pinOverlayInput').value,sp=localStorage.getItem('cfm_pin')||'1234';if(p!==sp){showToast('Bledny PIN!','err');document.getElementById('pinOverlayInput').value='';return;}pinOverlayClose();document.getElementById('adminPanel').classList.add('open');document.getElementById('gearBtn').classList.add('active');renderWorkersList();renderStationsList();updateWebhookStatus();var wh=getWH();if(wh)document.getElementById('webhookUrlInput').value=wh;initDelayToggle();renderZmianyUI();updateCelPreview();var d=document.getElementById('currentPinDisplay');if(d)d.textContent=localStorage.getItem('cfm_pin')||'1234';}
 function pinOverlayClose(){document.getElementById('pinOverlay').classList.remove('open');document.getElementById('pinOverlayInput').value='';}
 function closeAdmin(){document.getElementById('adminPanel').classList.remove('open');document.getElementById('gearBtn').classList.remove('active');rebuildSelects();}
 function adminTab(tab){var tabs=['workers','stations','webhook','opcje'];document.querySelectorAll('.admin-tab').forEach(function(t,i){t.classList.toggle('active',tabs[i]===tab);});document.querySelectorAll('.admin-section').forEach(function(s){s.classList.remove('active');});document.getElementById('admin-'+tab).classList.add('active');if(tab==='opcje'){var d=document.getElementById('currentPinDisplay');if(d)d.textContent=localStorage.getItem('cfm_pin')||'1234';renderZmianyUI();updateCelPreview();}}
 function savePin(){var p=document.getElementById('newPinInput').value.trim();if(!p||p.length<4){showToast('PIN min. 4 znaki','err');return;}localStorage.setItem('cfm_pin',p);document.getElementById('newPinInput').value='';var d=document.getElementById('currentPinDisplay');if(d)d.textContent=p;showToast('PIN zmieniony!','ok');}
-
-window.addEventListener('load',function(){
-  rebuildSelects();initDelayToggle();updateHourDisplay();setTimeout(odswiezHistorie,800);
+(function init(){
+  rebuildSelects();initDelayToggle();updateHourDisplay();
+  setTimeout(odswiezHistorie,800);
   if(!localStorage.getItem('cfm_raport_webhook'))localStorage.setItem('cfm_raport_webhook','https://script.google.com/macros/s/AKfycbxbdmTTx4VJpd_QdvwlMKP4_EHl8IXtL3dY_vnvF5RqCh7e4Gj6dBOhBWlfcLLqhvFN/exec');
-});
+})();
 </script>
 <script>
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/cfm-awaria/sw.js').then(function(r){r.addEventListener('updatefound',function(){var w=r.installing;w.addEventListener('statechange',function(){if(w.state==='installed'&&navigator.serviceWorker.controller)window.location.reload();});});});var ref=false;navigator.serviceWorker.addEventListener('controllerchange',function(){if(!ref){ref=true;window.location.reload();}});}

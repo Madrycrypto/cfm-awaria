@@ -664,28 +664,39 @@ function submitStart() {
   // Sprawdź w Sheets czy jest otwarta awaria
   var wh = state.webhookUrl;
   if (wh) {
-    showToast('⏳ Sprawdzanie...', '');
+    // ZABLOKUJ przycisk START podczas sprawdzania
+    var btnStart = document.getElementById('btnStart');
+    btnStart.disabled = true;
+    btnStart.classList.add('btn-disabled');
+    btnStart.innerHTML = '⏳ SPRAWDZANIE...<span class="btn-cn">检查中，请稍候</span>';
+
     var url = wh + '?event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(state.station);
     fetch(url)
       .then(function(r) { return r.json(); })
       .then(function(data) {
+        // Odblokuj przycisk
+        btnStart.disabled = false;
+        btnStart.classList.remove('btn-disabled');
+        btnStart.innerHTML = '▶ START AWARII<span class="btn-cn">故障开始 · 立即登记</span>';
+
         if (data.open && data.awaria) {
           _openAwaria = data.awaria;
-          // Pokaż ostrzeżenie
           document.getElementById('warnTyp').textContent = data.awaria.typ;
           document.getElementById('warnStart').textContent = data.awaria.start;
           document.getElementById('warnCzas').textContent = data.awaria.diffMin + ' min';
           document.getElementById('warnOverlay').classList.add('open');
         } else {
-          // Brak otwartej awarii – startuj normalnie
           wykonajStart(_pendingStart.typFull);
         }
       })
       .catch(function() {
-        // Błąd połączenia – startuj mimo wszystko
+        // Błąd połączenia – odblokuj i startuj
+        btnStart.disabled = false;
+        btnStart.classList.remove('btn-disabled');
+        btnStart.innerHTML = '▶ START AWARII<span class="btn-cn">故障开始 · 立即登记</span>';
         wykonajStart(_pendingStart.typFull);
       });
-    return; // Czekaj na odpowiedź
+    return;
   }
 
   // Brak webhook – startuj lokalnie

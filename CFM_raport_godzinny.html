@@ -1252,10 +1252,23 @@ function awariaStart() {
   // Sprawdź czy jest otwarta awaria w Sheets
   var wh = localStorage.getItem('cfm_raport_webhook') || '';
   if (wh) {
-    showToast('⏳ Sprawdzanie...', '');
+    // Zablokuj przycisk START podczas sprawdzania
+    var btnSt = document.querySelector('.btn-awaria-start');
+    if (btnSt) {
+      btnSt.disabled = true;
+      btnSt.textContent = '⏳ Sprawdzanie... · 检查中';
+      btnSt.style.opacity = '0.6';
+    }
+
     fetch(wh + '?event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(station))
       .then(function(r) { return r.json(); })
       .then(function(data) {
+        // Odblokuj przycisk
+        if (btnSt) {
+          btnSt.disabled = false;
+          btnSt.textContent = '▶ START AWARII · 故障开始';
+          btnSt.style.opacity = '1';
+        }
         if (data.open && data.awaria) {
           _openAwariaRaport = data.awaria;
           document.getElementById('warnTyp').textContent = data.awaria.typ;
@@ -1267,6 +1280,12 @@ function awariaStart() {
         }
       })
       .catch(function() {
+        // Błąd – odblokuj i startuj
+        if (btnSt) {
+          btnSt.disabled = false;
+          btnSt.textContent = '▶ START AWARII · 故障开始';
+          btnSt.style.opacity = '1';
+        }
         wykonajAwariaStart(_pendingAwariaStart.station, _pendingAwariaStart.typFull);
       });
     return;

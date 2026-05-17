@@ -449,58 +449,6 @@ textarea { font-size:15px; font-weight:400; font-family:var(--fb); letter-spacin
 
 </div>
 
-<!-- HISTORIA STANOWISKA -->
-<div class="hist-card" id="histCard" style="display:none;">
-  <div class="hist-header">
-    <div>
-      <div class="hist-station" id="histStation">—</div>
-      <div class="hist-operator" id="histOperator">—</div>
-    </div>
-    <div class="hist-badge" id="histBadge">Zmiana I · 一班</div>
-  </div>
-  <div class="hist-gp12">
-    <div class="hist-gp12-lbl">Suma zmiany GP12 · 班次合计<br><span style="font-size:10px;">licznik całej linii · 全线计数器</span></div>
-    <div class="hist-gp12-val" id="histGP12Val">—</div>
-  </div>
-  <div class="hist-metrics">
-    <div class="hist-metric">
-      <div class="hist-metric-lbl">Moje sztuki · 我的产量</div>
-      <div class="hist-metric-val ok" id="histMojeSzt">0</div>
-    </div>
-    <div class="hist-metric">
-      <div class="hist-metric-lbl">Cel zmiana · 班次目标</div>
-      <div class="hist-metric-val" id="histCel">400</div>
-    </div>
-    <div class="hist-metric">
-      <div class="hist-metric-lbl">Brakuje (GP12) · 差距</div>
-      <div class="hist-metric-val warn" id="histBrakuje">—</div>
-    </div>
-    <div class="hist-metric">
-      <div class="hist-metric-lbl">Realizacja · 完成率</div>
-      <div class="hist-metric-val" id="histRealizacja">—</div>
-    </div>
-  </div>
-  <div class="hist-progress">
-    <div class="hist-prog-labels">
-      <span>0</span>
-      <span>cel: <span id="histCelLabel">400</span> · 目标</span>
-      <span id="histCelMax">400</span>
-    </div>
-    <div class="hist-prog-bar">
-      <div id="histProgFill" style="height:100%; border-radius:4px; background:#1A9E50; width:0%;"></div>
-    </div>
-  </div>
-  <div class="hist-divider"></div>
-  <div class="hist-lbl">Moje godziny · 我的每小时记录</div>
-  <div id="histRows"><div class="hist-loading">Ładowanie · 加载中...</div></div>
-  <div class="hist-divider"></div>
-  <div class="hist-footer">
-    <span>Cel godz. · 每小时目标: <strong id="histCelH" style="color:var(--text);">50 szt</strong></span>
-    <span>NG dziś · 今日不良: <strong id="histNG" style="color:#D92B2B;">0</strong></span>
-  </div>
-  <button class="hist-refresh" onclick="odswiezHistorie()">Odśwież · 刷新</button>
-</div>
-
 <!-- SUCCESS SCREEN -->
 <div class="success-screen" id="successScreen">
   <div class="success-icon">✓</div>
@@ -935,7 +883,7 @@ function submitForm() {
 }
 
 function showSuccess(op, st, hr, qty, ng) {
-  setTimeout(ladujHistorie, 1500);
+  setTimeout(odswiezHistorie, 1500);
   document.getElementById('successDetails').innerHTML =
     '<strong>' + op + '</strong><br>' +
     st + ' &nbsp;·&nbsp; ' + hr + '<br>' +
@@ -1174,7 +1122,7 @@ function saveCele() {
   CEL_GODZINA = celH;
   CEL_ZMIANA = celZ;
   showToast('✓ Cele zapisane · 已保存', 'ok');
-  ladujHistorie();
+  odswiezHistorie();
 }
 
 function updateCelPreview() {
@@ -1539,115 +1487,132 @@ function getCurrentZmiana() {
   return 1;
 }
 
-// ── HISTORIA STANOWISKA ─────────────────────────────────────
-var CEL_GODZINA = 50;    // szt/h – ustawiane z admina
-var CEL_ZMIANA  = 400;   // szt/zmianę – ustawiane z admina
+// ── USTAWIENIA ZMIAN ────────────────────────────────────────
+var defaultZmiany = {
+  liczba: 2,
+  zmiany: [
+    {nr:1, od:'07:00', do:'15:00', label:'Zmiana I · 一班'},
+    {nr:2, od:'15:00', do:'23:00', label:'Zmiana II · 二班'},
+    {nr:3, od:'23:00', do:'07:00', label:'Zmiana III · 三班'}
+  ],
+  nadgodziny: false,
+  nadgZmiana: 2,
+  nadgHours: 1.5
+};
 
-function getZmianaNazwa() {
-  var h = new Date().getHours();
-  if (h >= 7 && h < 15) return 'Zmiana I · 一班';
-  if (h >= 15 && h < 23) return 'Zmiana II · 二班';
-  return 'Zmiana III · 三班';
+function getZmiany() {
+  var s = localStorage.getItem('cfm_zmiany');
+  return s ? JSON.parse(s) : defaultZmiany;
 }
 
-function ladujHistorie() {
-  var station  = localStorage.getItem('cfm_station') || '';
-  var operator = localStorage.getItem('cfm_operator') || '';
-  var wh = localStorage.getItem('cfm_raport_webhook') || '';
-
-  if (!station || !wh) return;
-
-  // Pokaż kartę
-  var card = document.getElementById('histCard');
-  card.style.display = 'block';
-  document.getElementById('histStation').textContent = station;
-  document.getElementById('histOperator').textContent = operator || '—';
-  document.getElementById('histBadge').textContent = getZmianaNazwa();
-  document.getElementById('histRows').innerHTML = '<div class="hist-loading">Ładowanie · 加载中...</div>';
-
-  // Pobierz cel z ustawień admina
-  CEL_GODZINA = Number(localStorage.getItem('cfm_cel_h') || 50);
-  CEL_ZMIANA  = Number(localStorage.getItem('cfm_cel_zmiana') || 400);
-  document.getElementById('histCel').textContent = CEL_ZMIANA;
-  document.getElementById('histCelLabel').textContent = CEL_ZMIANA;
-  document.getElementById('histCelMax').textContent = CEL_ZMIANA;
-  document.getElementById('histCelH').textContent = CEL_GODZINA + ' szt';
-
-  // Pobierz historię stanowiska
-  var urlH = wh + '?event_type=HISTORIA&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator);
-  // Pobierz GP12
-  var urlG = wh + '?event_type=GP12';
-
-  Promise.all([
-    fetch(urlH).then(function(r){ return r.json(); }).catch(function(){ return {status:'error'}; }),
-    fetch(urlG).then(function(r){ return r.json(); }).catch(function(){ return {suma_gp12:0}; })
-  ]).then(function(results) {
-    renderHistoria(results[0], results[1]);
-  });
+function setZmiany(n) {
+  var z = getZmiany();
+  z.liczba = n;
+  localStorage.setItem('cfm_zmiany', JSON.stringify(z));
+  renderZmianyUI(z);
 }
 
-function renderHistoria(data, gp12data) {
-  var cel = CEL_ZMIANA;
-  var celH = CEL_GODZINA;
+function renderZmianyUI(z) {
+  z = z || getZmiany();
+  // Podświetl aktywny przycisk
+  document.getElementById('zmBtn2').style.borderColor = z.liczba === 2 ? '#1A6ED8' : 'var(--border)';
+  document.getElementById('zmBtn2').style.color = z.liczba === 2 ? '#5b9bd5' : 'var(--text)';
+  document.getElementById('zmBtn3').style.borderColor = z.liczba === 3 ? '#1A6ED8' : 'var(--border)';
+  document.getElementById('zmBtn3').style.color = z.liczba === 3 ? '#5b9bd5' : 'var(--text)';
 
-  // GP12
-  var sumaGP12 = gp12data.suma_gp12 || 0;
-  document.getElementById('histGP12Val').textContent = sumaGP12 + ' szt';
-
-  var brakuje = Math.max(0, cel - sumaGP12);
-  var pct = Math.min(100, Math.round(sumaGP12 / cel * 100));
-
-  document.getElementById('histBrakuje').textContent = brakuje > 0 ? brakuje : '0 ✓';
-  document.getElementById('histBrakuje').className = 'hist-metric-val ' + (brakuje === 0 ? 'ok' : brakuje < 50 ? 'warn' : 'bad');
-
-  var realPct = pct + '%';
-  document.getElementById('histRealizacja').textContent = realPct;
-  document.getElementById('histRealizacja').className = 'hist-metric-val ' + (pct >= 95 ? 'ok' : pct >= 70 ? 'warn' : 'bad');
-  document.getElementById('histProgFill').style.width = pct + '%';
-  document.getElementById('histProgFill').style.background = pct >= 95 ? '#1A9E50' : pct >= 70 ? '#D97706' : '#D92B2B';
-
-  // Historia stanowiska
-  if (!data || data.status === 'error' || !data.historia) {
-    document.getElementById('histRows').innerHTML = '<div class="hist-loading">Brak danych · 无数据</div>';
-    return;
-  }
-
-  var historia = data.historia;
-  var mojeSuma = data.suma || 0;
-  var sumaNG = 0;
-  historia.forEach(function(r){ sumaNG += (r.ng || 0); });
-
-  document.getElementById('histMojeSzt').textContent = mojeSuma;
-  document.getElementById('histMojeSzt').className = 'hist-metric-val ' + (mojeSuma >= cel ? 'ok' : mojeSuma >= cel * 0.7 ? 'warn' : 'bad');
-  document.getElementById('histNG').textContent = sumaNG;
-
-  if (historia.length === 0) {
-    document.getElementById('histRows').innerHTML = '<div class="hist-loading">Brak wpisów dziś · 今日无记录</div>';
-    return;
-  }
-
+  // Renderuj pola godzin zmian
+  var grid = document.getElementById('zmHoursGrid');
+  if (!grid) return;
   var html = '';
-  historia.forEach(function(row) {
-    var q = row.qty || 0;
-    var barPct = Math.min(100, Math.round(q / celH * 100));
-    var barColor = barPct >= 95 ? '#639922' : barPct >= 70 ? '#EF9F27' : '#D92B2B';
-    var pctColor = barPct >= 95 ? '#3B6D11' : barPct >= 70 ? '#BA7517' : '#A32D2D';
-    html += '<div class="hist-row">' +
-      '<div class="hist-hour">' + row.godzina + '</div>' +
-      '<div class="hist-bar-wrap"><div class="hist-bar" style="width:' + barPct + '%;background:' + barColor + ';"></div></div>' +
-      '<div class="hist-qty">' + q + '</div>' +
-      '<div class="hist-pct" style="color:' + pctColor + ';">' + barPct + '%</div>' +
-    '</div>';
-  });
-  document.getElementById('histRows').innerHTML = html;
+  for (var i = 0; i < z.liczba; i++) {
+    var zm = z.zmiany[i];
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    html += '<span style="font-size:12px;color:var(--muted);width:70px;">Zmiana ' + zm.nr + '</span>';
+    html += '<input type="time" id="zmOd' + i + '" value="' + zm.od + '" style="flex:1;font-size:14px;padding:6px;">';
+    html += '<span style="font-size:11px;color:var(--muted);">→</span>';
+    html += '<input type="time" id="zmDo' + i + '" value="' + zm.do + '" style="flex:1;font-size:14px;padding:6px;">';
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+
+  // Nadgodziny toggle
+  var nadg = z.nadgodziny;
+  var cb = document.getElementById('nadgToggle');
+  if (cb) cb.checked = nadg;
+  var sl = document.getElementById('nadgSlider');
+  var dot = document.getElementById('nadgDot');
+  if (sl) sl.style.background = nadg ? '#1A6ED8' : '#333';
+  if (dot) { dot.style.transform = nadg ? 'translateX(20px)' : 'translateX(0)'; dot.style.background = nadg ? '#fff' : '#888'; }
+  var det = document.getElementById('nadgDetails');
+  if (det) det.style.display = nadg ? 'block' : 'none';
+  var sub = document.getElementById('nadgSubLabel');
+  if (sub) sub.textContent = nadg ? ('+' + z.nadgHours + 'h na zmianie ' + z.nadgZmiana + ' · 加班' + z.nadgHours + '小时') : 'Wyłączone · 已关闭';
+
+  // Przyciski wyboru zmiany nadgodzin
+  var ngGrid = document.getElementById('nadgZmianaGrid');
+  if (ngGrid) {
+    var ngHtml = '';
+    for (var j = 0; j < z.liczba; j++) {
+      var active = z.nadgZmiana === (j+1);
+      ngHtml += '<button onclick="setNadgZmiana(' + (j+1) + ')" style="flex:1;padding:7px;border-radius:8px;border:1.5px solid ' + (active ? '#1A6ED8' : 'var(--border)') + ';background:var(--bg);color:' + (active ? '#5b9bd5' : 'var(--muted)') + ';font-family:var(--fh);font-size:13px;font-weight:700;cursor:pointer;">Zmiana ' + (j+1) + '</button>';
+    }
+    ngGrid.innerHTML = ngHtml;
+  }
+
+  // Godziny nadgodzin
+  var nhInput = document.getElementById('nadgHours');
+  if (nhInput) nhInput.value = z.nadgHours;
 }
 
-function odswiezHistorie() {
-  ladujHistorie();
-  showToast('✓ Odświeżono · 已刷新', 'ok');
+function setNadgZmiana(nr) {
+  var z = getZmiany();
+  z.nadgZmiana = nr;
+  localStorage.setItem('cfm_zmiany', JSON.stringify(z));
+  renderZmianyUI(z);
 }
 
-// Przy starcie - przebuduj listy z localStorage
+function toggleNadgodziny() {
+  var z = getZmiany();
+  z.nadgodziny = document.getElementById('nadgToggle').checked;
+  localStorage.setItem('cfm_zmiany', JSON.stringify(z));
+  renderZmianyUI(z);
+}
+
+function saveZmiany() {
+  var z = getZmiany();
+  for (var i = 0; i < z.liczba; i++) {
+    var od = document.getElementById('zmOd' + i);
+    var do_ = document.getElementById('zmDo' + i);
+    if (od) z.zmiany[i].od = od.value;
+    if (do_) z.zmiany[i].do = do_.value;
+  }
+  var nh = document.getElementById('nadgHours');
+  if (nh) z.nadgHours = parseFloat(nh.value) || 1.5;
+  localStorage.setItem('cfm_zmiany', JSON.stringify(z));
+  // Przelicz cel zmiany na podstawie godzin
+  var zm = z.zmiany[0];
+  var odH = parseInt((zm.od || '07:00').split(':')[0]);
+  var doH = parseInt((zm.do || '15:00').split(':')[0]);
+  var h = doH > odH ? doH - odH : 24 - odH + doH;
+  if (z.nadgodziny && z.nadgZmiana === 1) h += z.nadgHours;
+  var celH = Number(localStorage.getItem('cfm_cel_h') || '50');
+  localStorage.setItem('cfm_cel_zmiana', String(Math.round(celH * h)));
+  showToast('✓ Zmiany zapisane · 班次已保存', 'ok');
+  renderZmianyUI(z);
+}
+
+function getCurrentZmiana() {
+  var z = getZmiany();
+  var h = new Date().getHours();
+  for (var i = 0; i < z.liczba; i++) {
+    var od = parseInt((z.zmiany[i].od || '00:00').split(':')[0]);
+    var do_ = parseInt((z.zmiany[i].do || '00:00').split(':')[0]);
+    if (do_ > od) { if (h >= od && h < do_) return i+1; }
+    else { if (h >= od || h < do_) return i+1; }
+  }
+  return 1;
+}
+
 // ── HISTORIA STANOWISKA ─────────────────────────────────────
 var HISTORIA_CEL_H = 50; // cel na godzinę – nadpisywany z admin settings
 
@@ -1755,7 +1720,7 @@ window.addEventListener('load', function() {
   rebuildSelects();
   initDelayToggle();
   setTimeout(odswiezHistorie, 800);
-  setTimeout(ladujHistorie, 800);
+  setTimeout(odswiezHistorie, 800);
   // Jeśli webhook nie ustawiony - ustaw domyślny
   if (!localStorage.getItem('cfm_raport_webhook')) {
     localStorage.setItem('cfm_raport_webhook', 'https://script.google.com/macros/s/AKfycbxbdmTTx4VJpd_QdvwlMKP4_EHl8IXtL3dY_vnvF5RqCh7e4Gj6dBOhBWlfcLLqhvFN/exec');

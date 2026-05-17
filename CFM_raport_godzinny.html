@@ -15,7 +15,7 @@
   --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:16px}
-input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:16px;padding:12px 14px;width:100%;outline:none;-webkit-appearance:none;appearance:none}
+input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:15px;padding:10px 12px;width:100%;outline:none;-webkit-appearance:none;appearance:none}
 input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23666' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
 select option{background:#161616}
@@ -49,12 +49,12 @@ button{cursor:pointer;font-family:var(--fh)}
 
 /* COUNTERS */
 .counter-row{display:flex;align-items:center;gap:8px}
-.counter-btn{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:28px;font-weight:300;width:54px;height:54px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.1s}
+.counter-btn{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:20px;font-weight:300;width:42px;height:42px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.1s}
 .counter-btn:active{background:#222;transform:scale(0.94)}
-.counter-input{flex:1;font-size:32px;font-weight:700;text-align:center;height:54px;padding:0;border-radius:10px}
+.counter-input{flex:1;font-size:22px;font-weight:700;text-align:center;height:42px;padding:0;border-radius:10px}
 
 /* SUBMIT */
-.btn-submit{width:100%;background:var(--blue);color:#fff;border:none;border-radius:12px;font-family:var(--fh);font-size:28px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;padding:20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:8px;transition:all 0.15s}
+.btn-submit{width:100%;background:var(--blue);color:#fff;border:none;border-radius:12px;font-family:var(--fh);font-size:22px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;padding:13px 20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;margin-top:8px;transition:all 0.15s}
 .btn-submit:active{transform:scale(0.98);background:var(--blue-dk)}
 .btn-submit:disabled{opacity:0.4;pointer-events:none}
 .btn-submit .cn{font-family:var(--fb);font-size:13px;font-weight:400;opacity:0.75;letter-spacing:0.03em;text-transform:none}
@@ -158,7 +158,7 @@ button{cursor:pointer;font-family:var(--fh)}
 .admin-title{font-family:var(--fh);font-size:26px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase}
 .admin-close{background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:16px;padding:5px 14px;cursor:pointer;font-family:var(--fb)}
 .admin-tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
-.admin-tab{flex:1;min-width:70px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:var(--fh);font-size:12px;font-weight:700;letter-spacing:0.05em;padding:9px 4px;cursor:pointer;text-align:center;text-transform:uppercase}
+.admin-tab{flex:1;min-width:60px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:0.03em;padding:7px 4px;cursor:pointer;text-align:center;text-transform:uppercase}
 .admin-tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .admin-section{display:none}
 .admin-section.active{display:block}
@@ -484,8 +484,8 @@ function showToast(msg,type){var t=document.getElementById('toast');t.textConten
 
 var awariaState=JSON.parse(localStorage.getItem('cfm_raport_awaria')||'null');
 var awariaTimer=null,awariaCurrentType='Awaria maszyny',_pendingAwariaStart=null,_openAwariaRaport=null;
-var awariaOpisy={'Awaria maszyny':{label:'Co się zepsuło? *',ph:'Np. silnik, pasek...'},'Brak materiału':{label:'Jakiego brakuje? *',ph:'Nazwa/numer materiału...'},'Szkolenie':{label:'Temat szkolenia *',ph:'Np. nowy produkt...'},'Inne':{label:'Opis przyczyny *',ph:'Opisz przyczynę...'}};
 var NO_DESC_TYPES=['Mikroprześtój','Oczekiwanie na lidera'];
+var awariaOpisy={'Awaria maszyny':{label:'Co się zepsuło? *',ph:'Np. silnik, pasek...'},'Brak materiału':{label:'Jakiego brakuje? *',ph:'Nazwa/numer materiału...'},'Szkolenie':{label:'Temat szkolenia *',ph:'Np. nowy produkt...'},'Inne':{label:'Opis przyczyny *',ph:'Opisz przyczynę...'}};
 
 function toggleAwariaPanel(){var p=document.getElementById('awariaPanel'),btn=document.getElementById('awariaToggleBtn');var o=p.classList.toggle('active');btn.classList.toggle('open',o);btn.innerHTML=o?'✕ ZAMKNIJ · <span class="awaria-main-cn">关闭</span>':'⚡ ZGŁOŚ AWARIĘ <span class="awaria-main-cn">故障登记</span>';if(o&&awariaState)updateAwariaBanner();}
 function awariaSelectType(btn){document.querySelectorAll('.awaria-type-btn').forEach(function(b){b.classList.remove('sel');});btn.classList.add('sel');awariaCurrentType=btn.dataset.val;var db=document.getElementById('awariaDescBox');if(NO_DESC_TYPES.indexOf(awariaCurrentType)>=0){db.classList.remove('vis');document.getElementById('awariaDescInput').value='';}else{var o=awariaOpisy[awariaCurrentType];if(o){document.getElementById('awariaDescLbl').textContent=o.label;document.getElementById('awariaDescInput').placeholder=o.ph;}db.classList.add('vis');}}

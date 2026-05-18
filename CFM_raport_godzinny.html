@@ -727,13 +727,15 @@ function pobierzUstawieniaZArkusza() {
       // Zmiany
       if (u.liczba_zmian || u.zmiana1_od) {
         var z = (typeof getZmiany==='function') ? getZmiany() : {liczba:2,zmiany:[{od:'07:00',do:'15:00'},{od:'15:00',do:'23:00'},{od:'23:00',do:'07:00'}],nadgodziny:false,nadgZmiana:2,nadgHours:1.5};
+        // Funkcja czyszcząca apostrof dodany przez webhook
+        var clean = function(v) { return v ? v.replace(/^'+/, '').trim() : v; };
         if (u.liczba_zmian) z.liczba = Number(u.liczba_zmian);
-        if (u.zmiana1_od)   z.zmiany[0].od = u.zmiana1_od;
-        if (u.zmiana1_do)   z.zmiany[0].do = u.zmiana1_do;
-        if (u.zmiana2_od)   z.zmiany[1].od = u.zmiana2_od;
-        if (u.zmiana2_do)   z.zmiany[1].do = u.zmiana2_do;
-        if (u.zmiana3_od)   z.zmiany[2].od = u.zmiana3_od;
-        if (u.zmiana3_do)   z.zmiany[2].do = u.zmiana3_do;
+        if (u.zmiana1_od)   z.zmiany[0].od = clean(u.zmiana1_od);
+        if (u.zmiana1_do)   z.zmiany[0].do = clean(u.zmiana1_do);
+        if (u.zmiana2_od)   z.zmiany[1].od = clean(u.zmiana2_od);
+        if (u.zmiana2_do)   z.zmiany[1].do = clean(u.zmiana2_do);
+        if (u.zmiana3_od)   z.zmiany[2].od = clean(u.zmiana3_od);
+        if (u.zmiana3_do)   z.zmiany[2].do = clean(u.zmiana3_do);
         if (u.nadgodziny)   z.nadgodziny = u.nadgodziny.toLowerCase() === 'true';
         if (u.nadg_zmiana)  z.nadgZmiana = Number(u.nadg_zmiana);
         if (u.nadg_hours)   z.nadgHours  = Number(u.nadg_hours);

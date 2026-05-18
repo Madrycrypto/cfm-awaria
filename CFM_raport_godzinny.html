@@ -6,8 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>CFM Raport · TMT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
   --bg:#0d0d0d;--surface:#161616;--border:#252525;--text:#f2f2f2;--muted:#555;
@@ -648,7 +650,28 @@ function syncUstawieniaDoPlatformy() {
   var z = (typeof getZmiany==='function') ? getZmiany() : {liczba:2,zmiany:[{od:'07:00',do:'15:00'},{od:'15:00',do:'23:00'},{od:'23:00',do:'07:00'}],nadgodziny:false,nadgZmiana:2,nadgHours:1.5};
   var stations = getStations(), stStatus = getStationStatus();
   var activeStations = stations.filter(function(s){return stStatus[s]!==false;}).join(',');
-  var params = {event_type:'USTAWIENIA',cel_dzien:localStorage.getItem('cfm_cel_h')||'',cel_godzina:localStorage.getItem('cfm_cel_god')||'',cel_przerwa:localStorage.getItem('cfm_cel_przerwa')||'',liczba_zmian:String(z.liczba||2),zmiana1_od:z.zmiany[0]?z.zmiany[0].od:'07:00',zmiana1_do:z.zmiany[0]?z.zmiany[0].do:'15:00',zmiana2_od:z.zmiany[1]?z.zmiany[1].od:'15:00',zmiana2_do:z.zmiany[1]?z.zmiany[1].do:'23:00',zmiana3_od:z.zmiany[2]?z.zmiany[2].od:'23:00',zmiana3_do:z.zmiany[2]?z.zmiany[2].do:'07:00',nadgodziny:String(z.nadgodziny||false),nadg_zmiana:String(z.nadgZmiana||''),nadg_hours:String(z.nadgHours||''),aktywne_stanowiska:activeStations};
+  var workers = getWorkers();
+  var allStations = getStations();
+  var params = {
+    event_type:'USTAWIENIA',
+    cel_dzien:localStorage.getItem('cfm_cel_h')||'',
+    cel_godzina:localStorage.getItem('cfm_cel_god')||'',
+    cel_przerwa:localStorage.getItem('cfm_cel_przerwa')||'',
+    liczba_zmian:String(z.liczba||2),
+    zmiana1_od:z.zmiany[0]?z.zmiany[0].od:'07:00',
+    zmiana1_do:z.zmiany[0]?z.zmiany[0].do:'15:00',
+    zmiana2_od:z.zmiany[1]?z.zmiany[1].od:'15:00',
+    zmiana2_do:z.zmiany[1]?z.zmiany[1].do:'23:00',
+    zmiana3_od:z.zmiany[2]?z.zmiany[2].od:'23:00',
+    zmiana3_do:z.zmiany[2]?z.zmiany[2].do:'07:00',
+    nadgodziny:String(z.nadgodziny||false),
+    nadg_zmiana:String(z.nadgZmiana||''),
+    nadg_hours:String(z.nadgHours||''),
+    aktywne_stanowiska:activeStations,
+    lista_pracownikow:workers.join('|'),
+    lista_stanowisk:allStations.join('|'),
+    status_stanowisk:JSON.stringify(getStationStatus())
+  };
   new Image().src = wh+'?'+Object.keys(params).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(params[k]);}).join('&');
 }
 function updateWebhookStatus(){var url=getWH(),el=document.getElementById('webhookStatusLine');if(url){el.innerHTML='<span style="color:#1A9E50;">●</span> Webhook aktywny';el.style.color='#1A9E50';}else{el.innerHTML='<span style="color:#D92B2B;">●</span> Brak webhook';el.style.color='#D92B2B';}}
@@ -673,6 +696,29 @@ function pobierzUstawieniaZArkusza() {
       if (u.cel_godzina) localStorage.setItem('cfm_cel_god',     u.cel_godzina);
       if (u.cel_przerwa) localStorage.setItem('cfm_cel_przerwa', u.cel_przerwa);
 
+      // Lista pracownikow
+      if (u.lista_pracownikow && u.lista_pracownikow.length > 2) {
+        var workers = u.lista_pracownikow.split('|').filter(Boolean);
+        if (workers.length > 0) {
+          localStorage.setItem('cfm_workers', JSON.stringify(workers));
+          console.log('Pracownicy zaktualizowani: ' + workers.length + ' osob');
+        }
+      }
+
+      // Lista stanowisk i ich statusy
+      if (u.lista_stanowisk && u.lista_stanowisk.length > 2) {
+        var stations = u.lista_stanowisk.split('|').filter(Boolean);
+        if (stations.length > 0) {
+          localStorage.setItem('cfm_stations', JSON.stringify(stations));
+        }
+      }
+      if (u.status_stanowisk && u.status_stanowisk.length > 2) {
+        try {
+          var st = JSON.parse(u.status_stanowisk);
+          localStorage.setItem('cfm_station_status', JSON.stringify(st));
+        } catch(e) {}
+      }
+
       // Zmiany
       if (u.liczba_zmian || u.zmiana1_od) {
         var z = (typeof getZmiany==='function') ? getZmiany() : {liczba:2,zmiany:[{od:'07:00',do:'15:00'},{od:'15:00',do:'23:00'},{od:'23:00',do:'07:00'}],nadgodziny:false,nadgZmiana:2,nadgHours:1.5};
@@ -683,12 +729,14 @@ function pobierzUstawieniaZArkusza() {
         if (u.zmiana2_do)   z.zmiany[1].do = u.zmiana2_do;
         if (u.zmiana3_od)   z.zmiany[2].od = u.zmiana3_od;
         if (u.zmiana3_do)   z.zmiany[2].do = u.zmiana3_do;
-        if (u.nadgodziny)   z.nadgodziny = u.nadgodziny === 'true';
+        if (u.nadgodziny)   z.nadgodziny = u.nadgodziny.toLowerCase() === 'true';
         if (u.nadg_zmiana)  z.nadgZmiana = Number(u.nadg_zmiana);
         if (u.nadg_hours)   z.nadgHours  = Number(u.nadg_hours);
         localStorage.setItem('cfm_zmiany', JSON.stringify(z));
       }
 
+      // Przebuduj listy po pobraniu
+      rebuildSelects();
       console.log('Ustawienia pobrane z arkusza:', u.data_zapisu || '');
     })
     .catch(function(e) {

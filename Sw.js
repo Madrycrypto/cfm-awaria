@@ -1,14 +1,10 @@
-// CFM Service Worker v202605162146
-// Wymusza odświeżenie cache przy każdej nowej wersji
+// CFM Service Worker v202605182232
+const CACHE_NAME = 'cfm-v202605182232';
 
-const CACHE_NAME = 'cfm-cache-202605162146';
-
-// Przy instalacji – usuń stary cache
 self.addEventListener('install', function(e) {
   self.skipWaiting();
 });
 
-// Przy aktywacji – usuń wszystkie stare cache
 self.addEventListener('activate', function(e) {
   e.waitUntil(
     caches.keys().then(function(keys) {
@@ -22,18 +18,32 @@ self.addEventListener('activate', function(e) {
   );
 });
 
-// Fetch – zawsze pobieraj świeży plik z sieci, cache tylko jako backup
 self.addEventListener('fetch', function(e) {
+  var url = e.request.url;
+
+  // Przepuść Google Fonts bez cache (żeby zawsze działały)
+  if (url.includes('fonts.googleapis.com') || url.includes('fonts.gstatic.com')) {
+    e.respondWith(fetch(e.request).catch(function() {
+      return new Response('', {status: 503});
+    }));
+    return;
+  }
+
+  // Przepuść Apps Script / Google Sheets (API)
+  if (url.includes('script.google.com') || url.includes('docs.google.com')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
+  // Dla plików aplikacji: sieć najpierw, cache jako backup
   e.respondWith(
     fetch(e.request).then(function(response) {
-      // Zapisz świeżą kopię w cache
       var clone = response.clone();
       caches.open(CACHE_NAME).then(function(cache) {
         cache.put(e.request, clone);
       });
       return response;
     }).catch(function() {
-      // Brak sieci – użyj cache
       return caches.match(e.request);
     })
   );

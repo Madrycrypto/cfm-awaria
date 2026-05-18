@@ -659,10 +659,51 @@ function pinOverlayClose(){document.getElementById('pinOverlay').classList.remov
 function closeAdmin(){document.getElementById('adminPanel').classList.remove('open');document.getElementById('gearBtn').classList.remove('active');rebuildSelects();}
 function adminTab(tab){var tabs=['workers','stations','webhook','opcje'];document.querySelectorAll('.admin-tab').forEach(function(t,i){t.classList.toggle('active',tabs[i]===tab);});document.querySelectorAll('.admin-section').forEach(function(s){s.classList.remove('active');});document.getElementById('admin-'+tab).classList.add('active');if(tab==='opcje'){var d=document.getElementById('currentPinDisplay');if(d)d.textContent=localStorage.getItem('cfm_pin')||'1234';renderZmianyUI();updateCelPreview();}}
 function savePin(){var p=document.getElementById('newPinInput').value.trim();if(!p||p.length<4){showToast('PIN min. 4 znaki','err');return;}localStorage.setItem('cfm_pin',p);document.getElementById('newPinInput').value='';var d=document.getElementById('currentPinDisplay');if(d)d.textContent=p;showToast('PIN zmieniony!','ok');}
+function pobierzUstawieniaZArkusza() {
+  var wh = getWH();
+  if (!wh) return;
+  fetch(wh + '?event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok' || !data.ustawienia) return;
+      var u = data.ustawienia;
+
+      // Cel dzienny i godzinowy
+      if (u.cel_dzien)   localStorage.setItem('cfm_cel_h',       u.cel_dzien);
+      if (u.cel_godzina) localStorage.setItem('cfm_cel_god',     u.cel_godzina);
+      if (u.cel_przerwa) localStorage.setItem('cfm_cel_przerwa', u.cel_przerwa);
+
+      // Zmiany
+      if (u.liczba_zmian || u.zmiana1_od) {
+        var z = (typeof getZmiany==='function') ? getZmiany() : {liczba:2,zmiany:[{od:'07:00',do:'15:00'},{od:'15:00',do:'23:00'},{od:'23:00',do:'07:00'}],nadgodziny:false,nadgZmiana:2,nadgHours:1.5};
+        if (u.liczba_zmian) z.liczba = Number(u.liczba_zmian);
+        if (u.zmiana1_od)   z.zmiany[0].od = u.zmiana1_od;
+        if (u.zmiana1_do)   z.zmiany[0].do = u.zmiana1_do;
+        if (u.zmiana2_od)   z.zmiany[1].od = u.zmiana2_od;
+        if (u.zmiana2_do)   z.zmiany[1].do = u.zmiana2_do;
+        if (u.zmiana3_od)   z.zmiany[2].od = u.zmiana3_od;
+        if (u.zmiana3_do)   z.zmiany[2].do = u.zmiana3_do;
+        if (u.nadgodziny)   z.nadgodziny = u.nadgodziny === 'true';
+        if (u.nadg_zmiana)  z.nadgZmiana = Number(u.nadg_zmiana);
+        if (u.nadg_hours)   z.nadgHours  = Number(u.nadg_hours);
+        localStorage.setItem('cfm_zmiany', JSON.stringify(z));
+      }
+
+      console.log('Ustawienia pobrane z arkusza:', u.data_zapisu || '');
+    })
+    .catch(function(e) {
+      console.log('Brak polaczenia z arkuszem ustawien:', e);
+    });
+}
+
 (function init(){
   rebuildSelects();initDelayToggle();updateHourDisplay();
-  setTimeout(odswiezHistorie,800);
   if(!localStorage.getItem('cfm_raport_webhook'))localStorage.setItem('cfm_raport_webhook','https://script.google.com/macros/s/AKfycbxbdmTTx4VJpd_QdvwlMKP4_EHl8IXtL3dY_vnvF5RqCh7e4Gj6dBOhBWlfcLLqhvFN/exec');
+  // Pobierz ustawienia z arkusza przy starcie (synchronizacja między telefonami)
+  setTimeout(function() {
+    pobierzUstawieniaZArkusza();
+    setTimeout(odswiezHistorie, 1000);
+  }, 600);
 })();
 </script>
 <script>

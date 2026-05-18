@@ -657,18 +657,23 @@ function syncUstawieniaDoPlatformy() {
   var activeStations = stations.filter(function(s){return stStatus[s]!==false;}).join(',');
   var workers = getWorkers();
   var allStations = getStations();
+
+  // Funkcja sprawdzająca czy wartość to poprawny czas HH:MM
+  var isValidTime = function(v) { return v && /^\d{1,2}:\d{2}$/.test(String(v).trim()); };
+  var safeTime = function(v, def) { var s = String(v||'').trim(); return isValidTime(s) ? s : def; };
+
   var params = {
     event_type:'USTAWIENIA',
     cel_dzien:localStorage.getItem('cfm_cel_h')||'',
     cel_godzina:localStorage.getItem('cfm_cel_god')||'',
     cel_przerwa:localStorage.getItem('cfm_cel_przerwa')||'',
     liczba_zmian:String(z.liczba||2),
-    zmiana1_od:z.zmiany[0]?z.zmiany[0].od:'07:00',
-    zmiana1_do:z.zmiany[0]?z.zmiany[0].do:'15:00',
-    zmiana2_od:z.zmiany[1]?z.zmiany[1].od:'15:00',
-    zmiana2_do:z.zmiany[1]?z.zmiany[1].do:'23:00',
-    zmiana3_od:z.zmiany[2]?z.zmiany[2].od:'23:00',
-    zmiana3_do:z.zmiany[2]?z.zmiany[2].do:'07:00',
+    zmiana1_od:safeTime(z.zmiany[0]&&z.zmiany[0].od,'07:00'),
+    zmiana1_do:safeTime(z.zmiany[0]&&z.zmiany[0].do,'15:00'),
+    zmiana2_od:safeTime(z.zmiany[1]&&z.zmiany[1].od,'15:00'),
+    zmiana2_do:safeTime(z.zmiany[1]&&z.zmiany[1].do,'23:00'),
+    zmiana3_od:safeTime(z.zmiany[2]&&z.zmiany[2].od,'23:00'),
+    zmiana3_do:safeTime(z.zmiany[2]&&z.zmiany[2].do,'07:00'),
     nadgodziny:String(z.nadgodziny||false),
     nadg_zmiana:String(z.nadgZmiana||''),
     nadg_hours:String(z.nadgHours||''),

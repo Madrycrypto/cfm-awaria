@@ -576,7 +576,12 @@ function renderHistoriaDane(historia,suma,ng,gp12,cel){
   if(historia.length>0){
     h+='<div class="hist-section-lbl">Moje godziny · 每小时记录</div>';
     historia.forEach(function(r){
-      var sh=(r.godzina||'').split(/[-\.]/)[0].trim(),p=cel>0?Math.round(r.qty/cel*100):0,bw2=Math.min(100,p);
+      // Pokazuj koniec godziny (np. "15:00-16:00" -> "16:00")
+      var godz = r.godzina || '';
+      var parts = godz.split('-');
+      var sh = parts.length >= 2 ? parts[parts.length-1].trim().split(':')[0].trim() : godz.split(/[-\.]/)[0].trim();
+      // Obsługa "23:00-0:00" -> "0:00" -> "0"
+      var p=cel>0?Math.round(r.qty/cel*100):0,bw2=Math.min(100,p);
       var bc=p>=100?'#639922':p>=80?'#97C459':p>=60?'#EF9F27':'#D92B2B',pc2=p>=80?'#27500A':p>=60?'#854F0B':'#791F1F';
       h+='<div class="hist-row"><div class="hist-time">'+sh+'</div><div class="hist-bar-wrap"><div class="hist-bar" style="width:'+bw2+'%;background:'+bc+';"></div></div><div class="hist-qty">'+r.qty+'</div><div class="hist-pct" style="color:'+pc2+';">'+p+'%</div></div>';
     });

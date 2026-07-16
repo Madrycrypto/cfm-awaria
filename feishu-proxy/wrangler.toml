@@ -1,0 +1,7 @@
+name = "cfm-feishu-proxy"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Sekrety (NIE wpisuj tutaj) — ustaw komendami:
+#   wrangler secret put FEISHU_APP_ID
+#   wrangler secret put FEISHU_APP_SECRET

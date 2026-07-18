@@ -306,7 +306,7 @@ button{cursor:pointer;font-family:var(--fh)}
         <div class="lbl">Odzyskane z reworku &#183; &#36820;&#20462;&#22238;&#25910; <span class="req">*</span></div>
         <div class="counter-row">
           <button type="button" class="counter-btn" onclick="adjust('recoveredInput',-1)">&#8722;</button>
-          <input class="counter-input" type="number" id="recoveredInput" min="0" max="9999" placeholder="0" inputmode="numeric" oninput="updateSummary()">
+          <input class="counter-input" type="number" id="recoveredInput" min="0" max="9999" placeholder="0" value="0" inputmode="numeric" oninput="updateSummary()">
           <button type="button" class="counter-btn" onclick="adjust('recoveredInput',1)">+</button>
         </div>
       </div>
@@ -1204,9 +1204,8 @@ function showSuccess(op, st, shift, qty, ok, scrap, rework, recovered) {
 
 function resetForm() {
   document.getElementById('successScreen').classList.remove('open');
-  ['qtyInput', 'recoveredInput'].forEach(function(id) {
-    document.getElementById(id).value = '';
-  });
+  document.getElementById('qtyInput').value = '';
+  document.getElementById('recoveredInput').value = '0';
   document.getElementById('notesInput').value = '';
   renderScrapReasonsTable(); renderReworkReasonsTable();
   updateSummary();
@@ -1344,7 +1343,7 @@ function awariaWarnZamknijIStart() {
     if (feishu.proxy && feishu.sheetToken) {
       fetch(feishu.proxy.replace(/\/$/, '') + '/api/awaria', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaPendingStart.station, type: awariaOpenExisting.typ, start_timestamp: awariaOpenExisting.startIso, koniec_timestamp: now.toISOString(), czas_min: dm })
+        body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaPendingStart.station, type: awariaOpenExisting.typ, start_timestamp: awariaOpenExisting.startIso, koniec_timestamp: now.toISOString(), czas_min: dm, status: 'ZAMKNIETA' })
       }).catch(function() {});
     }
     showToast('Poprzednia awaria zamknięta: ' + dm + ' min', 'ok');
@@ -1372,7 +1371,7 @@ function awariaDoStart(station, typFull) {
   if (feishu.proxy && feishu.sheetToken) {
     fetch(feishu.proxy.replace(/\/$/, '') + '/api/awaria', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'START', station: station, type: typFull, timestamp: now.toISOString() })
+      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'START', station: station, type: typFull, start_timestamp: now.toISOString(), koniec_timestamp: '', czas_min: '', status: 'OTWARTA' })
     }).catch(function() {});
   }
 
@@ -1393,7 +1392,7 @@ function awariaSubmitEnd() {
   if (feishu.proxy && feishu.sheetToken) {
     fetch(feishu.proxy.replace(/\/$/, '') + '/api/awaria', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaActiveBreakdown.station, type: awariaActiveBreakdown.type, start_timestamp: awariaActiveBreakdown.startTs, koniec_timestamp: now.toISOString(), czas_min: dm })
+      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaActiveBreakdown.station, type: awariaActiveBreakdown.type, start_timestamp: awariaActiveBreakdown.startTs, koniec_timestamp: now.toISOString(), czas_min: dm, status: 'ZAMKNIETA' })
     }).catch(function() {});
   }
 
@@ -1810,7 +1809,27 @@ function savePin() {
 }
 
 // === INIT ===
+// Domyslna konfiguracja polaczenia — wpisana raz tutaj w kodzie, zeby kazdy
+// operator otwierajacy apke na swoim telefonie mial ja od razu, bez
+// koniecznosci wchodzenia w Panel Admina i przepisywania linkow/tokenow.
+// Ustawia sie tylko jesli dane pole jest jeszcze puste (nie nadpisuje reczej
+// zmiany zrobionej pozniej przez admina na danym urzadzeniu).
+function applyFactoryDefaults() {
+  var defaults = {
+    cfm_raport_webhook: 'https://script.google.com/macros/s/AKfycbz30IhC38_2yzHSdOFJYdMXSVTrRHU8GI-y6iIzmBRXZxfaovLojj2IvEZ_E2FFrx42/exec',
+    cfm_feishu_proxy: 'https://cfm-relay.maciejmostowski.pl',
+    cfm_feishu_sheet_token: 'vps',
+    cfm_feishu_sheet_id: 'RaportDzienny',
+  };
+  Object.keys(defaults).forEach(function(key) {
+    if (!localStorage.getItem(key) && defaults[key]) {
+      localStorage.setItem(key, defaults[key]);
+    }
+  });
+}
+
 (function init() {
+  applyFactoryDefaults();
   selectShiftFromTime();
   rebuildSelects();
   renderShiftSelector();

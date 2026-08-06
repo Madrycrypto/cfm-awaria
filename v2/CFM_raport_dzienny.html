@@ -792,23 +792,117 @@ function updateSummary() {
 }
 
 // === PRZYCZYNY SCRAP / REWORK — per stanowisko ===
-// Domyślne przyczyny dla stanowisk OP33A/OP33B (rdzenie/chłodnice) — inne
-// stanowiska startują z pustą listą, edytowalne w Panel Admina → Przyczyny.
-var DEFAULT_QUALITY_REASONS = [
+// Domyślne przyczyny wg list jakości dla poszczególnych stanowisk — OP30 nie
+// ma listy (brak reworku na tym stanowisku), pozostałe edytowalne w
+// Panel Admina → Przyczyny.
+var DEFAULT_REASONS_OP33 = [
+  '失效模式 · tryb awarii',
   '三角区 · Trójkąt',
-  '呛管 · Zgnieciona rurka',
-  '短带 · Krótki pasek',
-  '闭管 · Zamknięta rurka',
-  '花带 · Żeberko',
-  '芯体散热带倒伏 · Żeberka przygięte',
-  '侧板移位/变形 · Deformacja płyty bocznej',
-  '主板变形 · Deformacja płyty głównej',
+  '呛管 · rurka dławiąca',
+  '短带 · krótka opaska',
+  '闭管 · zamknięta rurka',
+  '花带 · wstążka',
+  '芯体散热带倒伏 · Mieszkanie rdzeniowego radiatora',
+  '侧板移位/变形 · Przemieszczenie / odkształcenie płyty bocznej',
+  '主板变形 · Odkształcenie płyty głównej',
   '芯体变形 · Deformacja rdzenia',
-  'R角 · R-kąt',
-  '调机报废 · Złom z regulacji',
-  '其他 · Inne'
+  'R角 · Kąt R',
+  '调机报废 · Złom dostosowania',
+  '其他 · inne'
 ];
-function defaultReasonsMap() { return { 'OP33A': DEFAULT_QUALITY_REASONS.slice(), 'OP33B': DEFAULT_QUALITY_REASONS.slice() }; }
+var DEFAULT_REASONS_OP40_IN = [
+  '钎焊管子磕碰 · Lutowane wybrzuszenie rury',
+  '芯体钎剂残留 · Pozostałość topnika rdzeniowego',
+  '掉带 · upuść taśmę',
+  '黑点 · czarna plama',
+  '呛管 · rurka dławiąca',
+  '卡扣不良 · Zła sprzączka',
+  '主板变形 · Odkształcenie płyty głównej',
+  '侧板移位/变形 · Przemieszczenie / odkształcenie płyty bocznej',
+  '回炉虚焊 · Wirtualne spawanie w piecu zwrotnym',
+  '花带 · wstążka',
+  '焊模印（铁丝） · Drukowanie matryc spawalniczych (drut)',
+  '三角区漏 · przeciek trójkąta',
+  '短带 · krótka opaska',
+  '闭管 · zamknięta rurka',
+  '实验 · eksperyment',
+  '其他 · inne'
+];
+var DEFAULT_REASONS_OP40_OUT = [
+  '漏光 · lekki wyciek'
+];
+var DEFAULT_REASONS_OP51_52 = [
+  '芯体表面管子磕碰 · Kolizja rury powierzchni rdzenia',
+  '呛管 · rurka dławiąca',
+  '管口磕碰 · Uderzenie dyszy',
+  '短带 · krótka opaska',
+  '扣压不良 · Słabe potrącenie',
+  '闭管 · zamknięta rurka',
+  '虚焊 · wirtualne spawanie',
+  '水室断裂 · pęknięcie komory',
+  '掉带 · upuść taśmę',
+  '花带 · wstążka',
+  '芯体散热带倒伏 · Mieszkanie rdzeniowego radiatora',
+  '扣压后管子磕碰 · Guzki do rur po wstrzymaniu',
+  '调机报废 · Złom dostosowania',
+  '气密不合格 · Niekwalifikowana szczelność',
+  '线扫不合格 · Skanowanie linii nie powiodło się',
+  '位置度不合格 · Stopień stanowiska bez kwalifikacji',
+  '其他 · inne'
+];
+var DEFAULT_REASONS_OP60_61 = [
+  '注塑件断裂 · Pęknięcie wypraski',
+  '风叶扭矩角度超标 · Zbyt duży moment łopatki',
+  '风扇罩扭矩角度超标 · Zbyt duży moment osłony wentylatora',
+  '风叶螺丝反转 · Odwrócona śruba łopatki',
+  '风扇罩螺丝反转 · Odwrócona śruba osłony',
+  '注塑件海绵条未粘牢 · Niedoklejona gąbka',
+  '平衡测试不过 · Test balansu niezaliczony',
+  '其他 · inne'
+];
+var DEFAULT_REASONS_GP12 = [
+  '挡石网断裂 · Pęknięta siatka ochronna',
+  '海绵条不粘 · Niedoklejona gąbka',
+  '芯体磕碰 · Uderzenie rdzenia',
+  '水室管口划伤 · Zarysowany króciec komory',
+  '模块总成影像不过 · Nie przeszedł kontroli wizyjnej modułu',
+  '负压检测不过 · Nie przeszedł testu podciśnienia',
+  '缺漏件检测不过 · Wykryto brak elementu',
+  '全尺寸检测不过 · Nie przeszedł kontroli wymiarowej',
+  '注塑件断裂缺料 · Pęknięcie/brak materiału wypraski',
+  '其他 · inne'
+];
+var QUALITY_REASON_DEFAULTS = {
+  'OP33A': DEFAULT_REASONS_OP33,
+  'OP33B': DEFAULT_REASONS_OP33,
+  'OP40 IN': DEFAULT_REASONS_OP40_IN,
+  'OP40 OUT': DEFAULT_REASONS_OP40_OUT,
+  'OP51/52': DEFAULT_REASONS_OP51_52,
+  'OP60/61': DEFAULT_REASONS_OP60_61,
+  'GP12': DEFAULT_REASONS_GP12
+};
+function defaultReasonsMap() {
+  var map = {};
+  Object.keys(QUALITY_REASON_DEFAULTS).forEach(function(st) { map[st] = QUALITY_REASON_DEFAULTS[st].slice(); });
+  return map;
+}
+// Telefony, ktore juz mialy zapisana liste przyczyn w localStorage, nie
+// dostana nowych/brakujacych pozycji automatycznie (klucz juz istnieje,
+// wiec defaultReasonsMap() sie nie wykona) — dogrywamy wiec brakujace
+// stanowiska/przyczyny przy kazdym starcie apki, bez ruszania recznych
+// dopisek zrobionych w Panelu Admina.
+function syncQualityReasonDefaults(storageKey) {
+  var stored = localStorage.getItem(storageKey);
+  var map = stored ? JSON.parse(stored) : {};
+  var changed = !stored;
+  Object.keys(QUALITY_REASON_DEFAULTS).forEach(function(station) {
+    if (!map[station]) { map[station] = []; changed = true; }
+    QUALITY_REASON_DEFAULTS[station].forEach(function(reason) {
+      if (map[station].indexOf(reason) < 0) { map[station].push(reason); changed = true; }
+    });
+  });
+  if (changed) localStorage.setItem(storageKey, JSON.stringify(map));
+}
 function getScrapReasonsMap() { var s = localStorage.getItem('cfm_scrap_reasons'); return s ? JSON.parse(s) : defaultReasonsMap(); }
 function getReworkReasonsMap() { var s = localStorage.getItem('cfm_rework_reasons'); return s ? JSON.parse(s) : defaultReasonsMap(); }
 function getScrapReasonsForStation(station) { return getScrapReasonsMap()[station] || []; }
@@ -1349,7 +1443,7 @@ function awariaSubmitStart() {
 function awariaWarnZamknijIStart() {
   document.getElementById('awariaWarnOverlay').classList.remove('open');
   if (awariaOpenExisting) {
-    var now = new Date(), dm = Math.round((now - new Date(awariaOpenExisting.startIso)) / 60000);
+    var now = new Date(), dm = Math.round((now - new Date(awariaOpenExisting.startIso)) / 6000) / 10;
     var wh = getWH();
     if (wh) {
       new Image().src = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaPendingStart.station) + '&typ=' + encodeURIComponent(awariaOpenExisting.typ) + '&start_timestamp=' + encodeURIComponent(awariaOpenExisting.startIso) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm;
@@ -1397,7 +1491,7 @@ function awariaDoStart(station, typFull) {
 
 function awariaSubmitEnd() {
   if (!awariaActiveBreakdown) return;
-  var now = new Date(), startDate = new Date(awariaActiveBreakdown.startTs), dm = Math.round((now - startDate) / 60000);
+  var now = new Date(), startDate = new Date(awariaActiveBreakdown.startTs), dm = Math.round((now - startDate) / 6000) / 10;
   var record = { station: awariaActiveBreakdown.station, type: awariaActiveBreakdown.type, startTs: awariaActiveBreakdown.startFormatted, endTs: awariaFormatTs(now), durationMin: dm };
 
   var wh = getWH();
@@ -1841,6 +1935,8 @@ function applyFactoryDefaults() {
       localStorage.setItem(key, defaults[key]);
     }
   });
+  syncQualityReasonDefaults('cfm_scrap_reasons');
+  syncQualityReasonDefaults('cfm_rework_reasons');
 }
 
 (function init() {

@@ -569,8 +569,8 @@ button{cursor:pointer;font-family:var(--fh)}
 
   <!-- CELE -->
   <div class="admin-section" id="admin-cele">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Cel dzienny per stanowisko &#183; &#27599;&#24037;&#20301;&#27599;&#26085;&#30446;&#26631;</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Cel/zmian&#281; liczony automatycznie: cel dzienny &#247; liczba zmian</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Cel na zmian&#281; per stanowisko &#183; &#27599;&#24037;&#20301;&#27599;&#29677;&#30446;&#26631;</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Cel/dob&#281; liczony automatycznie: cel na zmian&#281; &#215; liczba zmian</div>
     <div id="stationTargetsList"></div>
     <button class="list-save-btn" onclick="saveStationTargets()">Zapisz cele &#183; &#20445;&#23384;&#30446;&#26631;</button>
   </div>
@@ -733,10 +733,9 @@ function getStationTargets() { var s = localStorage.getItem('cfm_station_targets
 function getCelShift() {
   var station = document.getElementById('stationSel').value;
   var targets = getStationTargets();
-  var celDay = Number(targets[station] || 0);
-  var shifts = getShifts();
-  if (celDay <= 0) return 0;
-  var base = celDay / (shifts.liczba || 3);
+  var celZmiana = Number(targets[station] || 0);
+  if (celZmiana <= 0) return 0;
+  var base = celZmiana;
 
   var ot = getStationOvertime()[station];
   if (ot && ot.enabled && ot.shift === currentShift) {
@@ -744,11 +743,6 @@ function getCelShift() {
     if (normalHours > 0) base += (base / normalHours) * Number(ot.hours || 0);
   }
   return Math.round(base);
-}
-function getCelDay() {
-  var station = document.getElementById('stationSel').value;
-  var targets = getStationTargets();
-  return Number(targets[station] || 0);
 }
 
 function adjust(id, d) {
@@ -1448,13 +1442,13 @@ function awariaWarnZamknijIStart() {
     var now = new Date(), dm = Math.round((now - new Date(awariaOpenExisting.startIso)) / 6000) / 10;
     var wh = getWH();
     if (wh) {
-      new Image().src = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaPendingStart.station) + '&typ=' + encodeURIComponent(awariaOpenExisting.typ) + '&start_timestamp=' + encodeURIComponent(awariaOpenExisting.startIso) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm;
+      new Image().src = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaPendingStart.station) + '&operator=' + encodeURIComponent(awariaOpenExisting.operator || '') + '&typ=' + encodeURIComponent(awariaOpenExisting.typ) + '&start_timestamp=' + encodeURIComponent(awariaOpenExisting.startIso) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm;
     }
     var feishu = getFeishuConfig();
     if (feishu.proxy && feishu.sheetToken) {
       fetch(feishu.proxy.replace(/\/$/, '') + '/api/awaria', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaPendingStart.station, type: awariaOpenExisting.typ, start_timestamp: awariaOpenExisting.startIso, koniec_timestamp: localIsoString(now), czas_min: dm, status: 'ZAMKNIETA' })
+        body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaPendingStart.station, operator: awariaOpenExisting.operator || '', type: awariaOpenExisting.typ, start_timestamp: awariaOpenExisting.startIso, koniec_timestamp: localIsoString(now), czas_min: dm, status: 'ZAMKNIETA' })
       }).catch(function() {});
     }
     showToast('Poprzednia awaria zamknięta: ' + dm + ' min', 'ok');
@@ -1472,17 +1466,18 @@ function awariaWarnAnuluj() {
 
 function awariaDoStart(station, typFull) {
   var now = new Date();
-  awariaActiveBreakdown = { station: station, type: typFull, startTs: localIsoString(now), startFormatted: awariaFormatTs(now) };
+  var operator = document.getElementById('operatorSel').value || '';
+  awariaActiveBreakdown = { station: station, type: typFull, operator: operator, startTs: localIsoString(now), startFormatted: awariaFormatTs(now) };
   localStorage.setItem('cfm_awaria_active', JSON.stringify(awariaActiveBreakdown));
 
   var wh = getWH();
-  if (wh) { new Image().src = wh + '?event_type=START&stanowisko=' + encodeURIComponent(station) + '&typ=' + encodeURIComponent(typFull) + '&timestamp=' + encodeURIComponent(localIsoString(now)); }
+  if (wh) { new Image().src = wh + '?event_type=START&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) + '&typ=' + encodeURIComponent(typFull) + '&timestamp=' + encodeURIComponent(localIsoString(now)); }
 
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {
     fetch(feishu.proxy.replace(/\/$/, '') + '/api/awaria', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'START', station: station, type: typFull, start_timestamp: localIsoString(now), koniec_timestamp: '', czas_min: '', status: 'OTWARTA' })
+      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'START', station: station, operator: operator, type: typFull, start_timestamp: localIsoString(now), koniec_timestamp: '', czas_min: '', status: 'OTWARTA' })
     }).catch(function() {});
   }
 
@@ -1497,13 +1492,13 @@ function awariaSubmitEnd() {
   var record = { station: awariaActiveBreakdown.station, type: awariaActiveBreakdown.type, startTs: awariaActiveBreakdown.startFormatted, endTs: awariaFormatTs(now), durationMin: dm };
 
   var wh = getWH();
-  if (wh) { new Image().src = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaActiveBreakdown.station) + '&typ=' + encodeURIComponent(awariaActiveBreakdown.type) + '&start_timestamp=' + encodeURIComponent(awariaActiveBreakdown.startTs) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm; }
+  if (wh) { new Image().src = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaActiveBreakdown.station) + '&operator=' + encodeURIComponent(awariaActiveBreakdown.operator || '') + '&typ=' + encodeURIComponent(awariaActiveBreakdown.type) + '&start_timestamp=' + encodeURIComponent(awariaActiveBreakdown.startTs) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm; }
 
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {
     fetch(feishu.proxy.replace(/\/$/, '') + '/api/awaria', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaActiveBreakdown.station, type: awariaActiveBreakdown.type, start_timestamp: awariaActiveBreakdown.startTs, koniec_timestamp: localIsoString(now), czas_min: dm, status: 'ZAMKNIETA' })
+      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaActiveBreakdown.station, operator: awariaActiveBreakdown.operator || '', type: awariaActiveBreakdown.type, start_timestamp: awariaActiveBreakdown.startTs, koniec_timestamp: localIsoString(now), czas_min: dm, status: 'ZAMKNIETA' })
     }).catch(function() {});
   }
 
@@ -1709,11 +1704,11 @@ function renderStationTargetsList() {
   var shifts = getShifts();
   document.getElementById('stationTargetsList').innerHTML = stations.map(function(st, i) {
     var val = targets[st] || '';
-    var celZmiana = val ? Math.round(Number(val) / (shifts.liczba || 3)) : null;
+    var celDzien = val ? Math.round(Number(val) * (shifts.liczba || 3)) : null;
     return '<div class="list-item-row" style="align-items:center;">' +
       '<div style="flex:1;">' +
         '<div style="font-size:14px;color:var(--text);font-weight:600;">' + st + '</div>' +
-        '<div style="font-size:10px;color:var(--muted);margin-top:2px;">cel/zmianę: ' + (celZmiana !== null ? celZmiana + ' szt' : '—') + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px;">cel/dobę (' + shifts.liczba + ' zm.): ' + (celDzien !== null ? celDzien + ' szt' : '—') + '</div>' +
       '</div>' +
       '<input type="number" class="list-item-input" id="ct-' + i + '" value="' + val + '" placeholder="np. 700" min="0" style="max-width:110px;text-align:center;" oninput="previewStationTarget(' + i + ',\'' + st + '\')">' +
     '</div>';
@@ -1725,7 +1720,7 @@ function previewStationTarget(i, station) {
   var sub = row.querySelector('div > div:last-child');
   var shifts = getShifts();
   var v = Number(el.value) || 0;
-  sub.textContent = 'cel/zmianę: ' + (v > 0 ? Math.round(v / (shifts.liczba || 3)) + ' szt' : '—');
+  sub.textContent = 'cel/dobę (' + shifts.liczba + ' zm.): ' + (v > 0 ? Math.round(v * (shifts.liczba || 3)) + ' szt' : '—');
 }
 function saveStationTargets() {
   var stations = getStations();

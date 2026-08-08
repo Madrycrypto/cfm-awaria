@@ -93,10 +93,10 @@ button{cursor:pointer;font-family:var(--fh)}
 .reason-toggle-btn.compact{padding:10px 8px;font-size:11px;gap:4px;flex-wrap:wrap}
 .reason-toggle-btn.compact .count-badge{font-size:11px}
 .reason-toggle-row.three-col{grid-template-columns:1fr 1fr 1fr}
-.reason-toggle-row.three-col .reason-toggle-btn.compact{padding:8px 4px;font-size:9.5px;gap:2px;letter-spacing:0.01em}
+.reason-toggle-row.three-col .reason-toggle-btn.compact{padding:8px 4px;font-size:9.5px;gap:2px 4px;letter-spacing:0.01em}
 .reason-toggle-row.three-col .reason-toggle-btn.compact .icon{font-size:13px}
 .reason-toggle-row.three-col .reason-toggle-btn.compact .count-badge{font-size:9.5px}
-.reason-toggle-row.three-col .reason-toggle-btn.compact .cn-sub{display:none}
+.reason-toggle-row.three-col .reason-toggle-btn.compact .cn-sub{display:block;width:100%;font-size:8px;font-weight:400;letter-spacing:0;text-transform:none;opacity:0.7;margin-top:1px}
 .reason-toggle-btn .icon{font-size:16px;flex-shrink:0}
 .reason-toggle-btn .count-badge{margin-left:auto;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)}
 .reason-toggle-btn .chevron{font-size:12px;color:var(--muted);transition:transform 0.2s;flex-shrink:0}
@@ -442,18 +442,21 @@ button{cursor:pointer;font-family:var(--fh)}
 
     <div class="reason-toggle-row three-col">
       <button type="button" class="reason-toggle-btn rework compact" id="reworkBufferSectionTitle" onclick="toggleReasonSection('reworkBuffer')">
-        <span class="icon">&#128230;</span> Bufor <span class="cn-sub">&#183; &#32531;&#20914;&#21306;</span>
+        <span class="icon">&#128230;</span> Bufor
         <span class="chevron">&#9662;</span>
+        <span class="cn-sub">&#183; &#32531;&#20914;&#21306;</span>
       </button>
       <button type="button" class="reason-toggle-btn ok compact" id="reworkRecoveredSectionTitle" onclick="toggleReasonSection('reworkRecovered')">
-        <span class="icon">&#9989;</span> Odzyskane <span class="cn-sub">&#183; &#20462;&#22797;&#21512;&#26684;</span>
+        <span class="icon">&#9989;</span> Odzyskane
         <span class="count-badge" id="reworkRecoveredTotalBadge">(0)</span>
         <span class="chevron">&#9662;</span>
+        <span class="cn-sub">&#183; &#20462;&#22797;&#21512;&#26684;</span>
       </button>
       <button type="button" class="reason-toggle-btn scrap compact" id="reworkScrapSectionTitle" onclick="toggleReasonSection('reworkScrap')">
-        <span class="icon">&#10060;</span> Złom <span class="cn-sub">&#183; &#24453;&#25253;&#24223;</span>
+        <span class="icon">&#10060;</span> Złom
         <span class="count-badge" id="reworkScrapTotalBadge">(0)</span>
         <span class="chevron">&#9662;</span>
+        <span class="cn-sub">&#183; &#24453;&#25253;&#24223;</span>
       </button>
     </div>
     <div class="reason-panel-body" id="reworkBufferReasonsBody">

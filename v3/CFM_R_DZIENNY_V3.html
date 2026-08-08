@@ -15,12 +15,14 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 :root{
+  color-scheme:dark;
   --bg:#0d0d0d;--surface:#161616;--border:#252525;--text:#f2f2f2;--muted:#555;
   --blue:#1A6ED8;--blue-dk:#1558b0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
   --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:16px}
-input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:15px;padding:10px 12px;width:100%;outline:none;-webkit-appearance:none;appearance:none}
+input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:15px;padding:10px 12px;width:100%;outline:none;-webkit-appearance:none;-moz-appearance:textfield;appearance:none}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 input:focus,select:focus,textarea:focus{border-color:var(--blue)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23666' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
 select:disabled{opacity:.5}

@@ -92,6 +92,11 @@ button{cursor:pointer;font-family:var(--fh)}
 .reason-toggle-row .reason-toggle-btn{margin-bottom:0}
 .reason-toggle-btn.compact{padding:10px 8px;font-size:11px;gap:4px;flex-wrap:wrap}
 .reason-toggle-btn.compact .count-badge{font-size:11px}
+.reason-toggle-row.three-col{grid-template-columns:1fr 1fr 1fr}
+.reason-toggle-row.three-col .reason-toggle-btn.compact{padding:8px 4px;font-size:9.5px;gap:2px;letter-spacing:0.01em}
+.reason-toggle-row.three-col .reason-toggle-btn.compact .icon{font-size:13px}
+.reason-toggle-row.three-col .reason-toggle-btn.compact .count-badge{font-size:9.5px}
+.reason-toggle-row.three-col .reason-toggle-btn.compact .cn-sub{display:none}
 .reason-toggle-btn .icon{font-size:16px;flex-shrink:0}
 .reason-toggle-btn .count-badge{margin-left:auto;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)}
 .reason-toggle-btn .chevron{font-size:12px;color:var(--muted);transition:transform 0.2s;flex-shrink:0}
@@ -101,6 +106,8 @@ button{cursor:pointer;font-family:var(--fh)}
 .reason-toggle-btn.scrap.open{border-color:var(--red);background:var(--red);color:#fff}
 .reason-toggle-btn.rework{border-color:rgba(217,119,6,0.5);color:#f0a030}
 .reason-toggle-btn.rework.open{border-color:var(--orange);background:var(--orange);color:#fff}
+.reason-toggle-btn.ok{border-color:rgba(26,158,80,0.5);color:#3fd17a}
+.reason-toggle-btn.ok.open{border-color:var(--green);background:var(--green);color:#fff}
 .reason-toggle-btn.open .count-badge{color:rgba(255,255,255,0.8)}
 .reason-panel-body{display:none;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-radius:0 0 12px 12px;padding:16px;margin-bottom:16px}
 .reason-panel-body.open{display:block}
@@ -433,13 +440,18 @@ button{cursor:pointer;font-family:var(--fh)}
       </div>
     </div>
 
-    <div class="reason-toggle-row">
+    <div class="reason-toggle-row three-col">
       <button type="button" class="reason-toggle-btn rework compact" id="reworkBufferSectionTitle" onclick="toggleReasonSection('reworkBuffer')">
-        <span class="icon">&#128230;</span> Bufor &#183; &#32531;&#20914;&#21306;
+        <span class="icon">&#128230;</span> Bufor <span class="cn-sub">&#183; &#32531;&#20914;&#21306;</span>
+        <span class="chevron">&#9662;</span>
+      </button>
+      <button type="button" class="reason-toggle-btn ok compact" id="reworkRecoveredSectionTitle" onclick="toggleReasonSection('reworkRecovered')">
+        <span class="icon">&#9989;</span> Odzyskane <span class="cn-sub">&#183; &#20462;&#22797;&#21512;&#26684;</span>
+        <span class="count-badge" id="reworkRecoveredTotalBadge">(0)</span>
         <span class="chevron">&#9662;</span>
       </button>
       <button type="button" class="reason-toggle-btn scrap compact" id="reworkScrapSectionTitle" onclick="toggleReasonSection('reworkScrap')">
-        <span class="icon">&#10060;</span> Do złomowania &#183; &#24453;&#25253;&#24223;
+        <span class="icon">&#10060;</span> Złom <span class="cn-sub">&#183; &#24453;&#25253;&#24223;</span>
         <span class="count-badge" id="reworkScrapTotalBadge">(0)</span>
         <span class="chevron">&#9662;</span>
       </button>
@@ -447,6 +459,10 @@ button{cursor:pointer;font-family:var(--fh)}
     <div class="reason-panel-body" id="reworkBufferReasonsBody">
       <div class="reason-empty-hint">Tylko podgl&#261;d &#8212; &#20165;&#20379;&#26597;&#30475;</div>
       <div id="reworkBufferByReason"></div>
+    </div>
+    <div class="reason-panel-body" id="reworkRecoveredReasonsBody">
+      <div id="reworkRecoveredReasonsTable"></div>
+      <div class="reason-total">Razem odzyskane &#183; &#24635;&#20462;&#22797; <strong id="reworkRecoveredTotalLbl">0</strong> szt.</div>
     </div>
     <div class="reason-panel-body" id="reworkScrapReasonsBody">
       <div id="reworkScrapReasonsTable"></div>
@@ -1072,6 +1088,15 @@ function getScrapReasonsForZone(zoneKey) {
   });
   return union;
 }
+function getReworkReasonsForZone(zoneKey) {
+  var stations = getStationsInZone(zoneKey);
+  var map = getReworkReasonsMap();
+  var union = [];
+  stations.forEach(function(st) {
+    (map[st] || []).forEach(function(r) { if (union.indexOf(r) < 0) union.push(r); });
+  });
+  return union;
+}
 
 // Tabela zamiast listy rozwijanej: operator widzi od razu wszystkie
 // przyczyny dla wybranego stanowiska i wpisuje cyfrę tylko tam, gdzie dotyczy.
@@ -1110,7 +1135,7 @@ function adjustReasonRow(btn, delta) {
   input.value = v;
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
-var REASON_SECTION_GROUPS = [['scrap', 'rework'], ['reworkBuffer', 'reworkScrap']];
+var REASON_SECTION_GROUPS = [['scrap', 'rework'], ['reworkBuffer', 'reworkRecovered', 'reworkScrap']];
 function toggleReasonSection(which) {
   var body = document.getElementById(which + 'ReasonsBody');
   var title = document.getElementById(which + 'SectionTitle');
@@ -1181,27 +1206,22 @@ function selectReworkZone(key) {
   currentReworkZone = key;
   renderReworkZoneGrid();
   renderReasonTable('reworkScrapReasonsTable', getScrapReasonsForZone(key), 'updateReworkProcessSummary');
+  renderReasonTable('reworkRecoveredReasonsTable', getReworkReasonsForZone(key), 'updateReworkProcessSummary');
   loadReworkBuffer();
   loadReworkHistory();
 }
 
 function reworkScrapTotal() { return sumPieceQty(collectReasonTableEntries('reworkScrapReasonsTable')); }
-
-// Odzyskane nie jest juz wpisywane recznie per przyczyna — liczymy je jako
-// przetworzono minus finalny zlom, bo bufor per przyczyna sledzi tylko to,
-// co ostatecznie stalo sie trwalym odpadem (patrz rozmowa: naprawione sztuki
-// "znikaja" bez przypisanego powodu, wazny jest tylko finalny zlom per powod).
-function reworkRecoveredComputed() {
-  var processed = parseInt(document.getElementById('reworkProcessedInput').value) || 0;
-  return Math.max(0, processed - reworkScrapTotal());
-}
+function reworkRecoveredTotal() { return sumPieceQty(collectReasonTableEntries('reworkRecoveredReasonsTable')); }
 
 function updateReworkProcessSummary() {
   var card = document.getElementById('reworkBalanceCard');
   var noteField = document.getElementById('reworkNoteField');
   var finalScrapBadge = document.getElementById('reworkScrapTotalBadge');
+  var recoveredBadge = document.getElementById('reworkRecoveredTotalBadge');
   if (finalScrapBadge) finalScrapBadge.textContent = '(' + reworkScrapTotal() + ')';
-  var recovered = reworkRecoveredComputed();
+  if (recoveredBadge) recoveredBadge.textContent = '(' + reworkRecoveredTotal() + ')';
+  var recovered = reworkRecoveredTotal();
   if (!currentReworkZone) { card.style.display = 'none'; noteField.style.display = 'none'; return; }
   var finalScrap = reworkScrapTotal();
   var accounted = recovered + finalScrap;
@@ -1290,12 +1310,13 @@ function submitReworkProcessing() {
   var note = document.getElementById('reworkNoteInput').value.trim();
   var notes = document.getElementById('reworkNotesInput').value;
   var finalScrapN = reworkScrapTotal();
-  var recoveredN = reworkRecoveredComputed();
+  var recoveredN = reworkRecoveredTotal();
   var recovered = String(recoveredN);
 
   if (processed === '') { showToast('Podaj ile przetworzono! · 请输入处理数量!', 'err'); return; }
 
   var reworkScrapEntries = collectReasonTableEntries('reworkScrapReasonsTable');
+  var reworkRecoveredEntries = collectReasonTableEntries('reworkRecoveredReasonsTable');
   var accounted = recoveredN + finalScrapN;
   if (accounted > currentReworkBuffer && !note) {
     showToast('Przekroczono bufor — podaj uzasadnienie! · 超出缓冲区数量 — 请填写说明!', 'err');
@@ -1320,6 +1341,7 @@ function submitReworkProcessing() {
     note: note,
     notes: notes,
     reasons_json: JSON.stringify(reworkScrapEntries),
+    recovered_reasons_json: JSON.stringify(reworkRecoveredEntries),
     timestamp: localIsoString(now)
   };
 
@@ -1334,7 +1356,7 @@ function submitReworkProcessing() {
   if (feishu.proxy && feishu.sheetToken) {
     fetch(feishu.proxy.replace(/\/$/, '') + '/api/rework-processing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet_token: feishu.sheetToken, data: payload, final_scrap_entries: reworkScrapEntries })
+      body: JSON.stringify({ sheet_token: feishu.sheetToken, data: payload, final_scrap_entries: reworkScrapEntries, recovered_entries: reworkRecoveredEntries })
     }).catch(function() {});
     sent = true;
   }
@@ -1362,6 +1384,7 @@ function resetReworkForm() {
   document.getElementById('reworkNotesInput').value = '';
   if (currentReworkZone) {
     renderReasonTable('reworkScrapReasonsTable', getScrapReasonsForZone(currentReworkZone), 'updateReworkProcessSummary');
+    renderReasonTable('reworkRecoveredReasonsTable', getReworkReasonsForZone(currentReworkZone), 'updateReworkProcessSummary');
   }
   updateReworkProcessSummary();
 }

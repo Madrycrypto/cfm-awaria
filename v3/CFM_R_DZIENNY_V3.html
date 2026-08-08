@@ -18,6 +18,7 @@
   color-scheme:dark;
   --bg:#0d0d0d;--surface:#161616;--border:#252525;--text:#f2f2f2;--muted:#555;
   --blue:#1A6ED8;--blue-dk:#1558b0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
+  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;
   --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:16px}
@@ -50,7 +51,16 @@ button{cursor:pointer;font-family:var(--fh)}
 .shift-selector{display:flex;gap:8px;margin-bottom:10px}
 .shift-btn{flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;color:var(--muted);font-family:var(--fh);font-size:16px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;padding:9px;text-align:center;transition:all 0.15s}
 .shift-btn.sel{border-color:var(--blue);background:rgba(26,110,216,0.12);color:var(--blue)}
+.shift-btn.sel[data-shift="A"]{border-color:var(--shift-a);background:rgba(90,169,255,0.14);color:var(--shift-a)}
+.shift-btn.sel[data-shift="B"]{border-color:var(--shift-b);background:rgba(26,110,216,0.14);color:var(--shift-b)}
+.shift-btn.sel[data-shift="C"]{border-color:var(--shift-c);background:rgba(11,61,145,0.22);color:#7fa8e8}
 .shift-btn:active{transform:scale(0.97)}
+.shift-badge.shift-a{border-color:var(--shift-a)}
+.shift-badge.shift-a .shift-val{color:var(--shift-a)}
+.shift-badge.shift-b{border-color:var(--shift-b)}
+.shift-badge.shift-b .shift-val{color:var(--shift-b)}
+.shift-badge.shift-c{border-color:var(--shift-c)}
+.shift-badge.shift-c .shift-val{color:#7fa8e8}
 
 /* VIEW SWITCH */
 .view-switch{display:flex;gap:8px;margin-bottom:18px}
@@ -303,13 +313,13 @@ button{cursor:pointer;font-family:var(--fh)}
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" id="opStationGrid">
     <div class="field">
       <div class="lbl" style="font-size:9px;">Operator &#183; &#25805;&#20316;&#21592; <span class="req">*</span></div>
       <select id="operatorSel" onchange="saveOperator()" style="font-size:14px;padding:10px 12px;"></select>
       <div class="remembered" id="remOperator" style="display:none;">&#10003; Zapami&#281;tano &#183; &#24050;&#35760;&#20303;</div>
     </div>
-    <div class="field">
+    <div class="field" id="stationField">
       <div class="lbl" style="font-size:9px;">Stanowisko &#183; &#24037;&#20301; <span class="req">*</span></div>
       <select id="stationSel" onchange="saveStation()" style="font-size:14px;padding:10px 12px;"></select>
       <div class="remembered" id="remStation" style="display:none;">&#10003; Zapami&#281;tano &#183; &#24050;&#35760;&#20303;</div>
@@ -410,8 +420,6 @@ button{cursor:pointer;font-family:var(--fh)}
     <div class="data-section" style="margin-top:16px;">
       <div class="data-section-title"><span class="icon">&#128230;</span> Bufor reworku &#183; &#36820;&#20462;&#24453;&#22788;&#29702;</div>
       <div id="reworkBufferInfo"><div class="hist-loading">Wybierz strefę &#183; &#35831;&#36873;&#25321;&#21306;&#22495;</div></div>
-      <div class="lbl" style="margin-top:12px;margin-bottom:6px;">Bufor wg przyczyny &#183; &#25353;&#21407;&#22240;&#20301;&#20110;&#32531;&#20914;&#21306; <span class="cn">&#8211; tylko podgl&#261;d</span></div>
-      <div id="reworkBufferByReason"></div>
     </div>
 
     <div class="data-section">
@@ -423,20 +431,26 @@ button{cursor:pointer;font-family:var(--fh)}
           <button type="button" class="reason-row-btn" onclick="adjust('reworkProcessedInput',1);updateReworkProcessSummary()">+</button>
         </div>
       </div>
-      <div class="reason-row" style="margin-top:8px;">
-        <span class="reason-row-label">Odzyskane &#183; &#20462;&#22797;&#21512;&#26684; <span class="cn">&#8211; liczone automatycznie: przetworzono &#8722; finalny z&#322;om</span></span>
-        <strong id="reworkRecoveredComputed" style="font-family:var(--fh);font-size:20px;color:var(--green);flex-shrink:0;">0</strong>
-      </div>
     </div>
 
-    <button type="button" class="reason-toggle-btn scrap" id="reworkScrapSectionTitle" onclick="toggleReasonSection('reworkScrap')">
-      <span class="icon">&#10060;</span> Finalny złom (nieudany rework) &#183; &#26368;&#32456;&#25253;&#24223;
-      <span class="count-badge" id="reworkScrapTotalBadge">(0)</span>
-      <span class="chevron">&#9662;</span>
-    </button>
+    <div class="reason-toggle-row">
+      <button type="button" class="reason-toggle-btn rework compact" id="reworkBufferSectionTitle" onclick="toggleReasonSection('reworkBuffer')">
+        <span class="icon">&#128230;</span> Bufor &#183; &#32531;&#20914;&#21306;
+        <span class="chevron">&#9662;</span>
+      </button>
+      <button type="button" class="reason-toggle-btn scrap compact" id="reworkScrapSectionTitle" onclick="toggleReasonSection('reworkScrap')">
+        <span class="icon">&#10060;</span> Do złomowania &#183; &#24453;&#25253;&#24223;
+        <span class="count-badge" id="reworkScrapTotalBadge">(0)</span>
+        <span class="chevron">&#9662;</span>
+      </button>
+    </div>
+    <div class="reason-panel-body" id="reworkBufferReasonsBody">
+      <div class="reason-empty-hint">Tylko podgl&#261;d &#8212; &#20165;&#20379;&#26597;&#30475;</div>
+      <div id="reworkBufferByReason"></div>
+    </div>
     <div class="reason-panel-body" id="reworkScrapReasonsBody">
       <div id="reworkScrapReasonsTable"></div>
-      <div class="reason-total">Razem finalny złom &#183; &#24635;&#26368;&#32456;&#25253;&#24223; <strong id="reworkScrapTotalLbl">0</strong> szt.</div>
+      <div class="reason-total">Razem do złomowania &#183; &#24635;&#24453;&#25253;&#24223; <strong id="reworkScrapTotalLbl">0</strong> szt.</div>
     </div>
 
     <div class="summary-card" id="reworkBalanceCard" style="display:none;">
@@ -784,12 +798,17 @@ function switchView(v) {
   document.getElementById('viewRework').classList.toggle('active', v === 'rework');
   document.getElementById('viewAwaria').classList.toggle('active', v === 'awaria');
   document.getElementById('viewGodzinny').classList.toggle('active', v === 'godzinny');
-  document.getElementById('shiftBlock').style.display = v === 'awaria' ? 'none' : 'block';
+  document.getElementById('shiftBlock').style.display = (v === 'awaria' || v === 'rework') ? 'none' : 'block';
   document.getElementById('hourBlock').style.display = v === 'godzinny' ? 'block' : 'none';
-  document.getElementById('shiftBadge').style.display = v === 'awaria' ? 'none' : 'flex';
+  document.getElementById('shiftBadge').style.display = (v === 'awaria' || v === 'rework') ? 'none' : 'flex';
   document.getElementById('hourBadge').style.display = v === 'godzinny' ? 'flex' : 'none';
+  document.getElementById('stationField').style.display = v === 'rework' ? 'none' : 'block';
+  document.getElementById('opStationGrid').style.gridTemplateColumns = v === 'rework' ? '1fr' : '1fr 1fr';
   if (v === 'godzinny') { updateHourDisplay(); odswiezHistorieGodzinnej(); }
-  if (v === 'raport' && !document.getElementById('qtyInput').value) { preloadFromGodzinny(); }
+  if (v === 'raport') {
+    if (!document.getElementById('qtyInput').value) { preloadFromGodzinny(); }
+    odswiezDzisiajWpisy();
+  }
   if (v === 'awaria') { awariaRenderHistory(); }
 }
 
@@ -822,6 +841,9 @@ function updateShiftDisplay() {
   var zm = shifts.zmiany[idx >= 0 ? idx : 0];
   document.getElementById('shiftDisplay').textContent = 'Zmiana ' + currentShift + ' · ' + currentShift + '班';
   document.getElementById('shiftTimeDisplay').textContent = (zm ? zm.od : '?') + ' – ' + (zm ? zm.do : '?');
+  var badge = document.getElementById('shiftBadge');
+  badge.classList.remove('shift-a', 'shift-b', 'shift-c');
+  badge.classList.add('shift-' + currentShift.toLowerCase());
 }
 
 function selectShiftFromTime() {
@@ -1088,7 +1110,7 @@ function adjustReasonRow(btn, delta) {
   input.value = v;
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
-var REASON_SECTION_GROUPS = [['scrap', 'rework']];
+var REASON_SECTION_GROUPS = [['scrap', 'rework'], ['reworkBuffer', 'reworkScrap']];
 function toggleReasonSection(which) {
   var body = document.getElementById(which + 'ReasonsBody');
   var title = document.getElementById(which + 'SectionTitle');
@@ -1179,9 +1201,7 @@ function updateReworkProcessSummary() {
   var noteField = document.getElementById('reworkNoteField');
   var finalScrapBadge = document.getElementById('reworkScrapTotalBadge');
   if (finalScrapBadge) finalScrapBadge.textContent = '(' + reworkScrapTotal() + ')';
-  var recoveredEl = document.getElementById('reworkRecoveredComputed');
   var recovered = reworkRecoveredComputed();
-  if (recoveredEl) recoveredEl.textContent = recovered;
   if (!currentReworkZone) { card.style.display = 'none'; noteField.style.display = 'none'; return; }
   var finalScrap = reworkScrapTotal();
   var accounted = recovered + finalScrap;
@@ -1263,6 +1283,8 @@ function renderReworkBufferByReason(byReason) {
 }
 
 function submitReworkProcessing() {
+  var operator = document.getElementById('operatorSel').value;
+  if (!operator) { showToast('Wybierz operatora! · 请选择操作员!', 'err'); return; }
   if (!currentReworkZone) { showToast('Wybierz strefę! · 请选择区域!', 'err'); return; }
   var processed = document.getElementById('reworkProcessedInput').value;
   var note = document.getElementById('reworkNoteInput').value.trim();
@@ -1290,6 +1312,7 @@ function submitReworkProcessing() {
     event_type: 'REWORK_PROCESSING',
     zone: currentReworkZone,
     zone_label: zone.label,
+    operator: operator,
     date: localDateString(now),
     processed: processed,
     recovered: recovered,
@@ -1379,7 +1402,7 @@ function renderReworkHistoryList(list) {
   var el = document.getElementById('reworkHistoryContent');
   if (!list.length) { el.innerHTML = '<div class="hist-loading">Brak historii dla tej strefy</div>'; return; }
   el.innerHTML = list.map(function(r) {
-    return '<div class="awaria-history-item"><div><div class="awaria-history-station">' + r.date + '</div><div class="awaria-history-type">Przetworzono: ' + r.processed + ' · Odzyskano: ' + r.recovered + ' · Złom: ' + r.final_scrap + (r.note ? ' · ' + r.note : '') + '</div></div></div>';
+    return '<div class="awaria-history-item"><div><div class="awaria-history-station">' + (r.operator || '—') + '</div><div class="awaria-history-type">' + r.date + ' &#183; Przetworzono: ' + r.processed + ' &#183; Odzyskano: ' + r.recovered + ' &#183; Złom: ' + r.final_scrap + (r.note ? ' &#183; ' + r.note : '') + '</div></div></div>';
   }).join('');
 }
 
@@ -2229,7 +2252,7 @@ function savePin() {
 // zmiany zrobionej pozniej przez admina na danym urzadzeniu).
 function applyFactoryDefaults() {
   var defaults = {
-    cfm_raport_webhook: 'https://script.google.com/macros/s/AKfycbz30IhC38_2yzHSdOFJYdMXSVTrRHU8GI-y6iIzmBRXZxfaovLojj2IvEZ_E2FFrx42/exec',
+    cfm_raport_webhook: 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec',
     cfm_feishu_proxy: 'https://cfm-relay.maciejmostowski.pl',
     cfm_feishu_sheet_token: 'vps',
     cfm_feishu_sheet_id: 'RaportDzienny',

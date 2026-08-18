@@ -277,6 +277,11 @@ button{cursor:pointer;font-family:var(--fh)}
 </div>
 
 <div class="main">
+  <div id="shiftBlock">
+    <div class="lbl">Zmiana &#183; &#29677;&#27425; <span class="req">*</span></div>
+    <div class="shift-selector" id="shiftSelector"></div>
+  </div>
+
   <div class="shift-badge" id="shiftBadge">
     <div>
       <div class="shift-val" id="shiftDisplay">Zmiana A</div>
@@ -287,10 +292,6 @@ button{cursor:pointer;font-family:var(--fh)}
       Raport po zako&#324;czeniu zmiany<br>
       <span class="cn">&#29677;&#27425;&#32467;&#26463;&#21518;&#25253;&#21578;</span>
     </div>
-  </div>
-  <div id="shiftBlock">
-    <div class="lbl">Zmiana &#183; &#29677;&#27425; <span class="req">*</span></div>
-    <div class="shift-selector" id="shiftSelector"></div>
   </div>
 
   <div class="shift-badge" id="hourBadge" style="display:none;">
@@ -1574,7 +1575,9 @@ function renderDzisiajWpisy(wpisy) {
   if (!wpisy.length) { el.innerHTML = '<div class="hist-loading">Jeszcze nic nie wprowadzono w tej zmianie &#183; &#26412;&#29677;&#27425;&#23578;&#26410;&#24405;&#20837;</div>'; return; }
   el.innerHTML = wpisy.map(function(r, i) {
     return '<div class="awaria-history-item"><div><div class="awaria-history-station">' + r.station + '</div><div class="awaria-history-type">' + r.qty + ' szt &#183; pass rate ' + r.pass_rate + '%</div></div>' +
-      '<button type="button" class="historia-refresh" onclick="editHistoriaEntry(' + i + ')">Edytuj &#183; &#32534;&#36753;</button></div>';
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<button type="button" class="historia-refresh" onclick="editHistoriaEntry(' + i + ')">Edytuj &#183; &#32534;&#36753;</button>' +
+      '<span style="color:var(--red);font-size:16px;padding:4px;cursor:pointer;" onclick="deleteHistoriaEntry(' + i + ')">&#128465;</span></div></div>';
   }).join('');
 }
 
@@ -1592,6 +1595,19 @@ function editHistoriaEntry(i) {
   updateSummary();
   showToast('Wczytano ' + r.station + ' do edycji &#183; &#24050;&#21152;&#36733;&#32534;&#36753;', 'ok');
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function deleteHistoriaEntry(i) {
+  var r = dzisiajWpisyCache[i];
+  if (!r) return;
+  if (!confirm('Usunąć wpis ' + r.station + ' (' + r.qty + ' szt)? · 删除该条记录？')) return;
+  var wh = getWH();
+  if (!wh) return;
+  var payload = { event_type: 'DELETE_RAPORT_DZIENNY', date: r.date, shift: r.shift, station: r.station, operator: r.operator };
+  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
+  new Image().src = wh + '?' + qs;
+  showToast('Wpis usunięty · 记录已删除', 'ok');
+  setTimeout(odswiezDzisiajWpisy, 800);
 }
 
 function populateReasonTable(containerId, entries) {
@@ -2502,7 +2518,8 @@ function renderGodzHistoria(historia, suma, rework, cel) {
       var pct = cel > 0 ? Math.round((r.qty / cel) * 100) : null;
       var cls = pct === null ? '' : pct >= 100 ? 'ok' : pct >= 80 ? 'warn' : 'bad';
       return '<div class="awaria-history-item" style="cursor:pointer;" onclick="editGodzEntry(' + i + ')"><div><div class="awaria-history-station">' + r.godzina + ' <span style="color:var(--muted);font-weight:400;">&#9998;</span></div><div class="awaria-history-type">Rework: ' + (r.rework || 0) + '</div></div>' +
-        '<div style="text-align:right;"><div class="awaria-history-dur ' + cls + '">' + r.qty + ' szt' + (pct !== null ? ' &#183; ' + pct + '%' : '') + '</div></div></div>';
+        '<div style="text-align:right;display:flex;align-items:center;gap:10px;"><div><div class="awaria-history-dur ' + cls + '">' + r.qty + ' szt' + (pct !== null ? ' &#183; ' + pct + '%' : '') + '</div></div>' +
+        '<span style="color:var(--red);font-size:16px;padding:4px;" onclick="event.stopPropagation();deleteGodzEntry(' + i + ')">&#128465;</span></div></div>';
     }).join('');
   }
   h += '<div style="font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);">Cel/godzin&#281;: <strong style="color:var(--text);">' + (cel || '&#8212;') + ' szt</strong></div>';
@@ -2530,6 +2547,19 @@ function editGodzEntry(i) {
   checkGodzReworkOther();
   showToast('Edytujesz wpis ' + r.godzina + ' — popraw i wyślij ponownie · 正在编辑 ' + r.godzina + ' — 修改后重新发送', 'ok');
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function deleteGodzEntry(i) {
+  var r = godzHistoriaData[i];
+  if (!r) return;
+  if (!confirm('Usunąć wpis ' + r.godzina + ' (' + r.qty + ' szt)? · 删除该条记录？')) return;
+  var wh = getWH();
+  if (!wh) return;
+  var payload = { event_type: 'DELETE_RAPORT_GODZINNY', station: document.getElementById('stationSel').value, operator: document.getElementById('operatorSel').value, shift: currentShift, hour: r.godzina };
+  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
+  new Image().src = wh + '?' + qs;
+  showToast('Wpis usunięty · 记录已删除', 'ok');
+  setTimeout(odswiezHistorieGodzinnej, 800);
 }
 
 // === WSTEPNE WYPELNIENIE RAPORTU ZMIANY Z GODZINNYCH WPISOW ===

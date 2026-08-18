@@ -60,6 +60,8 @@ function doGet(e) {
       case 'REWORK_HISTORY': return handleReworkHistory(ss, p);
       case 'RAPORT_GODZINNY': return handleRaportGodzinny(ss, p);
       case 'HISTORIA_GODZINNA': return handleHistoriaGodzinna(ss, p);
+      case 'DELETE_RAPORT_DZIENNY': return handleDeleteRaportDzienny(ss, p);
+      case 'DELETE_RAPORT_GODZINNY': return handleDeleteRaportGodzinny(ss, p);
       case 'GET_USTAWIENIA': return handleGetUstawienia(ss, p);
       case 'TEST': return jsonResponse({ status: 'ok', msg: 'polaczenie dziala' });
       default: return jsonResponse({ status: 'error', msg: 'nieznany event_type: ' + p.event_type });
@@ -177,6 +179,20 @@ function handleReport(ss, p) {
   return jsonResponse({ status: 'ok', updated: false });
 }
 
+function handleDeleteRaportDzienny(ss, p) {
+  var sheet = ss.getSheetByName('RaportDzienny');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var r = data[i];
+    if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station && r[4] === p.operator) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ status: 'ok', deleted: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', deleted: false });
+}
+
 function handleHistoriaDzienna(ss, p) {
   var sheet = ss.getSheetByName('RaportDzienny');
   if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
@@ -231,6 +247,22 @@ function handleRaportGodzinny(ss, p) {
   }
   sheet.appendRow(row);
   return jsonResponse({ status: 'ok', updated: false });
+}
+
+function handleDeleteRaportGodzinny(ss, p) {
+  var sheet = ss.getSheetByName('RaportGodzinny');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  var dateStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var r = data[i];
+    if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === p.hour && r[4] === p.station && r[5] === p.operator) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ status: 'ok', deleted: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', deleted: false });
 }
 
 function handleHistoriaGodzinna(ss, p) {

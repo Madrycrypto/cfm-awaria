@@ -2372,6 +2372,7 @@ function mergeReasonMapFromServer(key, serverVal) {
 // liczony automatycznie z celu/zmiane (Panel Admina -> Cele), nie ma osobnej
 // konfiguracji celu jak w starej apce godzinnej.
 var manualHour = null;
+var isEditingGodz = false;
 var HOUR_LABELS = { 7: '7:00-8:00', 8: '8:00-9:00', 9: '9:00-10:00', 10: '10:00-11:00', 11: '11:00-12:00', 12: '12:00-13:00', 13: '13:00-14:00', 14: '14:00-15:00', 15: '15:00-16:00', 16: '16:00-17:00', 17: '17:00-18:00', 18: '18:00-19:00', 19: '19:00-20:00', 20: '20:00-21:00', 21: '21:00-22:00', 22: '22:00-23:00', 23: '23:00-0:00', 0: '0:00-1:00', 1: '1:00-2:00', 2: '2:00-3:00', 3: '3:00-4:00', 4: '4:00-5:00', 5: '5:00-6:00', 6: '6:00-7:00' };
 function getAutoHour() {
   var n = new Date(), h = n.getHours(), m = n.getMinutes();
@@ -2460,6 +2461,7 @@ function doSubmitGodzinny() {
   document.getElementById('godzDelayInput').value = '';
   document.getElementById('godzReworkOtherDesc').value = '';
   renderGodzReworkReasonsTable();
+  if (isEditingGodz) { isEditingGodz = false; manualHour = null; updateHourDisplay(); }
   btn.disabled = false;
   btn.innerHTML = 'WYŚLIJ RAPORT GODZINNY · 提交小时报告<span class="cn">发送</span>';
   setTimeout(odswiezHistorieGodzinnej, 1200);
@@ -2483,7 +2485,9 @@ function odswiezHistorieGodzinnej() {
     .catch(function() { el.innerHTML = '<div class="reason-empty-hint">Błąd połączenia · 连接错误</div>'; });
 }
 
+var godzHistoriaData = [];
 function renderGodzHistoria(historia, suma, rework, cel) {
+  godzHistoriaData = historia;
   var el = document.getElementById('godzHistoriaContent');
   var h = '<div class="summary-grid" style="margin-bottom:10px;">' +
     '<div class="summary-item"><div class="summary-lbl">Suma zmiany &#183; &#26412;&#29677;&#27425;&#21512;&#35745;</div><div class="summary-val ok">' + suma + '</div></div>' +
@@ -2492,15 +2496,37 @@ function renderGodzHistoria(historia, suma, rework, cel) {
   if (!historia.length) {
     h += '<div class="reason-empty-hint">Brak wpisów w tej zmianie &#8212; &#26412;&#29677;&#27425;&#26242;&#26080;&#35760;&#24405;</div>';
   } else {
-    h += historia.map(function(r) {
+    h += historia.map(function(r, i) {
       var pct = cel > 0 ? Math.round((r.qty / cel) * 100) : null;
       var cls = pct === null ? '' : pct >= 100 ? 'ok' : pct >= 80 ? 'warn' : 'bad';
-      return '<div class="awaria-history-item"><div><div class="awaria-history-station">' + r.godzina + '</div><div class="awaria-history-type">Rework: ' + (r.rework || 0) + '</div></div>' +
+      return '<div class="awaria-history-item" style="cursor:pointer;" onclick="editGodzEntry(' + i + ')"><div><div class="awaria-history-station">' + r.godzina + ' <span style="color:var(--muted);font-weight:400;">&#9998;</span></div><div class="awaria-history-type">Rework: ' + (r.rework || 0) + '</div></div>' +
         '<div style="text-align:right;"><div class="awaria-history-dur ' + cls + '">' + r.qty + ' szt' + (pct !== null ? ' &#183; ' + pct + '%' : '') + '</div></div></div>';
     }).join('');
   }
   h += '<div style="font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:0.5px solid var(--border);">Cel/godzin&#281;: <strong style="color:var(--text);">' + (cel || '&#8212;') + ' szt</strong></div>';
   el.innerHTML = h;
+}
+
+// Klikniecie wpisu na liscie "Historia dzisiaj" wypelnia formularz jego
+// danymi do poprawy — ponowne wyslanie z ta sama godzina/data/zmiana/
+// stanowisko/operator podmienia istniejacy wiersz zamiast dopisywac duplikat
+// (patrz find-and-update w handleRaportGodzinny w .gs).
+function editGodzEntry(i) {
+  var r = godzHistoriaData[i];
+  if (!r) return;
+  isEditingGodz = true;
+  manualHour = r.godzina;
+  updateHourDisplay();
+  document.getElementById('hourManualSel').value = r.godzina;
+  document.getElementById('godzQtyInput').value = r.qty;
+  document.getElementById('godzDelayInput').value = r.delay || '';
+  var entries = [];
+  try { entries = JSON.parse(r.rework_reasons_json || '[]'); } catch (e) {}
+  populateReasonTable('godzReworkReasonsTable', entries);
+  document.getElementById('godzReworkOtherDesc').value = r.rework_other_desc || '';
+  checkGodzReworkOther();
+  showToast('Edytujesz wpis ' + r.godzina + ' — popraw i wyślij ponownie · 正在编辑 ' + r.godzina + ' — 修改后重新发送', 'ok');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // === WSTEPNE WYPELNIENIE RAPORTU ZMIANY Z GODZINNYCH WPISOW ===

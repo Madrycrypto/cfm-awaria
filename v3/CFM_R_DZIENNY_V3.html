@@ -429,16 +429,6 @@ button{cursor:pointer;font-family:var(--fh)}
       <div id="reworkBufferInfo"><div class="hist-loading">Wybierz strefę &#183; &#35831;&#36873;&#25321;&#21306;&#22495;</div></div>
     </div>
 
-    <div class="data-section">
-      <div class="reason-row">
-        <span class="reason-row-label">Przetworzono z bufora &#183; &#22788;&#29702;&#25968;&#37327; <span class="req">*</span></span>
-        <div class="reason-row-controls">
-          <button type="button" class="reason-row-btn" onclick="adjust('reworkProcessedInput',-1);updateReworkProcessSummary()">&#8722;</button>
-          <input class="reason-row-input" type="number" id="reworkProcessedInput" min="0" placeholder="0" inputmode="numeric" oninput="updateReworkProcessSummary()">
-          <button type="button" class="reason-row-btn" onclick="adjust('reworkProcessedInput',1);updateReworkProcessSummary()">+</button>
-        </div>
-      </div>
-    </div>
 
     <div class="reason-toggle-row three-col">
       <button type="button" class="reason-toggle-btn rework compact" id="reworkBufferSectionTitle" onclick="toggleReasonSection('reworkBuffer')">
@@ -1309,18 +1299,18 @@ function submitReworkProcessing() {
   var operator = document.getElementById('operatorSel').value;
   if (!operator) { showToast('Wybierz operatora! · 请选择操作员!', 'err'); return; }
   if (!currentReworkZone) { showToast('Wybierz strefę! · 请选择区域!', 'err'); return; }
-  var processed = document.getElementById('reworkProcessedInput').value;
   var note = document.getElementById('reworkNoteInput').value.trim();
   var notes = document.getElementById('reworkNotesInput').value;
   var finalScrapN = reworkScrapTotal();
   var recoveredN = reworkRecoveredTotal();
   var recovered = String(recoveredN);
+  var accounted = recoveredN + finalScrapN;
+  var processed = String(accounted);
 
-  if (processed === '') { showToast('Podaj ile przetworzono! · 请输入处理数量!', 'err'); return; }
+  if (accounted === 0) { showToast('Podaj ile odzyskano lub ile poszło do złomu! · 请输入修复合格或待报废数量!', 'err'); return; }
 
   var reworkScrapEntries = collectReasonTableEntries('reworkScrapReasonsTable');
   var reworkRecoveredEntries = collectReasonTableEntries('reworkRecoveredReasonsTable');
-  var accounted = recoveredN + finalScrapN;
   if (accounted > currentReworkBuffer && !note) {
     showToast('Przekroczono bufor — podaj uzasadnienie! · 超出缓冲区数量 — 请填写说明!', 'err');
     document.getElementById('reworkNoteInput').focus();
@@ -1382,7 +1372,6 @@ function saveReworkProcessingLocal(payload) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 function resetReworkForm() {
-  document.getElementById('reworkProcessedInput').value = '';
   document.getElementById('reworkNoteInput').value = '';
   document.getElementById('reworkNotesInput').value = '';
   if (currentReworkZone) {

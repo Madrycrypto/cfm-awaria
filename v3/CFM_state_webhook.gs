@@ -141,6 +141,18 @@ function addReworkReasonsFromReport_(map, reasonsJson) {
   });
 }
 
+// Komorka kolumny "date" bywa albo stringiem "yyyy-MM-dd" (tak jak go
+// wysylamy), albo obiektem Date — Arkusze Google SAME konwertuja string
+// wygladajacy jak data na typ Date przy zapisie, wiec przy odczycie trzeba
+// sprowadzic obie postacie do tego samego formatu, inaczej porownanie
+// stringa z Date zawsze zawodzi mimo identycznego wygladu w arkuszu.
+function normalizeDate_(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+  }
+  return String(val || '');
+}
+
 // ── RAPORT ZMIANY ────────────────────────────────────────────────────
 // timestamp | date | shift | station | operator | qty | scrap | rework | recovered | ok_count | pass_rate | notes | reasons_json
 function handleReport(ss, p) {
@@ -156,7 +168,7 @@ function handleReport(ss, p) {
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
     var r = data[i];
-    if (r[1] === p.date && r[2] === p.shift && r[3] === p.station && r[4] === p.operator) {
+    if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station && r[4] === p.operator) {
       sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
       return jsonResponse({ status: 'ok', updated: true });
     }
@@ -173,11 +185,11 @@ function handleHistoriaDzienna(ss, p) {
   var historia = [], suma = 0, scrap = 0, rework = 0, recovered = 0;
   for (var i = 1; i < data.length; i++) {
     var r = data[i];
-    if (r[1] !== today) continue;
+    if (normalizeDate_(r[1]) !== today) continue;
     if (p.stanowisko && r[3] !== p.stanowisko) continue;
     if (p.operator && r[4] !== p.operator) continue;
     var entry = {
-      timestamp: r[0], date: r[1], shift: r[2], station: r[3], operator: r[4],
+      timestamp: r[0], date: normalizeDate_(r[1]), shift: r[2], station: r[3], operator: r[4],
       qty: Number(r[5]) || 0, scrap: Number(r[6]) || 0, rework: Number(r[7]) || 0, recovered: Number(r[8]) || 0,
       ok_count: Number(r[9]) || 0, pass_rate: r[10], notes: r[11], reasons_json: r[12] || '',
     };
@@ -198,11 +210,27 @@ function handleRaportGodzinny(ss, p) {
   var sheet = getOrCreateSheet(ss, 'RaportGodzinny', ['timestamp', 'date', 'shift', 'hour', 'station', 'operator', 'qty', 'rework', 'rework_reasons_json', 'rework_other_desc', 'delay']);
   var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
   var dateStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-  sheet.appendRow([
+  var row = [
     p.timestamp || '', dateStr, p.shift || '', p.hour || '', p.station || '', p.operator || '',
     Number(p.qty) || 0, Number(p.rework) || 0, p.rework_reasons_json || '', p.rework_other_desc || '', p.delay || '',
-  ]);
-  return jsonResponse({ status: 'ok' });
+  ];
+  // Poprawka wpisu godzinowego (patrz editGodzEntry w apce) — podmien
+  // istniejacy wiersz dla tej samej daty/zmiany/stanowiska/operatora zamiast
+  // dopisywac duplikat. Dopasowanie idzie po orig_hour (godzina wiersza W
+  // MOMENCIE otwarcia edycji), nie po hour (nowa/docelowa wartosc) — inaczej
+  // zmiana samej godziny w edycji nie trafialaby w oryginalny wiersz i
+  // zamiast go "przemianowac" tworzylaby nowy, zostawiajac stary bez zmian.
+  var origHour = p.orig_hour || p.hour;
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var r = data[i];
+    if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === origHour && r[4] === p.station && r[5] === p.operator) {
+      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      return jsonResponse({ status: 'ok', updated: true });
+    }
+  }
+  sheet.appendRow(row);
+  return jsonResponse({ status: 'ok', updated: false });
 }
 
 function handleHistoriaGodzinna(ss, p) {
@@ -214,12 +242,12 @@ function handleHistoriaGodzinna(ss, p) {
   var historia = [], suma = 0, rework = 0;
   for (var i = 1; i < data.length; i++) {
     var r = data[i];
-    if (r[1] !== today) continue;
+    if (normalizeDate_(r[1]) !== today) continue;
     if (p.stanowisko && r[4] !== p.stanowisko) continue;
     if (p.operator && r[5] !== p.operator) continue;
     if (p.shift && r[2] !== p.shift) continue;
     var qty = Number(r[6]) || 0, reworkVal = Number(r[7]) || 0;
-    historia.push({ timestamp: r[0], date: r[1], shift: r[2], godzina: r[3], station: r[4], operator: r[5], qty: qty, rework: reworkVal, rework_reasons_json: r[8] || '', rework_other_desc: r[9] || '', delay: r[10] });
+    historia.push({ timestamp: r[0], date: normalizeDate_(r[1]), shift: r[2], godzina: r[3], station: r[4], operator: r[5], qty: qty, rework: reworkVal, rework_reasons_json: r[8] || '', rework_other_desc: r[9] || '', delay: r[10] });
     suma += qty; rework += reworkVal;
   }
   return jsonResponse({ status: 'ok', historia: historia, suma: suma, rework: rework });
@@ -343,7 +371,7 @@ function handleReworkHistory(ss, p) {
       var row = data[i];
       if (p.zone && row[2] !== p.zone) continue;
       historia.push({
-        timestamp: row[0], date: row[1], zone: row[2], processed: Number(row[3]) || 0,
+        timestamp: row[0], date: normalizeDate_(row[1]), zone: row[2], processed: Number(row[3]) || 0,
         recovered: Number(row[4]) || 0, final_scrap: Number(row[5]) || 0, note: row[6], notes: row[7],
         reasons_json: row[8] || '', zone_label: row[9] || '', operator: row[10] || '', recovered_reasons_json: row[11] || '',
       });

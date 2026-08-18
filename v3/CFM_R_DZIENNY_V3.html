@@ -2373,6 +2373,7 @@ function mergeReasonMapFromServer(key, serverVal) {
 // konfiguracji celu jak w starej apce godzinnej.
 var manualHour = null;
 var isEditingGodz = false;
+var editingGodzOriginalHour = null;
 var HOUR_LABELS = { 7: '7:00-8:00', 8: '8:00-9:00', 9: '9:00-10:00', 10: '10:00-11:00', 11: '11:00-12:00', 12: '12:00-13:00', 13: '13:00-14:00', 14: '14:00-15:00', 15: '15:00-16:00', 16: '16:00-17:00', 17: '17:00-18:00', 18: '18:00-19:00', 19: '19:00-20:00', 20: '20:00-21:00', 21: '21:00-22:00', 22: '22:00-23:00', 23: '23:00-0:00', 0: '0:00-1:00', 1: '1:00-2:00', 2: '2:00-3:00', 3: '3:00-4:00', 4: '4:00-5:00', 5: '5:00-6:00', 6: '6:00-7:00' };
 function getAutoHour() {
   var n = new Date(), h = n.getHours(), m = n.getMinutes();
@@ -2449,6 +2450,7 @@ function doSubmitGodzinny() {
   if (wh) {
     var payload = {
       event_type: 'RAPORT_GODZINNY', operator: op, station: st, shift: currentShift, hour: hour,
+      orig_hour: (isEditingGodz && editingGodzOriginalHour) ? editingGodzOriginalHour : hour,
       qty: qty, rework: String(reworkN), rework_reasons_json: JSON.stringify(reworkEntries),
       rework_other_desc: otherDesc, delay: delay, timestamp: localIsoString(now)
     };
@@ -2461,7 +2463,7 @@ function doSubmitGodzinny() {
   document.getElementById('godzDelayInput').value = '';
   document.getElementById('godzReworkOtherDesc').value = '';
   renderGodzReworkReasonsTable();
-  if (isEditingGodz) { isEditingGodz = false; manualHour = null; updateHourDisplay(); }
+  if (isEditingGodz) { isEditingGodz = false; editingGodzOriginalHour = null; manualHour = null; updateHourDisplay(); }
   btn.disabled = false;
   btn.innerHTML = 'WYŚLIJ RAPORT GODZINNY · 提交小时报告<span class="cn">发送</span>';
   setTimeout(odswiezHistorieGodzinnej, 1200);
@@ -2515,6 +2517,7 @@ function editGodzEntry(i) {
   var r = godzHistoriaData[i];
   if (!r) return;
   isEditingGodz = true;
+  editingGodzOriginalHour = r.godzina;
   manualHour = r.godzina;
   updateHourDisplay();
   document.getElementById('hourManualSel').value = r.godzina;

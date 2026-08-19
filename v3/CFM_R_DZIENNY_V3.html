@@ -423,7 +423,7 @@ button{cursor:pointer;font-family:var(--fh)}
       <div class="historia-header">
         <div class="historia-title">Wprowadzone dzisiaj &#183; &#20170;&#26085;&#24050;&#24405;&#20837;</div>
       </div>
-      <div id="dzisiajWpisyList"><div class="hist-loading">Wybierz operatora &#183; &#35831;&#36873;&#25321;&#25805;&#20316;&#21592;</div></div>
+      <div id="dzisiajWpisyList"><div class="hist-loading">Wybierz stanowisko &#183; &#35831;&#36873;&#25321;&#24037;&#20301;</div></div>
     </div>
   </div>
 
@@ -1470,8 +1470,6 @@ function deleteReworkEntry(i) {
 function saveOperator() {
   var v = document.getElementById('operatorSel').value;
   if (v) { localStorage.setItem('cfm_operator', v); document.getElementById('remOperator').style.display = 'inline-flex'; }
-  if (document.getElementById('viewGodzinny').classList.contains('active')) odswiezHistorieGodzinnej();
-  odswiezDzisiajWpisy(document.getElementById('viewRaport').classList.contains('active'));
 }
 function saveStation() {
   var v = document.getElementById('stationSel').value;
@@ -1480,7 +1478,7 @@ function saveStation() {
   renderReworkReasonsTable();
   renderGodzReworkReasonsTable();
   if (document.getElementById('viewGodzinny').classList.contains('active')) odswiezHistorieGodzinnej();
-  if (document.getElementById('viewRaport').classList.contains('active')) { maybePreloadIfNotSubmitted(); loadShiftComparison(); }
+  if (document.getElementById('viewRaport').classList.contains('active')) { odswiezDzisiajWpisy(true); loadShiftComparison(); }
   if (document.getElementById('viewAwaria').classList.contains('active')) awariaRenderHistory();
 }
 
@@ -1598,12 +1596,12 @@ function resetForm() {
 function odswiezDzisiajWpisy(andMaybePreload) {
   var el = document.getElementById('dzisiajWpisyList');
   if (!el) return;
-  var operator = document.getElementById('operatorSel').value;
-  if (!operator) { el.innerHTML = '<div class="hist-loading">Wybierz operatora &#183; &#35831;&#36873;&#25321;&#25805;&#20316;&#21592;</div>'; return; }
+  var station = document.getElementById('stationSel').value;
+  if (!station) { el.innerHTML = '<div class="hist-loading">Wybierz stanowisko &#183; &#35831;&#36873;&#25321;&#24037;&#20301;</div>'; return; }
   var wh = getWH();
   if (!wh) { el.innerHTML = '<div class="hist-loading">Brak po&#322;&#261;czenia &#183; &#26410;&#36830;&#25509;</div>'; if (andMaybePreload && !document.getElementById('qtyInput').value) preloadFromGodzinny(); return; }
   el.innerHTML = '<div class="hist-loading">&#321;adowanie&#8230; &#183; &#21152;&#36733;&#20013;...</div>';
-  fetch(wh + '?event_type=HISTORIA_DZIENNA&operator=' + encodeURIComponent(operator))
+  fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia &#183; &#36830;&#25509;&#38169;&#35823;</div>'; return; }
@@ -2617,14 +2615,13 @@ function doSubmitGodzinny() {
 
 function odswiezHistorieGodzinnej() {
   var station = document.getElementById('stationSel').value;
-  var operator = document.getElementById('operatorSel').value;
   var el = document.getElementById('godzHistoriaContent');
-  if (!station || !operator) { el.innerHTML = '<div class="reason-empty-hint">Wybierz stanowisko i operatora &#8212; 请选择工位</div>'; return; }
+  if (!station) { el.innerHTML = '<div class="reason-empty-hint">Wybierz stanowisko &#8212; 请选择工位</div>'; return; }
   var wh = getWH();
   var cel = getCelGodzine();
   if (!wh) { el.innerHTML = '<div class="reason-empty-hint">Brak połączenia (Panel Admina &#8594; Połączenie) &#183; 未连接（管理面板 &#8594; 连接）</div>'; return; }
   el.innerHTML = '<div class="reason-empty-hint">Ładowanie&#8230; &#183; 加载中...</div>';
-  fetch(wh + '?event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) + '&shift=' + encodeURIComponent(currentShift))
+  fetch(wh + '?event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&shift=' + encodeURIComponent(currentShift))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { el.innerHTML = '<div class="reason-empty-hint">Błąd połączenia · 连接错误</div>'; return; }
@@ -2699,11 +2696,10 @@ function deleteGodzEntry(i) {
 // od nowa. Samo wypelnienie NIE zapisuje niczego — dopiero wyslanie
 // Raportu Zmiany faktycznie zasila bufor reworku i Feishu.
 function preloadFromGodzinny() {
-  var operator = document.getElementById('operatorSel').value;
   var station = document.getElementById('stationSel').value;
   var wh = getWH();
-  if (!operator || !station || !wh) return;
-  fetch(wh + '?event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) + '&shift=' + encodeURIComponent(currentShift))
+  if (!station || !wh) return;
+  fetch(wh + '?event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&shift=' + encodeURIComponent(currentShift))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok' || !data.historia || !data.historia.length) return;

@@ -412,6 +412,13 @@ button{cursor:pointer;font-family:var(--fh)}
       WY&#346;LIJ RAPORT &#183; &#25552;&#20132;&#25253;&#21578;<span class="cn">&#21457;&#36865;&#29677;&#27425;&#25253;&#21578;</span>
     </button>
 
+    <div class="historia-card" id="shiftComparisonCard" style="margin-top:14px;display:none;">
+      <div class="historia-header">
+        <div class="historia-title">Dzisiaj wg zmian &#183; &#21508;&#29677;&#27425;&#20170;&#26085;&#20135;&#37327;</div>
+      </div>
+      <div id="shiftComparisonContent"></div>
+    </div>
+
     <div class="historia-card" style="margin-top:14px;">
       <div class="historia-header">
         <div class="historia-title">Wprowadzone dzisiaj &#183; &#20170;&#26085;&#24050;&#24405;&#20837;</div>
@@ -815,10 +822,7 @@ function switchView(v) {
   document.getElementById('stationField').style.display = v === 'rework' ? 'none' : 'block';
   document.getElementById('opStationGrid').style.gridTemplateColumns = v === 'rework' ? '1fr' : '1fr 1fr';
   if (v === 'godzinny') { updateHourDisplay(); odswiezHistorieGodzinnej(); }
-  if (v === 'raport') {
-    if (!document.getElementById('qtyInput').value) { preloadFromGodzinny(); }
-    odswiezDzisiajWpisy();
-  }
+  if (v === 'raport') { odswiezDzisiajWpisy(true); loadShiftComparison(); }
   if (v === 'awaria') { awariaRenderHistory(); }
 }
 
@@ -839,9 +843,9 @@ function selectShift(s) {
   });
   updateShiftDisplay();
   localStorage.setItem('cfm_current_shift', s);
-  odswiezDzisiajWpisy();
+  odswiezDzisiajWpisy(document.getElementById('viewRaport').classList.contains('active'));
+  if (document.getElementById('viewRaport').classList.contains('active')) loadShiftComparison();
   if (document.getElementById('viewGodzinny').classList.contains('active')) odswiezHistorieGodzinnej();
-  if (document.getElementById('viewRaport').classList.contains('active')) preloadFromGodzinny();
 }
 
 function updateShiftDisplay() {
@@ -1424,8 +1428,7 @@ function saveOperator() {
   var v = document.getElementById('operatorSel').value;
   if (v) { localStorage.setItem('cfm_operator', v); document.getElementById('remOperator').style.display = 'inline-flex'; }
   if (document.getElementById('viewGodzinny').classList.contains('active')) odswiezHistorieGodzinnej();
-  odswiezDzisiajWpisy();
-  if (document.getElementById('viewRaport').classList.contains('active')) preloadFromGodzinny();
+  odswiezDzisiajWpisy(document.getElementById('viewRaport').classList.contains('active'));
 }
 function saveStation() {
   var v = document.getElementById('stationSel').value;
@@ -1434,7 +1437,7 @@ function saveStation() {
   renderReworkReasonsTable();
   renderGodzReworkReasonsTable();
   if (document.getElementById('viewGodzinny').classList.contains('active')) odswiezHistorieGodzinnej();
-  if (document.getElementById('viewRaport').classList.contains('active')) preloadFromGodzinny();
+  if (document.getElementById('viewRaport').classList.contains('active')) { maybePreloadIfNotSubmitted(); loadShiftComparison(); }
   if (document.getElementById('viewAwaria').classList.contains('active')) awariaRenderHistory();
 }
 
@@ -1541,6 +1544,7 @@ function resetForm() {
   renderScrapReasonsTable(); renderReworkReasonsTable();
   updateSummary();
   odswiezDzisiajWpisy();
+  loadShiftComparison();
 }
 
 // === WPROWADZONE DZISIAJ (Raport zmiany) ===
@@ -1548,13 +1552,13 @@ function resetForm() {
 // pokazuje co juz wpisal w tej zmianie, z mozliwoscia edycji (ponowne
 // wyslanie z tym samym date+shift+station+operator nadpisuje wiersz w
 // arkuszu Google, patrz handleReport w .gs).
-function odswiezDzisiajWpisy() {
+function odswiezDzisiajWpisy(andMaybePreload) {
   var el = document.getElementById('dzisiajWpisyList');
   if (!el) return;
   var operator = document.getElementById('operatorSel').value;
   if (!operator) { el.innerHTML = '<div class="hist-loading">Wybierz operatora &#183; &#35831;&#36873;&#25321;&#25805;&#20316;&#21592;</div>'; return; }
   var wh = getWH();
-  if (!wh) { el.innerHTML = '<div class="hist-loading">Brak po&#322;&#261;czenia &#183; &#26410;&#36830;&#25509;</div>'; return; }
+  if (!wh) { el.innerHTML = '<div class="hist-loading">Brak po&#322;&#261;czenia &#183; &#26410;&#36830;&#25509;</div>'; if (andMaybePreload && !document.getElementById('qtyInput').value) preloadFromGodzinny(); return; }
   el.innerHTML = '<div class="hist-loading">&#321;adowanie&#8230; &#183; &#21152;&#36733;&#20013;...</div>';
   fetch(wh + '?event_type=HISTORIA_DZIENNA&operator=' + encodeURIComponent(operator))
     .then(function(r) { return r.json(); })
@@ -1562,8 +1566,59 @@ function odswiezDzisiajWpisy() {
       if (data.status !== 'ok') { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia &#183; &#36830;&#25509;&#38169;&#35823;</div>'; return; }
       var wpisy = (data.historia || []).filter(function(r) { return r.shift === currentShift; });
       renderDzisiajWpisy(wpisy);
+      if (andMaybePreload) maybePreloadIfNotSubmitted();
     })
-    .catch(function() { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia &#183; &#36830;&#25509;&#38169;&#35823;</div>'; });
+    .catch(function() { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia &#183; &#36830;&#25509;&#38169;&#35823;</div>'; if (andMaybePreload) maybePreloadIfNotSubmitted(); });
+}
+
+// Porownanie zmian A/B/C na dzisiaj (motywacyjne — kazda zmiana widzi ile
+// zrobily pozostale na tym samym stanowisku). Osobne zapytanie filtrowane
+// po stanowisku (nie po operatorze), zeby objac wszystkich operatorow/zmiany.
+function loadShiftComparison() {
+  var card = document.getElementById('shiftComparisonCard');
+  if (!card) return;
+  var station = document.getElementById('stationSel').value;
+  var wh = getWH();
+  if (!station || !wh) { card.style.display = 'none'; return; }
+  fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { card.style.display = 'none'; return; }
+      var totals = { A: 0, B: 0, C: 0 };
+      (data.historia || []).forEach(function(r) { if (totals.hasOwnProperty(r.shift)) totals[r.shift] += Number(r.qty) || 0; });
+      renderShiftComparison(totals);
+    })
+    .catch(function() { card.style.display = 'none'; });
+}
+function renderShiftComparison(totals) {
+  var card = document.getElementById('shiftComparisonCard');
+  var el = document.getElementById('shiftComparisonContent');
+  card.style.display = 'block';
+  var shifts = [
+    { key: 'A', color: 'var(--shift-a)', bg: 'rgba(90,169,255,0.12)' },
+    { key: 'B', color: 'var(--shift-b)', bg: 'rgba(26,110,216,0.12)' },
+    { key: 'C', color: 'var(--shift-c)', bg: 'rgba(11,61,145,0.12)' },
+  ];
+  el.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">' +
+    shifts.map(function(s) {
+      var isCurrent = s.key === currentShift;
+      return '<div style="background:' + s.bg + ';border:1.5px solid ' + s.color + (isCurrent ? ';box-shadow:0 0 0 2px ' + s.color + '55' : '') + ';border-radius:10px;padding:10px 6px;text-align:center;">' +
+        '<div style="font-size:10px;color:var(--muted);">Zmiana ' + s.key + '</div>' +
+        '<div style="font-size:20px;font-weight:900;font-family:var(--fh);color:' + s.color + ';">' + totals[s.key] + '</div>' +
+        '</div>';
+    }).join('') + '</div>';
+}
+
+// Jesli raport na to stanowisko/zmiane juz zostal wyslany dzisiaj (widoczny
+// w cache "Wprowadzone dzisiaj"), nie podpowiadaj sumy z Godzinnego — pole
+// Ilosc ma zostac puste, a suma do poprawy pojawia sie dopiero po
+// kliknieciu "Edytuj" na tym wpisie, zeby nie wygladalo na nowa/niewyslana
+// wartosc gotowa do przypadkowego ponownego wyslania.
+function maybePreloadIfNotSubmitted() {
+  if (document.getElementById('qtyInput').value) return;
+  var station = document.getElementById('stationSel').value;
+  var already = dzisiajWpisyCache.some(function(r) { return r.station === station; });
+  if (!already) preloadFromGodzinny();
 }
 
 var dzisiajWpisyCache = [];
@@ -1605,7 +1660,7 @@ function deleteHistoriaEntry(i) {
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
   showToast('Wpis usunięty · 记录已删除', 'ok');
-  setTimeout(odswiezDzisiajWpisy, 800);
+  setTimeout(function() { odswiezDzisiajWpisy(); loadShiftComparison(); }, 800);
 }
 
 function populateReasonTable(containerId, entries) {
@@ -1862,29 +1917,63 @@ function awariaStartTimer() {
 // czyszczenie danych po stronie serwera faktycznie bylo widoczne w apce.
 function awariaRenderHistory() {
   var wh = getWH();
-  if (!wh) { awariaRenderHistoryItems(awariaLocalHistory); return; }
+  if (!wh) { awariaRenderHistoryItems(awariaLocalHistory, false); return; }
   var station = document.getElementById('stationSel').value;
   var list = document.getElementById('awariaHistoryList');
   list.innerHTML = '<div class="hist-loading">Ładowanie&#8230; · 加载中...</div>';
   fetch(wh + '?event_type=AWARIA_HISTORIA' + (station ? '&stanowisko=' + encodeURIComponent(station) : ''))
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data.status !== 'ok') { awariaRenderHistoryItems(awariaLocalHistory); return; }
+      if (data.status !== 'ok') { awariaRenderHistoryItems(awariaLocalHistory, false); return; }
       var items = (data.historia || []).map(function(r) {
-        return { station: r.station, type: r.type, durationMin: r.czas_min, startTs: awariaFormatTs(new Date(r.start_timestamp)) };
+        return { station: r.station, type: r.type, durationMin: r.czas_min, startTs: awariaFormatTs(new Date(r.start_timestamp)), start_timestamp: r.start_timestamp };
       });
-      awariaRenderHistoryItems(items);
+      awariaRenderHistoryItems(items, true);
     })
-    .catch(function() { awariaRenderHistoryItems(awariaLocalHistory); });
+    .catch(function() { awariaRenderHistoryItems(awariaLocalHistory, false); });
 }
-function awariaRenderHistoryItems(items) {
+var awariaHistoriaCache = [];
+function awariaRenderHistoryItems(items, editable) {
+  awariaHistoriaCache = items;
   var list = document.getElementById('awariaHistoryList');
   if (!items.length) { list.innerHTML = '<div class="hist-loading">Brak historii · 暂无记录</div>'; return; }
-  list.innerHTML = items.slice(0, 8).map(function(r) {
-    return '<div class="awaria-history-item"><div><div class="awaria-history-station">' + r.station + '</div><div class="awaria-history-type">' + r.type + '</div></div><div style="text-align:right;"><div class="awaria-history-dur">' + r.durationMin + ' min</div><div class="awaria-history-ts">' + r.startTs + '</div></div></div>';
+  list.innerHTML = items.slice(0, 8).map(function(r, i) {
+    var actions = editable ?
+      '<span style="color:var(--blue);font-size:14px;padding:4px;cursor:pointer;" onclick="editAwariaEntry(' + i + ')">&#9998;</span>' +
+      '<span style="color:var(--red);font-size:14px;padding:4px;cursor:pointer;" onclick="deleteAwariaEntry(' + i + ')">&#128465;</span>' : '';
+    return '<div class="awaria-history-item"><div><div class="awaria-history-station">' + r.station + '</div><div class="awaria-history-type">' + r.type + '</div></div>' +
+      '<div style="text-align:right;display:flex;align-items:center;gap:6px;"><div><div class="awaria-history-dur">' + r.durationMin + ' min</div><div class="awaria-history-ts">' + r.startTs + '</div></div>' + actions + '</div></div>';
   }).join('');
 }
 function awariaFormatTs(d) { return d.toLocaleDateString('pl-PL') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+
+function editAwariaEntry(i) {
+  var r = awariaHistoriaCache[i];
+  if (!r || !r.start_timestamp) return;
+  var val = prompt('Popraw czas trwania awarii (min) · 修改故障时长（分钟）:', r.durationMin);
+  if (val === null) return;
+  var mins = parseFloat(String(val).replace(',', '.'));
+  if (isNaN(mins) || mins < 0) { showToast('Nieprawidłowa wartość · 数值无效', 'err'); return; }
+  var wh = getWH();
+  if (!wh) return;
+  var payload = { event_type: 'EDIT_AWARIA_DURATION', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp, czas_min: mins };
+  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
+  new Image().src = wh + '?' + qs;
+  showToast('Czas poprawiony · 时长已修改', 'ok');
+  setTimeout(awariaRenderHistory, 800);
+}
+function deleteAwariaEntry(i) {
+  var r = awariaHistoriaCache[i];
+  if (!r || !r.start_timestamp) return;
+  if (!confirm('Usunąć wpis awarii ' + r.station + ' (' + r.durationMin + ' min)? · 删除该故障记录？')) return;
+  var wh = getWH();
+  if (!wh) return;
+  var payload = { event_type: 'DELETE_AWARIA', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp };
+  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
+  new Image().src = wh + '?' + qs;
+  showToast('Wpis usunięty · 记录已删除', 'ok');
+  setTimeout(awariaRenderHistory, 800);
+}
 
 // === ADMIN ===
 var DW = ['Magda Bak','Fabian Baginski','Ewa Baczynska','Karolina Ceterska','Szymon Chrzanowski','Patryk Makarewicz','Sebastian Purgat','Adam Zbikowski','Marlena Tomczyk','Marta Laskowska','Anna Juszkiewicz','Katarzyna Kotala','Sylwia Pytlik','Dorota Szpiler','Jakub Waldowski','Patryk Andreasik','Patryk Przydatek','Arkadiusz Przydatek','Przemek Purtak','Artur Wassiliew','Szymon Hubicki','Oskar Sobczak','Ewelina Kedzior','Malgorzata Dobrowolska','Karolina Koszalka','Damian Lysiak','Rafal Krupko','Ewa Kielar','Barbara Kuczko','Mateusz Kubala','Szymon Olesik','Paulina Filocha'];

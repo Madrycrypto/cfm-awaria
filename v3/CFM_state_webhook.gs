@@ -167,13 +167,14 @@ function handleReport(ss, p) {
     Number(p.qty) || 0, Number(p.scrap) || 0, Number(p.rework) || 0, Number(p.recovered) || 0,
     Number(p.ok_count) || 0, p.pass_rate || '', p.notes || '', p.reasons_json || '',
   ];
-  // Jesli lider poprawia wpis dla tej samej daty/zmiany/stanowiska/operatora
-  // w ramach tego samego dnia — podmien istniejacy wiersz zamiast dopisywac
-  // duplikat (patrz "Wprowadzone dzisiaj" w apce).
+  // Jedno stanowisko + jedna zmiana + jeden dzien = jeden raport, kto
+  // kolwiek go akurat wypelnia — jesli juz istnieje wiersz dla tej daty/
+  // zmiany/stanowiska, podmien go zamiast dopisywac duplikat (operator NIE
+  // jest czescia klucza, to tylko informacja kto ostatnio wyslal/poprawil).
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
     var r = data[i];
-    if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station && r[4] === p.operator) {
+    if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station) {
       sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
       return jsonResponse({ status: 'ok', updated: true });
     }
@@ -188,7 +189,7 @@ function handleDeleteRaportDzienny(ss, p) {
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
     var r = data[i];
-    if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station && r[4] === p.operator) {
+    if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station) {
       sheet.deleteRow(i + 1);
       return jsonResponse({ status: 'ok', deleted: true });
     }
@@ -234,16 +235,17 @@ function handleRaportGodzinny(ss, p) {
     Number(p.qty) || 0, Number(p.rework) || 0, p.rework_reasons_json || '', p.rework_other_desc || '', p.delay || '',
   ];
   // Poprawka wpisu godzinowego (patrz editGodzEntry w apce) — podmien
-  // istniejacy wiersz dla tej samej daty/zmiany/stanowiska/operatora zamiast
-  // dopisywac duplikat. Dopasowanie idzie po orig_hour (godzina wiersza W
-  // MOMENCIE otwarcia edycji), nie po hour (nowa/docelowa wartosc) — inaczej
-  // zmiana samej godziny w edycji nie trafialaby w oryginalny wiersz i
-  // zamiast go "przemianowac" tworzylaby nowy, zostawiajac stary bez zmian.
+  // istniejacy wiersz dla tej samej daty/zmiany/stanowiska/godziny zamiast
+  // dopisywac duplikat (operator NIE jest czescia klucza — tylko informacja
+  // kto wpisal). Dopasowanie idzie po orig_hour (godzina wiersza W MOMENCIE
+  // otwarcia edycji), nie po hour (nowa/docelowa wartosc) — inaczej zmiana
+  // samej godziny w edycji nie trafialaby w oryginalny wiersz i zamiast go
+  // "przemianowac" tworzylaby nowy, zostawiajac stary bez zmian.
   var origHour = p.orig_hour || p.hour;
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
     var r = data[i];
-    if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === origHour && r[4] === p.station && r[5] === p.operator) {
+    if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === origHour && r[4] === p.station) {
       sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
       return jsonResponse({ status: 'ok', updated: true });
     }
@@ -260,7 +262,7 @@ function handleDeleteRaportGodzinny(ss, p) {
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
     var r = data[i];
-    if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === p.hour && r[4] === p.station && r[5] === p.operator) {
+    if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === p.hour && r[4] === p.station) {
       sheet.deleteRow(i + 1);
       return jsonResponse({ status: 'ok', deleted: true });
     }

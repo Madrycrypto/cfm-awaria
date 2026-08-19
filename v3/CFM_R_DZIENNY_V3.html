@@ -1188,10 +1188,16 @@ var REWORK_ZONES = [
   { key: 'OP40', label: 'OP40 IN/OUT', stations: ['OP40 IN', 'OP40 OUT'] },
   { key: 'OP51_52', label: 'OP51/52', stations: ['OP51/52'] }
 ];
+function getZoneForStation(station) {
+  return REWORK_ZONES.filter(function(z) { return z.stations.indexOf(station) >= 0; })[0] || null;
+}
+
 var currentReworkZone = null;
 var currentReworkBuffer = 0;
 var isEditingRework = false;
 var editingReworkOriginalTimestamp = null;
+var isEditingReport = false;
+var editingReportOriginalRework = 0;
 
 function getReworkZone(key) { return REWORK_ZONES.filter(function(z) { return z.key === key; })[0]; }
 
@@ -1490,11 +1496,56 @@ function doSubmitForm() {
   var op = document.getElementById('operatorSel').value;
   var st = document.getElementById('stationSel').value;
   var qty = document.getElementById('qtyInput').value;
-  var notes = document.getElementById('notesInput').value;
 
   if (!op) { showToast('Wybierz operatora! · 请选择操作员!', 'err'); return; }
   if (!st) { showToast('Wybierz stanowisko! · 请选择工位!', 'err'); return; }
   if (qty === '') { showToast('Podaj ilość! · 请输入数量!', 'err'); return; }
+
+  // Jesli to edycja juz wyslanego raportu i rework zostal zmniejszony,
+  // upewnij sie ze nie "zabraknie pokrycia" dla tego, co juz przetworzono
+  // z bufora tej strefy (bufor jest wspolna pula, nie ma FIFO per raport,
+  // wiec to tylko ostrzezenie z potwierdzeniem, nie twarda blokada).
+  var newReworkN = reworkTotal();
+  if (isEditingReport && newReworkN < editingReportOriginalRework) {
+    var zone = getZoneForStation(st);
+    if (zone) {
+      checkBufferSafetyBeforeSubmit(zone, newReworkN, proceedSubmitForm);
+      return;
+    }
+  }
+  proceedSubmitForm();
+}
+
+function checkBufferSafetyBeforeSubmit(zone, newReworkN, onOk) {
+  var wh = getWH();
+  if (!wh) { onOk(); return; }
+  fetch(wh + '?event_type=REWORK_BUFFER&zone=' + encodeURIComponent(zone.key))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { onOk(); return; }
+      var wouldBeTotal = (Number(data.rework_total) || 0) - editingReportOriginalRework + newReworkN;
+      var processedSoFar = (Number(data.recovered_total) || 0) + (Number(data.final_scrap_total) || 0);
+      if (processedSoFar > wouldBeTotal) {
+        var brakuje = processedSoFar - wouldBeTotal;
+        var potwierdz = confirm(
+          'Uwaga: w strefie "' + zone.label + '" już przetworzono ' + processedSoFar + ' szt. (odzyskane + złom), ' +
+          'a po tej zmianie limit z raportów wyniesie tylko ' + wouldBeTotal + ' szt. ' + brakuje + ' szt. zostanie bez pokrycia w bilansie bufora.\n\n' +
+          '注意：该区域已处理 ' + processedSoFar + ' 件，此次修改后额度只有 ' + wouldBeTotal + ' 件，' + brakuje + ' 件将无法对应。\n\n' +
+          'Czy na pewno chcesz zapisać tę zmianę? · 确定要保存此修改吗？'
+        );
+        if (potwierdz) onOk();
+      } else {
+        onOk();
+      }
+    })
+    .catch(function() { onOk(); });
+}
+
+function proceedSubmitForm() {
+  var op = document.getElementById('operatorSel').value;
+  var st = document.getElementById('stationSel').value;
+  var qty = document.getElementById('qtyInput').value;
+  var notes = document.getElementById('notesInput').value;
 
   var scrapEntries = collectReasonTableEntries('scrapReasonsTable');
   var reworkEntries = collectReasonTableEntries('reworkReasonsTable');
@@ -1579,6 +1630,8 @@ function showSuccess(op, st, shift, qty, ok, scrap, rework) {
 }
 
 function resetForm() {
+  isEditingReport = false;
+  editingReportOriginalRework = 0;
   document.getElementById('successScreen').classList.remove('open');
   document.getElementById('qtyInput').value = '';
   document.getElementById('notesInput').value = '';
@@ -1678,6 +1731,8 @@ function renderDzisiajWpisy(wpisy) {
 function editHistoriaEntry(i) {
   var r = dzisiajWpisyCache[i];
   if (!r) return;
+  isEditingReport = true;
+  editingReportOriginalRework = Number(r.rework) || 0;
   document.getElementById('stationSel').value = r.station;
   saveStation();
   document.getElementById('qtyInput').value = r.qty;
@@ -2644,7 +2699,7 @@ function renderGodzHistoria(historia, suma, rework, cel) {
     h += historia.map(function(r, i) {
       var pct = cel > 0 ? Math.round((r.qty / cel) * 100) : null;
       var cls = pct === null ? '' : pct >= 100 ? 'ok' : pct >= 80 ? 'warn' : 'bad';
-      return '<div class="awaria-history-item" style="cursor:pointer;" onclick="editGodzEntry(' + i + ')"><div><div class="awaria-history-station">' + r.godzina + ' <span style="color:var(--muted);font-weight:400;">&#9998;</span></div><div class="awaria-history-type">Rework: ' + (r.rework || 0) + '</div></div>' +
+      return '<div class="awaria-history-item" style="cursor:pointer;" onclick="editGodzEntry(' + i + ')"><div><div class="awaria-history-station">' + r.godzina + ' <span style="color:var(--muted);font-weight:400;">&#9998;</span></div><div class="awaria-history-type">' + (r.operator || '—') + ' &#183; Rework: ' + (r.rework || 0) + '</div></div>' +
         '<div style="text-align:right;display:flex;align-items:center;gap:10px;"><div><div class="awaria-history-dur ' + cls + '">' + r.qty + ' szt' + (pct !== null ? ' &#183; ' + pct + '%' : '') + '</div></div>' +
         '<span style="color:var(--red);font-size:16px;padding:4px;" onclick="event.stopPropagation();deleteGodzEntry(' + i + ')">&#128465;</span></div></div>';
     }).join('');

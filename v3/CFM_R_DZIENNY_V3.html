@@ -1304,9 +1304,7 @@ function submitReworkProcessing() {
   var notes = document.getElementById('reworkNotesInput').value;
   var finalScrapN = reworkScrapTotal();
   var recoveredN = reworkRecoveredTotal();
-  var recovered = String(recoveredN);
   var accounted = recoveredN + finalScrapN;
-  var processed = String(accounted);
 
   if (accounted === 0) { showToast('Podaj ile odzyskano lub ile poszło do złomu! · 请输入修复合格或待报废数量!', 'err'); return; }
 
@@ -1329,8 +1327,8 @@ function submitReworkProcessing() {
     zone_label: zone.label,
     operator: operator,
     date: localDateString(now),
-    processed: processed,
-    recovered: recovered,
+    processed: accounted,
+    recovered: recoveredN,
     final_scrap: finalScrapN,
     note: note,
     notes: notes,

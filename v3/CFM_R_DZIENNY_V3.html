@@ -1190,6 +1190,8 @@ var REWORK_ZONES = [
 ];
 var currentReworkZone = null;
 var currentReworkBuffer = 0;
+var isEditingRework = false;
+var editingReworkOriginalTimestamp = null;
 
 function getReworkZone(key) { return REWORK_ZONES.filter(function(z) { return z.key === key; })[0]; }
 
@@ -1338,7 +1340,8 @@ function submitReworkProcessing() {
     notes: notes,
     reasons_json: JSON.stringify(reworkScrapEntries),
     recovered_reasons_json: JSON.stringify(reworkRecoveredEntries),
-    timestamp: localIsoString(now)
+    timestamp: localIsoString(now),
+    orig_timestamp: isEditingRework ? editingReworkOriginalTimestamp : ''
   };
 
   var wh = getWH();
@@ -1375,6 +1378,8 @@ function saveReworkProcessingLocal(payload) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 function resetReworkForm() {
+  isEditingRework = false;
+  editingReworkOriginalTimestamp = null;
   document.getElementById('reworkNoteInput').value = '';
   document.getElementById('reworkNotesInput').value = '';
   if (currentReworkZone) {
@@ -1416,12 +1421,50 @@ function renderReworkHistoryLocal() {
   all.sort(function(a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
   renderReworkHistoryList(all.slice(0, 10));
 }
+var reworkHistoriaCache = [];
 function renderReworkHistoryList(list) {
+  reworkHistoriaCache = list;
   var el = document.getElementById('reworkHistoryContent');
   if (!list.length) { el.innerHTML = '<div class="hist-loading">Brak historii dla tej strefy</div>'; return; }
-  el.innerHTML = list.map(function(r) {
-    return '<div class="awaria-history-item"><div><div class="awaria-history-station">' + (r.operator || '—') + '</div><div class="awaria-history-type">' + r.date + ' &#183; Przetworzono: ' + r.processed + ' &#183; Odzyskano: ' + r.recovered + ' &#183; Złom: ' + r.final_scrap + (r.note ? ' &#183; ' + r.note : '') + '</div></div></div>';
+  el.innerHTML = list.map(function(r, i) {
+    var editable = !!r.timestamp;
+    var actions = editable ?
+      '<span style="color:var(--blue);font-size:14px;padding:4px;cursor:pointer;" onclick="editReworkEntry(' + i + ')">&#9998;</span>' +
+      '<span style="color:var(--red);font-size:14px;padding:4px;cursor:pointer;" onclick="deleteReworkEntry(' + i + ')">&#128465;</span>' : '';
+    return '<div class="awaria-history-item"><div><div class="awaria-history-station">' + (r.operator || '—') + '</div><div class="awaria-history-type">' + r.date + ' &#183; Przetworzono: ' + r.processed + ' &#183; Odzyskano: ' + r.recovered + ' &#183; Złom: ' + r.final_scrap + (r.note ? ' &#183; ' + r.note : '') + '</div></div><div style="display:flex;align-items:center;gap:0;">' + actions + '</div></div>';
   }).join('');
+}
+
+function editReworkEntry(i) {
+  var r = reworkHistoriaCache[i];
+  if (!r || !r.timestamp) return;
+  isEditingRework = true;
+  editingReworkOriginalTimestamp = r.timestamp;
+  var opSel = document.getElementById('operatorSel');
+  if (r.operator) opSel.value = r.operator;
+  document.getElementById('reworkNotesInput').value = r.notes || '';
+  document.getElementById('reworkNoteInput').value = r.note || '';
+  var scrapEntries = [], recoveredEntries = [];
+  try { scrapEntries = JSON.parse(r.reasons_json || '[]'); } catch (e) {}
+  try { recoveredEntries = JSON.parse(r.recovered_reasons_json || '[]'); } catch (e) {}
+  populateReasonTable('reworkScrapReasonsTable', scrapEntries);
+  populateReasonTable('reworkRecoveredReasonsTable', recoveredEntries);
+  updateReworkProcessSummary();
+  showToast('Edytujesz wpis ' + (r.operator || '') + ' — popraw i wyślij ponownie · 正在编辑 — 修改后重新发送', 'ok');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function deleteReworkEntry(i) {
+  var r = reworkHistoriaCache[i];
+  if (!r || !r.timestamp) return;
+  if (!confirm('Usunąć wpis przetworzenia (' + r.date + ', przetworzono ' + r.processed + ')? · 删除该处理记录？')) return;
+  var wh = getWH();
+  if (!wh) return;
+  var payload = { event_type: 'DELETE_REWORK_PROCESSING', timestamp: r.timestamp };
+  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
+  new Image().src = wh + '?' + qs;
+  showToast('Wpis usunięty · 记录已删除', 'ok');
+  setTimeout(function() { loadReworkHistory(); loadReworkBuffer(); }, 800);
 }
 
 function saveOperator() {

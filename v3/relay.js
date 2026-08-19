@@ -119,8 +119,15 @@ const server = http.createServer(async (req, res) => {
       for (const e of body.final_scrap_entries || []) {
         await forwardToFeishu(WEBHOOK_QUALITY, {
           timestamp: d.timestamp || '', date: d.date || '', shift: '',
-          station: d.zone || '', operator: '',
+          station: d.zone || '', operator: d.operator || '',
           category: 'rework_final_scrap', reason: e.reason || '', qty: e.qty || 0,
+        });
+      }
+      for (const e of body.recovered_entries || []) {
+        await forwardToFeishu(WEBHOOK_QUALITY, {
+          timestamp: d.timestamp || '', date: d.date || '', shift: '',
+          station: d.zone || '', operator: d.operator || '',
+          category: 'rework_recovered', reason: e.reason || '', qty: e.qty || 0,
         });
       }
       res.end(JSON.stringify({ status: 'ok' }));

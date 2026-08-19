@@ -55,9 +55,12 @@ function doGet(e) {
       case 'KONIEC': return handleAwariaEnd(ss, p);
       case 'SPRAWDZ': return handleAwariaCheck(ss, p);
       case 'AWARIA_HISTORIA': return handleAwariaHistoria(ss, p);
+      case 'EDIT_AWARIA_DURATION': return handleEditAwariaDuration(ss, p);
+      case 'DELETE_AWARIA': return handleDeleteAwaria(ss, p);
       case 'REWORK_PROCESSING': return handleReworkProcessing(ss, p);
       case 'REWORK_BUFFER': return handleReworkBuffer(ss, p);
       case 'REWORK_HISTORY': return handleReworkHistory(ss, p);
+      case 'DELETE_REWORK_PROCESSING': return handleDeleteReworkProcessing(ss, p);
       case 'RAPORT_GODZINNY': return handleRaportGodzinny(ss, p);
       case 'HISTORIA_GODZINNA': return handleHistoriaGodzinna(ss, p);
       case 'DELETE_RAPORT_DZIENNY': return handleDeleteRaportDzienny(ss, p);
@@ -343,6 +346,37 @@ function handleAwariaHistoria(ss, p) {
   return jsonResponse({ status: 'ok', historia: rows.slice(0, 20) });
 }
 
+// Poprawka czasu trwania zamknietej awarii (np. zapomniano kliknac KONIEC
+// na czas i wynik jest zawyzony) — identyfikacja po stanowisku/typie/
+// czasie startu, tak samo jak przy zamykaniu.
+function handleEditAwariaDuration(ss, p) {
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var r = data[i];
+    if (r[0] === p.start_timestamp && r[1] === p.stanowisko && r[2] === p.typ && r[5] === 'ZAMKNIETA') {
+      sheet.getRange(i + 1, 5).setValue(Number(p.czas_min) || 0);
+      return jsonResponse({ status: 'ok', updated: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', updated: false });
+}
+
+function handleDeleteAwaria(ss, p) {
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var r = data[i];
+    if (r[0] === p.start_timestamp && r[1] === p.stanowisko && r[2] === p.typ) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ status: 'ok', deleted: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', deleted: false });
+}
+
 // ── REWORK PROCESSING (bufor per strefa) ────────────────────────────
 // timestamp | date | zone | processed | recovered | final_scrap | note | notes | reasons_json | zone_label | operator | recovered_reasons_json
 // (zone_label/operator/recovered_reasons_json dopisane NA KONCU, zeby nie
@@ -352,12 +386,41 @@ var REWORK_PROCESSING_HEADERS = ['timestamp', 'date', 'zone', 'processed', 'reco
 function handleReworkProcessing(ss, p) {
   var sheet = getOrCreateSheet(ss, 'ReworkProcessing', REWORK_PROCESSING_HEADERS);
   ensureColumns_(sheet, REWORK_PROCESSING_HEADERS);
-  sheet.appendRow([
+  var row = [
     p.timestamp || '', p.date || '', p.zone || '', Number(p.processed) || 0,
     Number(p.recovered) || 0, Number(p.final_scrap) || 0, p.note || '', p.notes || '', p.reasons_json || '',
     p.zone_label || '', p.operator || '', p.recovered_reasons_json || '',
-  ]);
-  return jsonResponse({ status: 'ok' });
+  ];
+  // Edycja istniejacego przetworzenia (patrz editReworkEntry w apce) —
+  // podmien wiersz o oryginalnym timestampie zamiast dopisywac nowy. Zwykle
+  // (nie-edycyjne) wyslania NIE ustawiaja orig_timestamp, wiec zawsze
+  // dopisuja nowy wiersz — przetwarzanie bufora jest z natury addytywne
+  // (kilka sesji dziennie na te sama strefe to normalka), w odroznieniu od
+  // Raportu Godzinnego/Dziennego gdzie kazdy klucz jest unikalny z definicji.
+  if (p.orig_timestamp) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (data[i][0] === p.orig_timestamp) {
+        sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+        return jsonResponse({ status: 'ok', updated: true });
+      }
+    }
+  }
+  sheet.appendRow(row);
+  return jsonResponse({ status: 'ok', updated: false });
+}
+
+function handleDeleteReworkProcessing(ss, p) {
+  var sheet = ss.getSheetByName('ReworkProcessing');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (data[i][0] === p.timestamp) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ status: 'ok', deleted: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', deleted: false });
 }
 
 function handleReworkBuffer(ss, p) {

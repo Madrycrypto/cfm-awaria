@@ -1198,6 +1198,7 @@ var currentReworkZone = null;
 var currentReworkBuffer = 0;
 var isEditingRework = false;
 var editingReworkOriginalTimestamp = null;
+var editingReworkOriginalAccounted = 0;
 var isEditingReport = false;
 var editingReportOriginalRework = 0;
 
@@ -1222,6 +1223,14 @@ function selectReworkZone(key) {
 function reworkScrapTotal() { return sumPieceQty(collectReasonTableEntries('reworkScrapReasonsTable')); }
 function reworkRecoveredTotal() { return sumPieceQty(collectReasonTableEntries('reworkRecoveredReasonsTable')); }
 
+// Przy edycji istniejacego wpisu bufor pobrany z serwera juz ma odjete
+// stare wartosci TEGO wpisu — trzeba je doliczyc z powrotem, inaczej
+// porownanie podwojnie odejmuje ten sam wpis i falszywie zglasza
+// przekroczenie bufora.
+function effectiveReworkBuffer() {
+  return currentReworkBuffer + (isEditingRework ? editingReworkOriginalAccounted : 0);
+}
+
 function updateReworkProcessSummary() {
   var card = document.getElementById('reworkBalanceCard');
   var noteField = document.getElementById('reworkNoteField');
@@ -1233,10 +1242,11 @@ function updateReworkProcessSummary() {
   if (!currentReworkZone) { card.style.display = 'none'; noteField.style.display = 'none'; return; }
   var finalScrap = reworkScrapTotal();
   var accounted = recovered + finalScrap;
-  var exceeds = accounted > currentReworkBuffer;
+  var bufor = effectiveReworkBuffer();
+  var exceeds = accounted > bufor;
   card.style.display = 'block';
   document.getElementById('reworkBalanceText').innerHTML =
-    'Bufor dostępny: <strong>' + currentReworkBuffer + '</strong> szt.<br>' +
+    'Bufor dostępny: <strong>' + bufor + '</strong> szt.<br>' +
     'Odzyskane + finalny złom: <strong class="' + (exceeds ? 'balance-warn' : 'balance-ok') + '">' + accounted + '</strong> szt.' +
     (exceeds ? '<br><span class="balance-warn">⚠ Przekracza dostępny bufor — wymagane uzasadnienie poniżej</span>' : '');
   noteField.style.display = exceeds ? 'block' : 'none';
@@ -1324,7 +1334,7 @@ function submitReworkProcessing() {
 
   var reworkScrapEntries = collectReasonTableEntries('reworkScrapReasonsTable');
   var reworkRecoveredEntries = collectReasonTableEntries('reworkRecoveredReasonsTable');
-  if (accounted > currentReworkBuffer && !note) {
+  if (accounted > effectiveReworkBuffer() && !note) {
     showToast('Przekroczono bufor — podaj uzasadnienie! · 超出缓冲区数量 — 请填写说明!', 'err');
     document.getElementById('reworkNoteInput').focus();
     return;
@@ -1388,6 +1398,7 @@ function saveReworkProcessingLocal(payload) {
 function resetReworkForm() {
   isEditingRework = false;
   editingReworkOriginalTimestamp = null;
+  editingReworkOriginalAccounted = 0;
   document.getElementById('reworkNoteInput').value = '';
   document.getElementById('reworkNotesInput').value = '';
   if (currentReworkZone) {
@@ -1448,6 +1459,7 @@ function editReworkEntry(i) {
   if (!r || !r.timestamp) return;
   isEditingRework = true;
   editingReworkOriginalTimestamp = r.timestamp;
+  editingReworkOriginalAccounted = (Number(r.recovered) || 0) + (Number(r.final_scrap) || 0);
   var opSel = document.getElementById('operatorSel');
   if (r.operator) opSel.value = r.operator;
   document.getElementById('reworkNotesInput').value = r.notes || '';

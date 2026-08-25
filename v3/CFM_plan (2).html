@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0d0d0d">
+<title>CFM · Plan</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
+  --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
+  --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
+  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;
+  --sunday-bg:#141414;
+  --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
+body{padding-bottom:86px}
+.wrap{max-width:1700px;margin:0 auto;padding:0 24px}
+.cn{font-family:var(--fc);color:var(--faint);font-weight:400}
+::selection{background:var(--blue);color:#fff}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar-inner{max-width:1700px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:14px}
+.logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
+.crumb{font-size:13px;color:var(--muted)}
+.crumb b{color:var(--text);font-weight:600}
+.topbar-right{margin-left:auto;font-size:12px;color:var(--faint);text-align:right;line-height:1.4}
+.topbar-right .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:600}
+.topbar-right .live.off{color:var(--red)}
+.live-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
+
+.pagehead{padding:24px 0 16px}
+h1{font-family:var(--fh);font-weight:800;font-size:28px;letter-spacing:0.2px}
+h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
+.sub{color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6}
+
+.monthnav{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:18px;max-width:280px}
+.monthnav button{background:none;border:none;color:var(--muted);font-size:20px;padding:8px 16px;cursor:pointer;border-radius:8px}
+.monthnav button:hover{color:var(--text);background:var(--surface-2)}
+.monthnav .mlabel{flex:1;text-align:center;font-family:var(--fh);font-weight:800;font-size:16px;letter-spacing:0.3px}
+.monthnav .mlabel .cn{font-size:11px;margin-left:5px}
+
+.legend{display:flex;gap:16px;font-size:11.5px;color:var(--muted);margin-bottom:16px;flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:16px;height:10px;border-radius:3px;display:inline-block}
+
+.stationgroup{margin-bottom:22px}
+.stationgroup-name{font-family:var(--fh);font-weight:800;font-size:16px;margin-bottom:8px}
+.shiftcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.shiftcard-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.shiftpill{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);font-weight:700;font-size:13px;flex-shrink:0}
+.shiftpill i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.quickval{width:92px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:7px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:14px;text-align:center;padding:8px 6px;font-variant-numeric:tabular-nums}
+.quickval:focus{outline:none;border-color:var(--blue)}
+.quickval::placeholder{color:var(--faint);font-weight:500}
+.btn-mini{font-family:var(--fh);font-weight:700;font-size:10.5px;letter-spacing:0.03em;text-transform:uppercase;border-radius:7px;padding:8px 12px;cursor:pointer;border:1px solid var(--border);background:none}
+.btn-mini.copy{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-mini.toggle{background:var(--surface-2);color:var(--muted);margin-left:auto}
+.btn-mini.toggle:hover{color:var(--text)}
+.btn-mini.toggle.open{color:var(--blue-soft);border-color:var(--blue-soft)}
+.btn-mini small{display:block;font-family:var(--fc);font-weight:400;text-transform:none;font-size:9px;opacity:.7;margin-top:1px}
+.irregular-flag{font-size:10px;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:0.03em}
+
+.daystrip{display:flex;gap:6px;overflow-x:auto;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft)}
+.daycell{flex:1 1 0;min-width:50px;text-align:center}
+.daycell .dlabel{font-size:9px;color:var(--faint);margin-bottom:3px;font-weight:600}
+.daycell.sun .dlabel{color:var(--red)}
+.daycell input{width:100%;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:5px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:11px;text-align:center;padding:5px 1px;font-variant-numeric:tabular-nums}
+.daycell input:focus{outline:none;border-color:var(--blue);background:var(--surface)}
+.daycell input::placeholder{color:var(--faint);font-weight:500}
+.daycell.sun input{opacity:.4}
+
+.actions{position:sticky;bottom:0;background:var(--bg);padding:14px 0;border-top:1px solid var(--border);margin-top:-1px}
+.actions .wrap{display:flex;gap:10px;width:100%;padding:0 20px}
+.btn{font-family:var(--fh);font-weight:800;font-size:14px;letter-spacing:0.05em;text-transform:uppercase;border:none;border-radius:10px;padding:14px;cursor:pointer;transition:filter .15s}
+.btn:hover{filter:brightness(1.1)}
+.btn-copy{background:var(--surface-2);color:var(--text);border:1px solid var(--border);flex:1}
+.btn-save{background:var(--blue);color:#fff;flex:2}
+.btn small{display:block;font-family:var(--fc);font-weight:400;text-transform:none;font-size:10.5px;opacity:.75;margin-top:2px}
+
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:40}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(26,158,80,0.4);color:#3fd17a}
+.toast.err{border-color:rgba(217,43,43,0.4);color:#ff7070}
+
+.empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="dot"></span>CFM</div>
+    <div class="crumb"><b>Plan produkcji <span class="cn">生产计划</span></b></div>
+    <div class="topbar-right">
+      <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+  <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
+var MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+var MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+var WD = ['pn','wt','śr','cz','pt','so','nd'];
+
+var STATE = {
+  viewMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  stations: [], shiftLabels: ['A', 'B', 'C'], targets: {}, plan: {}
+};
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function monthKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+function dateISO(y, m, day) { return y + '-' + pad(m + 1) + '-' + pad(day); }
+function daysInMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
+
+function showToast(msg, kind) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (kind || '');
+  setTimeout(function() { t.className = 'toast ' + (kind || ''); }, 2200);
+}
+
+function init() {
+  var wh = getWH();
+  var liveEl = document.getElementById('liveStatus');
+  if (!wh) {
+    liveEl.className = 'live off';
+    liveEl.innerHTML = '<span class="live-pulse"></span>brak połączenia <span class="cn">未连接</span>';
+    document.getElementById('app').innerHTML = '<div class="empty">Nie skonfigurowano połączenia na tym urządzeniu.<br><span class="cn">此设备尚未配置连接。</span><br><br>Otwórz główną apkę CFM &#8594; Panel Admina &#8594; Połączenie, skonfiguruj Webhook URL, wróć tutaj i odśwież stronę.<br><span class="cn">打开CFM主应用 &#8594; 管理面板 &#8594; 连接，配置Webhook网址，然后返回此页面刷新。</span></div>';
+    return;
+  }
+  fetch(wh + '?event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { showConnError(); return; }
+      var u = data.ustawienia || {};
+      try { STATE.stations = JSON.parse(u.cfm_stations || '[]'); } catch (e) { STATE.stations = []; }
+      try {
+        var shifts = JSON.parse(u.cfm_shifts || 'null');
+        if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
+      } catch (e) {}
+      try { STATE.targets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.targets = {}; }
+      try { STATE.plan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.plan = {}; }
+      if (!STATE.stations.length) { showConnError('Brak skonfigurowanych stanowisk · 未配置工位'); return; }
+      liveEl.className = 'live';
+      liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
+      render();
+    })
+    .catch(function() { showConnError(); });
+}
+
+function showConnError(msg) {
+  var liveEl = document.getElementById('liveStatus');
+  liveEl.className = 'live off';
+  liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
+  document.getElementById('app').innerHTML = '<div class="empty">' + (msg || 'Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span>') + '</div>';
+}
+
+// Sprawdza czy zmiana ma jednolita wartosc na wszystkie dni robocze
+// (pon-pt) w tym miesiacu — jesli tak, karta zostaje zwinieta i pokazuje
+// tylko "cel dzienny" + przycisk kopiuj. Jesli wartosci sie roznia
+// (harmonogram nieregularny, np. lutowanie w piecu co 2 dni), karta
+// rozwija sie automatycznie, zeby od razu bylo widac ktore dni sa
+// wypelnione.
+function analyzeShift(shEntry, y, m, nDays) {
+  var weekdayVals = [], filledCount = 0, hasSaturday = false, totalWeekdays = 0;
+  for (var d = 1; d <= nDays; d++) {
+    var iso = dateISO(y, m, d);
+    var wd = new Date(y, m, d).getDay();
+    if (wd !== 0 && wd !== 6) totalWeekdays++;
+    var val = shEntry[iso];
+    if (val === undefined) continue;
+    filledCount++;
+    if (wd === 6) hasSaturday = true;
+    else if (wd !== 0) weekdayVals.push(val);
+  }
+  // "Jednolite" = pokrywa WSZYSTKIE dni robocze tego miesiaca, nie tylko
+  // "te wypelnione wartosci sa takie same" — inaczej rzadki wzorzec (np.
+  // co 2 dni, zawsze ta sama ilosc) bylby mylnie traktowany jako prosty
+  // "codzienny cel" zamiast nieregularnego harmonogramu.
+  var uniform = weekdayVals.length === totalWeekdays && weekdayVals.every(function(v) { return v === weekdayVals[0]; });
+  return { filledCount: filledCount, uniform: uniform, quickVal: uniform ? weekdayVals[0] : '', hasSaturday: hasSaturday };
+}
+
+function render() {
+  var y = STATE.viewMonth.getFullYear(), m = STATE.viewMonth.getMonth();
+  var nDays = daysInMonth(STATE.viewMonth);
+  var mk = monthKey(STATE.viewMonth);
+  var entry = STATE.plan[mk] || {};
+
+  var app = document.getElementById('app');
+  app.innerHTML =
+    '<div class="pagehead"><h1>Plan produkcji <span class="cn">生产计划</span></h1><div class="sub">Dla stanowisk pracujących codziennie: wpisz jedną liczbę i kliknij "Kopiuj pon–pt". Dla nieregularnych (np. lutowanie w piecu): rozwiń "Dni" i wypełnij ręcznie tylko potrzebne dni.<br><span class="cn">对于每天生产的工位：输入一个数字并点击"复制周一至周五"。对于不规律的工位（如炉内钎焊）：展开"天数"，只需手动填写需要的日期。</span></div></div>' +
+    '<div class="monthnav"><button id="prevMonth">&#8249;</button><div class="mlabel">' + MONTH_NAMES[m] + ' ' + y + '<span class="cn">' + MONTH_NAMES_CN[m] + '</span></div><button id="nextMonth">&#8250;</button></div>' +
+    '<div class="legend"><span><i style="background:var(--sunday-bg);border:1px solid var(--border)"></i>Niedziela · <span class="cn">周日</span></span><span>"Kopiuj pon–pt" nigdy nie rusza soboty — wpisz ją ręcznie w rozwiniętych dniach, jeśli akurat pracujecie &#183; <span class="cn">"复制"不会填写周六 — 如有加班请在展开的天数中手动填写</span></span></div>' +
+    '<div id="planlist"></div>' +
+    '<div class="actions"><div class="wrap">' +
+      '<button class="btn btn-copy" id="btnCopy">Skopiuj z poprz. mies.<small>从上月复制</small></button>' +
+      '<button class="btn btn-save" id="btnSave">Zapisz plan<small>保存计划</small></button>' +
+    '</div></div>';
+
+  var html = '';
+  STATE.stations.forEach(function(st) {
+    var stEntry = entry[st] || {};
+    html += '<div class="stationgroup"><div class="stationgroup-name">' + st + '</div>';
+    STATE.shiftLabels.forEach(function(sh) {
+      var shEntry = stEntry[sh] || {};
+      var info = analyzeShift(shEntry, y, m, nDays);
+      var expand = info.filledCount > 0 && !info.uniform;
+
+      var dayCells = '';
+      for (var d = 1; d <= nDays; d++) {
+        var iso = dateISO(y, m, d);
+        var wd = new Date(y, m, d).getDay();
+        var isSun = wd === 0;
+        var isSat = wd === 6;
+        var val = shEntry[iso] !== undefined ? shEntry[iso] : '';
+        dayCells += '<div class="daycell' + (isSun ? ' sun' : '') + '"><div class="dlabel">' + d + ' ' + WD[(wd + 6) % 7] + '</div><input type="number" min="0" placeholder="' + (isSat ? '' : (STATE.targets[st] || '')) + '" value="' + val + '" data-station="' + st.replace(/"/g, '&quot;') + '" data-shift="' + sh + '" data-date="' + iso + '"></div>';
+      }
+
+      html += '<div class="shiftcard" data-station="' + st.replace(/"/g, '&quot;') + '" data-shift="' + sh + '">' +
+        '<div class="shiftcard-head">' +
+          '<span class="shiftpill"><i style="background:' + shiftColor(sh) + '"></i>Zmiana ' + sh + '</span>' +
+          '<input type="number" min="0" class="quickval" placeholder="np. ' + (STATE.targets[st] || '0') + '" value="' + info.quickVal + '">' +
+          '<button type="button" class="btn-mini copy" onclick="quickCopy(this)">Kopiuj pon&#8211;pt<small>复制周一至周五</small></button>' +
+          (info.hasSaturday ? '<span class="irregular-flag">+ sobota</span>' : '') +
+          (expand ? '<span class="irregular-flag">nieregularne</span>' : '') +
+          '<button type="button" class="btn-mini toggle' + (expand ? ' open' : '') + '" onclick="toggleDays(this)">Dni ' + (expand ? '&#9652;' : '&#9662;') + ' <span class="cn">天数</span> (' + info.filledCount + ')</button>' +
+        '</div>' +
+        '<div class="daystrip" style="display:' + (expand ? 'flex' : 'none') + ';">' + dayCells + '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  });
+  document.getElementById('planlist').innerHTML = html || '<div class="empty">Brak stanowisk. <span class="cn">无工位。</span></div>';
+
+  document.getElementById('prevMonth').onclick = function() { STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1); render(); };
+  document.getElementById('nextMonth').onclick = function() { STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() + 1, 1); render(); };
+  document.getElementById('btnCopy').onclick = copyFromPrevMonth;
+  document.getElementById('btnSave').onclick = savePlan;
+}
+
+function setDaysOpen(card, open) {
+  var strip = card.querySelector('.daystrip');
+  var btn = card.querySelector('.btn-mini.toggle');
+  strip.style.display = open ? 'flex' : 'none';
+  btn.classList.toggle('open', open);
+  btn.innerHTML = 'Dni ' + (open ? '&#9652;' : '&#9662;') + ' <span class="cn">天数</span> (' + strip.querySelectorAll('input').length + ')';
+}
+function toggleDays(btn) {
+  var card = btn.closest('.shiftcard');
+  var open = card.querySelector('.daystrip').style.display !== 'none';
+  setDaysOpen(card, !open);
+}
+
+// Wypelnia tylko pon-pt — sobota i niedziela to nie standardowe dni
+// robocze (sobota bywa dodatkowa zmiana, wiec zostaje do recznego
+// wstawienia w rozwinietych dniach, tam gdzie faktycznie pracowano).
+function quickCopy(btn) {
+  var card = btn.closest('.shiftcard');
+  var n = Number(card.querySelector('.quickval').value) || 0;
+  if (n <= 0) { showToast('Wpisz liczbę większą od 0 · 请输入大于0的数字', 'err'); return; }
+  card.querySelectorAll('.daystrip input').forEach(function(el) {
+    var parts = el.dataset.date.split('-');
+    var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
+    if (wd !== 0 && wd !== 6) el.value = n;
+  });
+  setDaysOpen(card, true);
+  showToast('Skopiowano na pon–pt · 已复制到周一至周五', 'ok');
+}
+
+function collectPlanFromInputs() {
+  var entry = {};
+  document.querySelectorAll('.daystrip input').forEach(function(el) {
+    var st = el.dataset.station, sh = el.dataset.shift, iso = el.dataset.date;
+    var v = Number(el.value) || 0;
+    if (v > 0) {
+      if (!entry[st]) entry[st] = {};
+      if (!entry[st][sh]) entry[st][sh] = {};
+      entry[st][sh][iso] = v;
+    }
+  });
+  return entry;
+}
+
+function copyFromPrevMonth() {
+  var prev = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1);
+  var prevEntry = STATE.plan[monthKey(prev)];
+  if (!prevEntry) { showToast('Brak planu w poprzednim miesiącu · 上月无计划', 'err'); return; }
+  var prevDays = daysInMonth(prev);
+  var thisDays = daysInMonth(STATE.viewMonth);
+  var y = STATE.viewMonth.getFullYear(), m = STATE.viewMonth.getMonth();
+  var newEntry = {};
+  Object.keys(prevEntry).forEach(function(st) {
+    newEntry[st] = {};
+    Object.keys(prevEntry[st]).forEach(function(sh) {
+      newEntry[st][sh] = {};
+      Object.keys(prevEntry[st][sh]).forEach(function(iso) {
+        var dayNum = Number(iso.split('-')[2]);
+        if (dayNum <= thisDays) newEntry[st][sh][dateISO(y, m, dayNum)] = prevEntry[st][sh][iso];
+      });
+    });
+  });
+  STATE.plan[monthKey(STATE.viewMonth)] = newEntry;
+  render();
+  showToast('Skopiowano z poprzedniego miesiąca (wg dnia miesiąca) · 已按日期从上月复制', 'ok');
+}
+
+function savePlan() {
+  var mk = monthKey(STATE.viewMonth);
+  STATE.plan[mk] = collectPlanFromInputs();
+  localStorage.setItem('cfm_monthly_plan', JSON.stringify(STATE.plan));
+
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_monthly_plan', wartosc: JSON.stringify(STATE.plan) })
+  }).then(function() {
+    showToast('Plan zapisany! · 计划已保存!', 'ok');
+  }).catch(function() {
+    showToast('Zapisano lokalnie, błąd wysyłki · 已本地保存，发送失败', 'err');
+  });
+}
+
+init();
+</script>
+</body>
+</html>

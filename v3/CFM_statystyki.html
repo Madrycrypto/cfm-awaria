@@ -57,6 +57,19 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .weekpicker button{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:8px 14px;border-radius:9px;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
 .weekpicker button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 .weekpicker button:not(.on):hover{color:var(--text);border-color:var(--faint)}
+.weekpicker .sep{width:1px;background:var(--border);margin:2px 4px}
+.weekpicker button.month{border-style:dashed}
+.weekpicker button.month.on{background:var(--green);border-color:var(--green)}
+
+.reasonbtn{font-family:var(--fb);font-weight:600;font-size:10.5px;color:var(--muted);background:none;border:1px solid var(--border-soft);border-radius:6px;padding:2px 8px;cursor:pointer;margin-left:10px}
+.reasonbtn:hover{color:var(--text);border-color:var(--faint)}
+.reasonbox{display:none;margin-top:8px;flex-wrap:wrap;gap:6px}
+.reasonbox.open{display:flex}
+.reason-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--text);white-space:normal}
+.reason-chip b{font-family:var(--fh);color:var(--blue-soft)}
+.reason-chip.scrap b{color:#ff7070}
+.reason-chip.rework b{color:#f0a030}
+.reason-chip.off{color:var(--faint)}
 
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
@@ -142,7 +155,7 @@ tbody tr.grouphead td{padding-top:16px}
 <script>
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
 
-var STATE = { monthDate: new Date(), rows: [], weeks: [], selectedWeekIdx: 0 };
+var STATE = { monthDate: new Date(), rows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week' };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -237,6 +250,45 @@ function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(
 function pctClass(p) { if (p === null) return 'off'; if (p >= 95) return 'good'; if (p >= 80) return 'warn'; return 'crit'; }
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
 
+function monthDays(monthDate) {
+  var r = monthRange(monthDate);
+  var days = [];
+  var cursor = new Date(r.startD);
+  while (cursor <= r.endD) { days.push(toISO(cursor)); cursor = addDays(cursor, 1); }
+  return days;
+}
+
+// Zlicza powody scrap/rework (z reasons_json kazdego RaportDzienny) w
+// podanym zestawie wpisow — pokazywane jako "chmurki" pod paskiem pass
+// rate, zeby bylo widac CO konkretnie odpadlo, a nie tylko sam procent.
+function aggregateReasons(rows) {
+  var tally = {};
+  rows.forEach(function(r) {
+    if (!r.reasons_json) return;
+    var parsed;
+    try { parsed = JSON.parse(r.reasons_json); } catch (e) { return; }
+    (parsed.scrap || []).forEach(function(e) { addTally('scrap', e); });
+    (parsed.rework || []).forEach(function(e) { addTally('rework', e); });
+  });
+  function addTally(cat, e) {
+    var qty = Number(e.qty) || 0;
+    if (qty <= 0) return;
+    var reason = e.reason || 'Inne';
+    var key = cat + '||' + reason;
+    if (!tally[key]) tally[key] = { category: cat, reason: reason, qty: 0 };
+    tally[key].qty += qty;
+  }
+  return Object.keys(tally).map(function(k) { return tally[k]; }).sort(function(a, b) { return b.qty - a.qty; });
+}
+
+function reasonsHtml(reasons) {
+  if (!reasons.length) return '<span class="reason-chip off">brak zarejestrowanych powodów &#183; 未记录原因</span>';
+  return reasons.map(function(rs) {
+    var lbl = rs.category === 'scrap' ? 'scrap' : 'rework';
+    return '<span class="reason-chip ' + rs.category + '"><b>' + rs.qty + '&#215;</b>' + rs.reason + ' <span class="cn">(' + lbl + ')</span></span>';
+  }).join('');
+}
+
 function render() {
   var app = document.getElementById('app');
   if (!STATE.rows.length) {
@@ -245,9 +297,11 @@ function render() {
     return;
   }
 
-  var week = STATE.weeks[STATE.selectedWeekIdx];
+  var isMonth = STATE.viewMode === 'month';
+  var days = isMonth ? monthDays(STATE.monthDate) : STATE.weeks[STATE.selectedWeekIdx].days;
+  var periodLabel = isMonth ? 'mies.' : 'tyg.';
   var groups = groupByStationShift(STATE.rows);
-  var weekGroups = groupByStationShift(STATE.rows.filter(function(r) { return r.date >= week.start && r.date <= week.end; }));
+  var periodGroups = groupByStationShift(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
 
   app.innerHTML =
     '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub" id="weekLabel"></div></div>' +
@@ -257,14 +311,13 @@ function render() {
     '<div class="section"><div class="section-head"><h2>Wykonanie planu &#183; dzień po dniu<span class="cn">计划完成率 &#183; 逐日</span></h2><div class="legend">' +
       '<span><i style="background:#3fd17a"></i>&#8805; 95%</span><span><i style="background:#f0a030"></i>80&#8211;94%</span><span><i style="background:#ff7070"></i>&lt; 80%</span>' +
     '</div></div><div class="tablewrap"><div class="tablescroll"><table id="pivot"></table></div></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
-    '<div class="note"><div class="ic">i</div><div><b>Dane na żywo z RaportDzienny.</b> <span class="cn">实时数据来自日报表。</span><br>Ta strona odczytuje ten sam arkusz co apka CFM (przez Apps Script) — nic nie trzeba ręcznie przepisywać, wystarczy wysyłać raporty jak zawsze.<br><span class="cn">此页面读取与CFM应用相同的表格（通过Apps Script）——无需手动重复录入，只需照常提交报告。</span></div></div>';
+    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>';
 
   wireMonthNav();
   renderWeekPicker();
-  document.getElementById('weekLabel').textContent = fmtWeekRangePlain(week) + ' · ' + weekGroups.length + ' pozycji · ' + weekGroups.length + ' 项';
-  renderKpis(weekGroups, week);
-  renderPivot(weekGroups, week);
+  document.getElementById('weekLabel').textContent = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + periodGroups.length + ' pozycji · ' + periodGroups.length + ' 项';
+  renderKpis(periodGroups, days, periodLabel);
+  renderPivot(periodGroups, days, periodLabel);
   renderBars(groups);
 }
 
@@ -294,11 +347,7 @@ function wireMonthNav() {
 // — to normalne przy tej metodzie, wystarczy kliknac "Tak".
 function exportToExcel() {
   if (!STATE.rows.length) { return; }
-  var r = monthRange(STATE.monthDate);
-  var days = [];
-  var cursor = new Date(r.startD);
-  while (cursor <= r.endD) { days.push(toISO(cursor)); cursor = addDays(cursor, 1); }
-
+  var days = monthDays(STATE.monthDate);
   var groups = groupByStationShift(STATE.rows);
   var byStation = {}, stationOrder = [];
   groups.forEach(function(g) { if (!byStation[g.station]) { byStation[g.station] = []; stationOrder.push(g.station); } byStation[g.station].push(g); });
@@ -364,17 +413,18 @@ function exportToExcel() {
 function renderWeekPicker() {
   var el = document.getElementById('weekPicker');
   el.innerHTML = STATE.weeks.map(function(w, i) {
-    return '<button data-i="' + i + '" class="' + (i === STATE.selectedWeekIdx ? 'on' : '') + '">' + fmtWeekRange(w) + '</button>';
-  }).join('');
-  el.querySelectorAll('button').forEach(function(b) {
-    b.onclick = function() { STATE.selectedWeekIdx = Number(b.dataset.i); render(); };
+    return '<button data-i="' + i + '" class="' + (STATE.viewMode === 'week' && i === STATE.selectedWeekIdx ? 'on' : '') + '">' + fmtWeekRange(w) + '</button>';
+  }).join('') + '<span class="sep"></span><button id="btnMonthView" class="month' + (STATE.viewMode === 'month' ? ' on' : '') + '">Cały miesiąc <span class="cn">整月</span></button>';
+  document.getElementById('btnMonthView').onclick = function() { STATE.viewMode = 'month'; render(); };
+  el.querySelectorAll('button:not(#btnMonthView)').forEach(function(b) {
+    b.onclick = function() { STATE.viewMode = 'week'; STATE.selectedWeekIdx = Number(b.dataset.i); render(); };
   });
 }
 
-function renderKpis(weekGroups, week) {
+function renderKpis(groups, days, periodLabel) {
   var totalActual = 0, totalPlan = 0, totalOk = 0, totalNg = 0;
-  weekGroups.forEach(function(g) {
-    week.days.forEach(function(d) {
+  groups.forEach(function(g) {
+    days.forEach(function(d) {
       var r = g.byDate[d];
       if (!r) return;
       totalActual += r.qty; totalPlan += r.plan; totalOk += r.ok_count; totalNg += (r.scrap + r.rework);
@@ -382,47 +432,60 @@ function renderKpis(weekGroups, week) {
   });
   var completion = totalPlan > 0 ? Math.round((totalActual / totalPlan) * 100) : null;
   var passRate = totalActual > 0 ? ((totalOk / totalActual) * 100).toFixed(1) : null;
+  var periodLbl = periodLabel === 'mies.' ? '(mies.)' : '(tydz.)';
+  var periodLblCn = periodLabel === 'mies.' ? '（本月）' : '（本周）';
   var kpis = [
-    { lbl: 'Wykonanie planu (tydz.)', lblCn: '计划完成率（本周）', val: completion === null ? '&#8212;' : completion + '%', sub: 'plan: ' + fmt(totalPlan) + ' szt. · 计划', bar: completion === null ? 0 : Math.min(completion, 100), color: completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)' },
-    { lbl: 'Pass rate (tydz.)', lblCn: '合格率（本周）', val: passRate === null ? '&#8212;' : passRate + '%', sub: totalNg + ' szt. braków · 件不合格', bar: passRate || 0, color: 'var(--blue)' },
+    { lbl: 'Wykonanie planu ' + periodLbl, lblCn: '计划完成率' + periodLblCn, val: completion === null ? '&#8212;' : completion + '%', sub: 'plan: ' + fmt(totalPlan) + ' szt. · 计划', bar: completion === null ? 0 : Math.min(completion, 100), color: completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)' },
+    { lbl: 'Pass rate ' + periodLbl, lblCn: '合格率' + periodLblCn, val: passRate === null ? '&#8212;' : passRate + '%', sub: totalNg + ' szt. braków · 件不合格', bar: passRate || 0, color: 'var(--blue)' },
     { lbl: 'Wyprodukowano', lblCn: '已生产', val: fmt(totalActual), sub: 'zgodnych: ' + fmt(totalOk) + ' · 合格', bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
-    { lbl: 'Wpisów w tygodniu', lblCn: '本周记录数', val: weekGroups.reduce(function(s, g) { return s + Object.keys(g.byDate).length; }, 0), sub: weekGroups.length + ' stanowisko/zmiana · 工位/班次', bar: 100, color: 'var(--faint)' }
+    { lbl: 'Wpisów w okresie', lblCn: '本期记录数', val: groups.reduce(function(s, g) { return s + Object.keys(g.byDate).length; }, 0), sub: groups.length + ' stanowisko/zmiana · 工位/班次', bar: 100, color: 'var(--faint)' }
   ];
   document.getElementById('kpis').innerHTML = kpis.map(function(k) {
     return '<div class="kpi"><div class="kpi-lbl">' + k.lbl + '<span class="cn">' + k.lblCn + '</span></div><div class="kpi-val">' + k.val + '</div><div class="kpi-sub">' + k.sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, k.bar) + '%;background:' + k.color + '"></i></div></div>';
   }).join('');
 }
 
-function renderPivot(weekGroups, week) {
+function renderPivot(groups, days, periodLabel) {
   var table = document.getElementById('pivot');
   var todayISO = toISO(new Date());
-  if (!weekGroups.length) { table.parentElement.parentElement.innerHTML = '<div class="empty">Brak wpisów w tym tygodniu. <span class="cn">本周无记录。</span></div>'; return; }
+  if (!groups.length) { table.parentElement.parentElement.innerHTML = '<div class="empty">Brak wpisów w tym okresie. <span class="cn">本期无记录。</span></div>'; return; }
   var thead = '<thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Zmiana<span class="cn">班次</span></th>' +
-    week.days.map(function(d, i) { var dd = d.split('-'); return '<th class="' + (d === todayISO ? 'today' : '') + '">' + DAY_LABELS[i] + '<br><span style="font-weight:400;text-transform:none;font-size:10px">' + dd[2] + '/' + dd[1] + '</span><span class="cn">' + DAY_LABELS_CN[i] + '</span></th>'; }).join('') +
-    '<th>Suma tyg.<span class="cn">周总计</span></th></tr></thead>';
+    days.map(function(d) {
+      var dd = d.split('-');
+      var wd = new Date(Number(dd[0]), Number(dd[1]) - 1, Number(dd[2])).getDay();
+      var wi = (wd + 6) % 7;
+      return '<th class="' + (d === todayISO ? 'today' : '') + '">' + DAY_LABELS[wi] + '<br><span style="font-weight:400;text-transform:none;font-size:10px">' + dd[2] + '/' + dd[1] + '</span><span class="cn">' + DAY_LABELS_CN[wi] + '</span></th>';
+    }).join('') +
+    '<th>Suma ' + periodLabel + '<span class="cn">总计</span></th></tr></thead>';
 
   var byStation = {};
   var stationOrder = [];
-  weekGroups.forEach(function(g) { if (!byStation[g.station]) { byStation[g.station] = []; stationOrder.push(g.station); } byStation[g.station].push(g); });
+  groups.forEach(function(g) { if (!byStation[g.station]) { byStation[g.station] = []; stationOrder.push(g.station); } byStation[g.station].push(g); });
 
   var rows = '';
   stationOrder.forEach(function(stName) {
     var shifts = byStation[stName];
     shifts.forEach(function(g, si) {
-      var weekActual = 0, weekPlan = 0, weekOk = 0, weekQty = 0;
-      var cells = week.days.map(function(d) {
+      var periodActual = 0, periodPlan = 0, periodOk = 0, periodQty = 0;
+      var periodRows = [];
+      var cells = days.map(function(d) {
         var r = g.byDate[d];
         if (!r) return '<td><span class="pct off">&#8212;</span></td>';
-        weekActual += r.qty; weekPlan += r.plan; weekOk += r.ok_count; weekQty += r.qty;
+        periodActual += r.qty; periodPlan += r.plan; periodOk += r.ok_count; periodQty += r.qty;
+        periodRows.push(r);
         return '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.qty) + '</span><span class="cell-plan">/' + fmt(r.plan) + '</span></div></td>';
       }).join('');
-      var weekPct = weekPlan > 0 ? Math.round((weekActual / weekPlan) * 100) : null;
-      var passRate = weekQty > 0 ? ((weekOk / weekQty) * 100).toFixed(1) : '&#8212;';
+      var periodPct = periodPlan > 0 ? Math.round((periodActual / periodPlan) * 100) : null;
+      var passRate = periodQty > 0 ? ((periodOk / periodQty) * 100).toFixed(1) : '&#8212;';
+      var reasons = aggregateReasons(periodRows);
       rows += '<tr class="' + (si === 0 ? 'grouphead' : '') + '">' +
         (si === 0 ? '<td rowspan="' + shifts.length * 2 + '"><div class="stationname">' + stName + '</div></td>' : '') +
         '<td><span class="shiftpill"><i style="background:' + shiftColor(g.shift) + '"></i>Zmiana ' + g.shift + '</span></td>' +
-        cells + '<td><span class="rowtotal">' + fmt(weekActual) + '</span></td></tr>' +
-        '<tr class="subrow"><td colspan="' + week.days.length + '">wykonanie tyg. · 本周完成率: <span class="pct ' + pctClass(weekPct) + '" style="margin-left:4px">' + (weekPct === null ? '&#8212;' : weekPct + '%') + '</span></td><td class="pr">pass · 合格率 ' + passRate + '%</td></tr>';
+        cells + '<td><span class="rowtotal">' + fmt(periodActual) + '</span></td></tr>' +
+        '<tr class="subrow"><td colspan="' + days.length + '">wykonanie · 完成率: <span class="pct ' + pctClass(periodPct) + '" style="margin-left:4px">' + (periodPct === null ? '&#8212;' : periodPct + '%') + '</span>' +
+        '<button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">Powody braków &#9662; <span class="cn">原因</span></button>' +
+        '<div class="reasonbox">' + reasonsHtml(reasons) + '</div>' +
+        '</td><td class="pr">pass · 合格率 ' + passRate + '%</td></tr>';
     });
   });
   table.innerHTML = thead + '<tbody>' + rows + '</tbody>';

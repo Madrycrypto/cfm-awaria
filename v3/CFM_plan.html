@@ -94,6 +94,8 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .toast.err{border-color:rgba(217,43,43,0.4);color:#ff7070}
 
 .empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
+.automirror{background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
+.automirror b{color:var(--text)}
 </style>
 </head>
 <body>
@@ -219,6 +221,11 @@ function render() {
 
   var html = '';
   STATE.stations.forEach(function(st) {
+    if (st === 'OP40 OUT') {
+      html += '<div class="stationgroup"><div class="stationgroup-name">' + st + '</div>' +
+        '<div class="automirror">Cel zawsze taki sam jak <b>OP40 IN</b> — to co wejdzie do pieca, tyle musi z niego wyjść, więc nie trzeba tego planować osobno.<br><span class="cn">目标始终与OP40 IN相同——进炉多少，出炉就是多少，因此无需单独计划。</span></div></div>';
+      return;
+    }
     var stEntry = entry[st] || {};
     html += '<div class="stationgroup"><div class="stationgroup-name">' + st + '</div>';
     STATE.shiftLabels.forEach(function(sh) {

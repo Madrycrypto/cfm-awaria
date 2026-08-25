@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CFM">
 <meta name="theme-color" content="#0d0d0d">
-<title>CFM · TMT</title>
+<title>CFM</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Ctext x='50' y='38' font-family='Arial Black,sans-serif' font-size='28' font-weight='900' fill='%231A6ED8' text-anchor='middle' letter-spacing='2'%3ECFM%3C/text%3E%3Ccircle cx='50' cy='52' r='5' fill='%231A6ED8'/%3E%3Ctext x='50' y='72' font-family='Arial Black,sans-serif' font-size='16' font-weight='900' fill='%23f2f2f2' text-anchor='middle' letter-spacing='1'%3ERAPORT%3C/text%3E%3C/svg%3E">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -273,7 +273,7 @@ button{cursor:pointer;font-family:var(--fh)}
 
 <div class="topbar">
   <div class="logo">CFM</div>
-  <div class="topbar-right">TMT Karlino &#183; &#25253;&#21578;&#31995;&#32479;<br><span id="clockDisplay" style="color:var(--text);font-weight:600;"></span></div>
+  <div class="topbar-right">&#25253;&#21578;&#31995;&#32479;<br><span id="clockDisplay" style="color:var(--text);font-weight:600;"></span></div>
   <button class="gear-btn" id="gearBtn" onclick="openAdmin()">&#9881;</button>
 </div>
 
@@ -881,8 +881,18 @@ function getStationTargets() { var s = localStorage.getItem('cfm_station_targets
 
 function getCelShift() {
   var station = document.getElementById('stationSel').value;
+  // Plan miesieczny (CFM_plan.html) ma pierwszenstwo nad stalym celem
+  // (Panel Admina -> Cele) dla DZISIEJSZEGO dnia/zmiany — plan jest teraz
+  // dzien-po-dzien (niektore stanowiska, np. lutowanie w piecu, nie
+  // pracuja co dzien), wiec sprawdzamy konkretna dzisiejsza date, nie caly
+  // miesiac naraz. Brak wpisu na dzis = uzyj stalego celu jako fallback.
+  var plan = getMonthlyPlan();
+  var today = localDateString();
+  var mk = today.slice(0, 7);
+  var dayEntry = plan[mk] && plan[mk][station] && plan[mk][station][currentShift] && plan[mk][station][currentShift][today];
+  var planVal = dayEntry ? Number(dayEntry) : 0;
   var targets = getStationTargets();
-  var celZmiana = Number(targets[station] || 0);
+  var celZmiana = planVal > 0 ? planVal : Number(targets[station] || 0);
   if (celZmiana <= 0) return 0;
   var base = celZmiana;
 
@@ -1587,6 +1597,7 @@ function proceedSubmitForm() {
     recovered: '0',
     ok_count: String(okN),
     pass_rate: passRate,
+    plan: String(getCelShift()),
     notes: notes,
     reasons_json: JSON.stringify({ scrap: scrapEntries, rework: reworkEntries }),
     timestamp: localIsoString(now)
@@ -2286,6 +2297,14 @@ function saveStationTargets() {
   updateSummary();
 }
 
+// === PLAN MIESIECZNY (odczyt) ===
+// cfm_monthly_plan = { "2026-08": { "OP40 IN": { "A": { "2026-08-03": 2500, "2026-08-05": 2500 } } } }
+// Dzien-po-dzien per stanowisko+zmiana — niektore stanowiska (np.
+// lutowanie w piecu) nie pracuja co dzien. Edycja jest na osobnej stronie
+// (CFM_plan.html) — tutaj tylko odczyt, bo getCelShift() go potrzebuje
+// (nadpisuje staly cel z "Cele" dla DZISIEJSZEGO dnia, jesli wpis istnieje).
+function getMonthlyPlan() { var s = localStorage.getItem('cfm_monthly_plan'); return s ? JSON.parse(s) : {}; }
+
 function setShiftCount(n) {
   var z = getShifts(); z.liczba = n;
   localStorage.setItem('cfm_shifts', JSON.stringify(z));
@@ -2514,7 +2533,7 @@ function syncStationTargetDefaults() {
 // webhook co awarie/rework) — dzieki temu wszystkie telefony dostaja te same
 // ustawienia bez recznego przepisywania na kazdym z osobna. Przy starcie apka
 // pobiera arkusz i nadpisuje lokalne dane, jesli sie roznia.
-var SYNCED_SETTINGS_KEYS = ['cfm_workers', 'cfm_stations', 'cfm_station_status', 'cfm_scrap_reasons', 'cfm_rework_reasons', 'cfm_types', 'cfm_station_targets', 'cfm_shifts', 'cfm_station_overtime'];
+var SYNCED_SETTINGS_KEYS = ['cfm_workers', 'cfm_stations', 'cfm_station_status', 'cfm_scrap_reasons', 'cfm_rework_reasons', 'cfm_types', 'cfm_station_targets', 'cfm_shifts', 'cfm_station_overtime', 'cfm_monthly_plan'];
 
 function pushSettingToServer(key) {
   var wh = getWH();

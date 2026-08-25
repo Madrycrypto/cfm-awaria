@@ -881,6 +881,11 @@ function getStationTargets() { var s = localStorage.getItem('cfm_station_targets
 
 function getCelShift() {
   var station = document.getElementById('stationSel').value;
+  // OP40 OUT nie ma wlasnego planu — to co wyjdzie z pieca wynika z tego co
+  // do niego weszlo, wiec cel zmiany zawsze kopiuje OP40 IN (patrz
+  // CFM_plan.html, ktory z tego samego powodu nie pozwala planowac OUT
+  // osobno).
+  var planStation = station === 'OP40 OUT' ? 'OP40 IN' : station;
   // Plan miesieczny (CFM_plan.html) ma pierwszenstwo nad stalym celem
   // (Panel Admina -> Cele) dla DZISIEJSZEGO dnia/zmiany — plan jest teraz
   // dzien-po-dzien (niektore stanowiska, np. lutowanie w piecu, nie
@@ -889,10 +894,10 @@ function getCelShift() {
   var plan = getMonthlyPlan();
   var today = localDateString();
   var mk = today.slice(0, 7);
-  var dayEntry = plan[mk] && plan[mk][station] && plan[mk][station][currentShift] && plan[mk][station][currentShift][today];
+  var dayEntry = plan[mk] && plan[mk][planStation] && plan[mk][planStation][currentShift] && plan[mk][planStation][currentShift][today];
   var planVal = dayEntry ? Number(dayEntry) : 0;
   var targets = getStationTargets();
-  var celZmiana = planVal > 0 ? planVal : Number(targets[station] || 0);
+  var celZmiana = planVal > 0 ? planVal : Number(targets[planStation] || 0);
   if (celZmiana <= 0) return 0;
   var base = celZmiana;
 

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#0d0d0d">
-<title>CFM · Statystyki</title>
+<title>CFM · Plan</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,18 +17,18 @@
   --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
   --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
   --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;
-  --good-bg:rgba(26,158,80,0.14);--warn-bg:rgba(217,119,6,0.16);--crit-bg:rgba(217,43,43,0.16);
+  --sunday-bg:#141414;
   --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
-body{padding-bottom:60px}
-.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+body{padding-bottom:86px}
+.wrap{max-width:1700px;margin:0 auto;padding:0 24px}
 .cn{font-family:var(--fc);color:var(--faint);font-weight:400}
 ::selection{background:var(--blue);color:#fff}
 
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
-.topbar-inner{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
-.logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;color:var(--text);display:flex;align-items:center;gap:8px}
+.topbar-inner{max-width:1700px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:14px}
+.logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px}
 .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
 .crumb{font-size:13px;color:var(--muted)}
 .crumb b{color:var(--text);font-weight:600}
@@ -39,100 +39,63 @@ body{padding-bottom:60px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
 
-.pagehead{padding:28px 0 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
-h1{font-family:var(--fh);font-weight:800;font-size:30px;letter-spacing:0.2px}
-h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
-.sub{color:var(--muted);font-size:14px;margin-top:4px}
-.monthnav{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px}
-.monthnav button{background:none;border:none;color:var(--muted);font-size:18px;padding:6px 12px;cursor:pointer;border-radius:8px}
+.pagehead{padding:24px 0 16px}
+h1{font-family:var(--fh);font-weight:800;font-size:28px;letter-spacing:0.2px}
+h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
+.sub{color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6}
+
+.monthnav{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:18px;max-width:280px}
+.monthnav button{background:none;border:none;color:var(--muted);font-size:20px;padding:8px 16px;cursor:pointer;border-radius:8px}
 .monthnav button:hover{color:var(--text);background:var(--surface-2)}
-.monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:uppercase;min-width:130px;text-align:center}
-.monthnav .mlabel .cn{font-size:11px;text-transform:none;margin-left:4px}
-.headactions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.btn-export{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:#fff;background:var(--green);border:none;padding:10px 16px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
-.btn-export:hover{background:#22b45c}
-.btn-export .cn{color:rgba(255,255,255,0.75);font-size:11px}
+.monthnav .mlabel{flex:1;text-align:center;font-family:var(--fh);font-weight:800;font-size:16px;letter-spacing:0.3px}
+.monthnav .mlabel .cn{font-size:11px;margin-left:5px}
 
-.weekpicker{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
-.weekpicker button{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:8px 14px;border-radius:9px;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
-.weekpicker button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
-.weekpicker button:not(.on):hover{color:var(--text);border-color:var(--faint)}
-.weekpicker .sep{width:1px;background:var(--border);margin:2px 4px}
-.weekpicker button.month{border-style:dashed}
-.weekpicker button.month.on{background:var(--green);border-color:var(--green)}
+.legend{display:flex;gap:16px;font-size:11.5px;color:var(--muted);margin-bottom:16px;flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:16px;height:10px;border-radius:3px;display:inline-block}
 
-.reasonbtn{font-family:var(--fb);font-weight:600;font-size:10.5px;color:var(--muted);background:none;border:1px solid var(--border-soft);border-radius:6px;padding:2px 8px;cursor:pointer;margin-left:10px}
-.reasonbtn:hover{color:var(--text);border-color:var(--faint)}
-.reasonbox{display:none;margin-top:8px;flex-wrap:wrap;gap:6px}
-.reasonbox.open{display:flex}
-.reason-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--text);white-space:normal}
-.reason-chip b{font-family:var(--fh);color:var(--blue-soft)}
-.reason-chip.scrap b{color:#ff7070}
-.reason-chip.rework b{color:#f0a030}
-.reason-chip.off{color:var(--faint)}
+.stationgroup{margin-bottom:22px}
+.stationgroup-name{font-family:var(--fh);font-weight:800;font-size:16px;margin-bottom:8px}
+.shiftcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.shiftcard-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.shiftpill{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);font-weight:700;font-size:13px;flex-shrink:0}
+.shiftpill i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.quickval{width:92px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:7px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:14px;text-align:center;padding:8px 6px;font-variant-numeric:tabular-nums}
+.quickval:focus{outline:none;border-color:var(--blue)}
+.quickval::placeholder{color:var(--faint);font-weight:500}
+.btn-mini{font-family:var(--fh);font-weight:700;font-size:10.5px;letter-spacing:0.03em;text-transform:uppercase;border-radius:7px;padding:8px 12px;cursor:pointer;border:1px solid var(--border);background:none}
+.btn-mini.copy{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-mini.toggle{background:var(--surface-2);color:var(--muted);margin-left:auto}
+.btn-mini.toggle:hover{color:var(--text)}
+.btn-mini.toggle.open{color:var(--blue-soft);border-color:var(--blue-soft)}
+.btn-mini small{display:block;font-family:var(--fc);font-weight:400;text-transform:none;font-size:9px;opacity:.7;margin-top:1px}
+.irregular-flag{font-size:10px;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:0.03em}
 
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
-.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
-.kpi-lbl{font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:600;margin-bottom:8px}
-.kpi-lbl .cn{display:block;text-transform:none;font-size:11px;margin-top:2px;letter-spacing:0}
-.kpi-val{font-family:var(--fh);font-weight:800;font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
-.kpi-sub{font-size:12px;margin-top:8px;font-weight:600;color:var(--faint)}
-.kpi-bar{height:4px;border-radius:2px;background:var(--border-soft);margin-top:12px;overflow:hidden}
-.kpi-bar i{display:block;height:100%;border-radius:2px;transition:width .5s}
+.daystrip{display:flex;gap:6px;overflow-x:auto;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft)}
+.daycell{flex:1 1 0;min-width:50px;text-align:center}
+.daycell .dlabel{font-size:9px;color:var(--faint);margin-bottom:3px;font-weight:600}
+.daycell.sun .dlabel{color:var(--red)}
+.daycell input{width:100%;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:5px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:11px;text-align:center;padding:5px 1px;font-variant-numeric:tabular-nums}
+.daycell input:focus{outline:none;border-color:var(--blue);background:var(--surface)}
+.daycell input::placeholder{color:var(--faint);font-weight:500}
+.daycell.sun input{opacity:.4}
 
-.section{margin-bottom:30px}
-.section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap}
-.section-head h2{font-family:var(--fh);font-weight:700;font-size:19px;letter-spacing:0.2px}
-.section-head h2 .cn{font-family:var(--fc);font-size:13px;font-weight:500;margin-left:6px}
-.legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
-.legend span{display:inline-flex;align-items:center;gap:5px}
-.legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.actions{position:sticky;bottom:0;background:var(--bg);padding:14px 0;border-top:1px solid var(--border);margin-top:-1px}
+.actions .wrap{display:flex;gap:10px;width:100%;padding:0 20px}
+.btn{font-family:var(--fh);font-weight:800;font-size:14px;letter-spacing:0.05em;text-transform:uppercase;border:none;border-radius:10px;padding:14px;cursor:pointer;transition:filter .15s}
+.btn:hover{filter:brightness(1.1)}
+.btn-copy{background:var(--surface-2);color:var(--text);border:1px solid var(--border);flex:1}
+.btn-save{background:var(--blue);color:#fff;flex:2}
+.btn small{display:block;font-family:var(--fc);font-weight:400;text-transform:none;font-size:10.5px;opacity:.75;margin-top:2px}
 
-.tablewrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.tablescroll{overflow-x:auto}
-table{border-collapse:collapse;width:100%;min-width:880px}
-thead th{font-family:var(--fb);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);text-align:right;padding:12px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
-thead th:first-child,thead th:nth-child(2){text-align:left}
-thead th.today{color:var(--blue-soft)}
-thead th .cn{display:block;text-transform:none;font-size:9.5px;color:var(--faint);margin-top:2px}
-tbody td{padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
-tbody td:first-child,tbody td:nth-child(2){text-align:left}
-tbody tr:last-child td{border-bottom:none}
-tbody tr.grouphead td{padding-top:16px}
-.stationname{font-family:var(--fh);font-weight:700;font-size:15px;color:var(--text)}
-.shiftpill{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);font-weight:700;font-size:12px;letter-spacing:0.03em}
-.shiftpill i{width:7px;height:7px;border-radius:50%}
-.cell-stack{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
-.cell-actual{font-weight:700;color:var(--text)}
-.cell-plan{font-size:10.5px;color:var(--faint)}
-.pct{display:inline-block;min-width:48px;padding:3px 7px;border-radius:6px;font-weight:700;font-size:12px}
-.pct.good{background:var(--good-bg);color:#3fd17a}
-.pct.warn{background:var(--warn-bg);color:#f0a030}
-.pct.crit{background:var(--crit-bg);color:#ff7070}
-.pct.off{color:var(--faint);background:none;font-weight:500}
-.rowtotal{font-weight:800;color:var(--text)}
-.subrow td{padding-top:2px;padding-bottom:10px;color:var(--muted);font-size:11.5px;border-bottom:1px solid var(--border-soft)}
-.subrow .pr{font-variant-numeric:tabular-nums;font-weight:600}
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:40}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(26,158,80,0.4);color:#3fd17a}
+.toast.err{border-color:rgba(217,43,43,0.4);color:#ff7070}
 
-.barsgrid{display:flex;flex-direction:column;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px}
-.barrow{display:grid;grid-template-columns:170px 1fr 130px;align-items:center;gap:16px}
-.barrow-lbl{font-family:var(--fh);font-weight:700;font-size:14px}
-.bartrack{position:relative;height:22px;background:var(--border-soft);border-radius:6px;overflow:hidden}
-.barfill{position:absolute;left:0;top:0;height:100%;border-radius:6px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
-.barrow-pct{text-align:right;font-variant-numeric:tabular-nums}
-.barrow-pct b{font-family:var(--fh);font-size:17px;font-weight:800}
-
-.note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
-.note b{color:var(--text)}
-.note .ic{font-family:var(--fh);font-weight:900;font-size:18px;color:var(--blue-soft);flex-shrink:0}
 .empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
-.empty a{color:var(--blue-soft)}
-
-@media (max-width:760px){
-  .kpis{grid-template-columns:repeat(2,1fr)}
-  h1{font-size:24px}
-  .barrow{grid-template-columns:120px 1fr 90px;gap:10px}
-}
+.automirror{background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
+.automirror b{color:var(--text)}
 </style>
 </head>
 <body>
@@ -140,10 +103,9 @@ tbody tr.grouphead td{padding-top:16px}
 <div class="topbar">
   <div class="topbar-inner">
     <div class="logo"><span class="dot"></span>CFM</div>
-    <div class="crumb"><b>Statystyki produkcji <span class="cn">生产统计</span></b></div>
+    <div class="crumb"><b>Plan produkcji <span class="cn">生产计划</span></b></div>
     <div class="topbar-right">
       <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
-      <div id="lastUpdate"></div>
     </div>
   </div>
 </div>
@@ -152,24 +114,30 @@ tbody tr.grouphead td{padding-top:16px}
   <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
-
-var STATE = { monthDate: new Date(), rows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week' };
-
-function pad(n) { return String(n).padStart(2, '0'); }
-function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
-function mondayOf(d) { var x = new Date(d); var day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return x; }
-function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
 var MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 var MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
-var DAY_LABELS_CN = ['周一','周二','周三','周四','周五','周六','周日'];
+var WD = ['pn','wt','śr','cz','pt','so','nd'];
 
-function monthRange(d) {
-  var start = new Date(d.getFullYear(), d.getMonth(), 1);
-  var end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  return { start: toISO(start), end: toISO(end), startD: start, endD: end };
+var STATE = {
+  viewMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  stations: [], shiftLabels: ['A', 'B', 'C'], targets: {}, plan: {}
+};
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function monthKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+function dateISO(y, m, day) { return y + '-' + pad(m + 1) + '-' + pad(day); }
+function daysInMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
+
+function showToast(msg, kind) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (kind || '');
+  setTimeout(function() { t.className = 'toast ' + (kind || ''); }, 2200);
 }
 
 function init() {
@@ -181,333 +149,203 @@ function init() {
     document.getElementById('app').innerHTML = '<div class="empty">Nie skonfigurowano połączenia na tym urządzeniu.<br><span class="cn">此设备尚未配置连接。</span><br><br>Otwórz główną apkę CFM &#8594; Panel Admina &#8594; Połączenie, skonfiguruj Webhook URL, wróć tutaj i odśwież stronę.<br><span class="cn">打开CFM主应用 &#8594; 管理面板 &#8594; 连接，配置Webhook网址，然后返回此页面刷新。</span></div>';
     return;
   }
-  loadMonth();
-}
-
-function loadMonth() {
-  var wh = getWH();
-  var r = monthRange(STATE.monthDate);
-  document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
-  fetch(wh + '?event_type=STATYSTYKI&start=' + r.start + '&end=' + r.end)
-    .then(function(res) { return res.json(); })
+  fetch(wh + '?event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
     .then(function(data) {
-      var liveEl = document.getElementById('liveStatus');
-      if (data.status !== 'ok') {
-        liveEl.className = 'live off';
-        liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
-        document.getElementById('app').innerHTML = '<div class="empty">Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span></div>';
-        return;
-      }
+      if (data.status !== 'ok') { showConnError(); return; }
+      var u = data.ustawienia || {};
+      try { STATE.stations = JSON.parse(u.cfm_stations || '[]'); } catch (e) { STATE.stations = []; }
+      try {
+        var shifts = JSON.parse(u.cfm_shifts || 'null');
+        if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
+      } catch (e) {}
+      try { STATE.targets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.targets = {}; }
+      try { STATE.plan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.plan = {}; }
+      if (!STATE.stations.length) { showConnError('Brak skonfigurowanych stanowisk · 未配置工位'); return; }
       liveEl.className = 'live';
-      liveEl.innerHTML = '<span class="live-pulse"></span>zasilane z RaportDzienny <span class="cn">数据来自日报表</span>';
-      document.getElementById('lastUpdate').textContent = 'odświeżono: ' + new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) + ' · 已更新';
-      STATE.rows = data.historia || [];
-      computeWeeks();
+      liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
       render();
     })
-    .catch(function() {
-      var liveEl = document.getElementById('liveStatus');
-      liveEl.className = 'live off';
-      liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
-      document.getElementById('app').innerHTML = '<div class="empty">Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span></div>';
-    });
+    .catch(function() { showConnError(); });
 }
 
-function computeWeeks() {
-  var r = monthRange(STATE.monthDate);
-  var firstMonday = mondayOf(r.startD);
-  var weeks = [];
-  var cursor = firstMonday;
-  while (cursor <= r.endD) {
-    var days = [];
-    for (var i = 0; i < 7; i++) days.push(toISO(addDays(cursor, i)));
-    weeks.push({ start: days[0], end: days[6], days: days });
-    cursor = addDays(cursor, 7);
+function showConnError(msg) {
+  var liveEl = document.getElementById('liveStatus');
+  liveEl.className = 'live off';
+  liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
+  document.getElementById('app').innerHTML = '<div class="empty">' + (msg || 'Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span>') + '</div>';
+}
+
+// Sprawdza czy zmiana ma jednolita wartosc na wszystkie dni robocze
+// (pon-pt) w tym miesiacu — jesli tak, karta zostaje zwinieta i pokazuje
+// tylko "cel dzienny" + przycisk kopiuj. Jesli wartosci sie roznia
+// (harmonogram nieregularny, np. lutowanie w piecu co 2 dni), karta
+// rozwija sie automatycznie, zeby od razu bylo widac ktore dni sa
+// wypelnione.
+function analyzeShift(shEntry, y, m, nDays) {
+  var weekdayVals = [], filledCount = 0, hasSaturday = false, totalWeekdays = 0;
+  for (var d = 1; d <= nDays; d++) {
+    var iso = dateISO(y, m, d);
+    var wd = new Date(y, m, d).getDay();
+    if (wd !== 0 && wd !== 6) totalWeekdays++;
+    var val = shEntry[iso];
+    if (val === undefined) continue;
+    filledCount++;
+    if (wd === 6) hasSaturday = true;
+    else if (wd !== 0) weekdayVals.push(val);
   }
-  STATE.weeks = weeks;
-  var todayISO = toISO(new Date());
-  var idx = weeks.findIndex(function(w) { return todayISO >= w.start && todayISO <= w.end; });
-  STATE.selectedWeekIdx = idx >= 0 ? idx : weeks.length - 1;
-}
-
-function groupByStationShift(rows) {
-  var map = {};
-  var order = [];
-  rows.forEach(function(r) {
-    var key = r.station + '||' + r.shift;
-    if (!map[key]) { map[key] = { station: r.station, shift: r.shift, byDate: {} }; order.push(key); }
-    map[key].byDate[r.date] = r;
-  });
-  order.sort(function(a, b) {
-    var ga = map[a], gb = map[b];
-    if (ga.station !== gb.station) return ga.station < gb.station ? -1 : 1;
-    return ga.shift < gb.shift ? -1 : ga.shift > gb.shift ? 1 : 0;
-  });
-  return order.map(function(k) { return map[k]; });
-}
-
-function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
-function pctClass(p) { if (p === null) return 'off'; if (p >= 95) return 'good'; if (p >= 80) return 'warn'; return 'crit'; }
-function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
-
-function monthDays(monthDate) {
-  var r = monthRange(monthDate);
-  var days = [];
-  var cursor = new Date(r.startD);
-  while (cursor <= r.endD) { days.push(toISO(cursor)); cursor = addDays(cursor, 1); }
-  return days;
-}
-
-// Zlicza powody scrap/rework (z reasons_json kazdego RaportDzienny) w
-// podanym zestawie wpisow — pokazywane jako "chmurki" pod paskiem pass
-// rate, zeby bylo widac CO konkretnie odpadlo, a nie tylko sam procent.
-function aggregateReasons(rows) {
-  var tally = {};
-  rows.forEach(function(r) {
-    if (!r.reasons_json) return;
-    var parsed;
-    try { parsed = JSON.parse(r.reasons_json); } catch (e) { return; }
-    (parsed.scrap || []).forEach(function(e) { addTally('scrap', e); });
-    (parsed.rework || []).forEach(function(e) { addTally('rework', e); });
-  });
-  function addTally(cat, e) {
-    var qty = Number(e.qty) || 0;
-    if (qty <= 0) return;
-    var reason = e.reason || 'Inne';
-    var key = cat + '||' + reason;
-    if (!tally[key]) tally[key] = { category: cat, reason: reason, qty: 0 };
-    tally[key].qty += qty;
-  }
-  return Object.keys(tally).map(function(k) { return tally[k]; }).sort(function(a, b) { return b.qty - a.qty; });
-}
-
-function reasonsHtml(reasons) {
-  if (!reasons.length) return '<span class="reason-chip off">brak zarejestrowanych powodów &#183; 未记录原因</span>';
-  return reasons.map(function(rs) {
-    var lbl = rs.category === 'scrap' ? 'scrap' : 'rework';
-    return '<span class="reason-chip ' + rs.category + '"><b>' + rs.qty + '&#215;</b>' + rs.reason + ' <span class="cn">(' + lbl + ')</span></span>';
-  }).join('');
+  // "Jednolite" = pokrywa WSZYSTKIE dni robocze tego miesiaca, nie tylko
+  // "te wypelnione wartosci sa takie same" — inaczej rzadki wzorzec (np.
+  // co 2 dni, zawsze ta sama ilosc) bylby mylnie traktowany jako prosty
+  // "codzienny cel" zamiast nieregularnego harmonogramu.
+  var uniform = weekdayVals.length === totalWeekdays && weekdayVals.every(function(v) { return v === weekdayVals[0]; });
+  return { filledCount: filledCount, uniform: uniform, quickVal: uniform ? weekdayVals[0] : '', hasSaturday: hasSaturday };
 }
 
 function render() {
+  var y = STATE.viewMonth.getFullYear(), m = STATE.viewMonth.getMonth();
+  var nDays = daysInMonth(STATE.viewMonth);
+  var mk = monthKey(STATE.viewMonth);
+  var entry = STATE.plan[mk] || {};
+
   var app = document.getElementById('app');
-  if (!STATE.rows.length) {
-    app.innerHTML = '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub">' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + '</div></div>' + monthNavHtml() + '</div><div class="empty">Brak wpisów w tym miesiącu. <span class="cn">本月无记录。</span></div>';
-    wireMonthNav();
-    return;
-  }
-
-  var isMonth = STATE.viewMode === 'month';
-  var days = isMonth ? monthDays(STATE.monthDate) : STATE.weeks[STATE.selectedWeekIdx].days;
-  var periodLabel = isMonth ? 'mies.' : 'tyg.';
-  var groups = groupByStationShift(STATE.rows);
-  var periodGroups = groupByStationShift(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
-
   app.innerHTML =
-    '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub" id="weekLabel"></div></div>' +
-    '<div class="headactions">' + monthNavHtml() + '<button class="btn-export" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
-    '<div class="weekpicker" id="weekPicker"></div>' +
-    '<div class="kpis" id="kpis"></div>' +
-    '<div class="section"><div class="section-head"><h2>Wykonanie planu &#183; dzień po dniu<span class="cn">计划完成率 &#183; 逐日</span></h2><div class="legend">' +
-      '<span><i style="background:#3fd17a"></i>&#8805; 95%</span><span><i style="background:#f0a030"></i>80&#8211;94%</span><span><i style="background:#ff7070"></i>&lt; 80%</span>' +
-    '</div></div><div class="tablewrap"><div class="tablescroll"><table id="pivot"></table></div></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>';
+    '<div class="pagehead"><h1>Plan produkcji <span class="cn">生产计划</span></h1><div class="sub">Dla stanowisk pracujących codziennie: wpisz jedną liczbę i kliknij "Kopiuj pon–pt". Dla nieregularnych (np. lutowanie w piecu): rozwiń "Dni" i wypełnij ręcznie tylko potrzebne dni.<br><span class="cn">对于每天生产的工位：输入一个数字并点击"复制周一至周五"。对于不规律的工位（如炉内钎焊）：展开"天数"，只需手动填写需要的日期。</span></div></div>' +
+    '<div class="monthnav"><button id="prevMonth">&#8249;</button><div class="mlabel">' + MONTH_NAMES[m] + ' ' + y + '<span class="cn">' + MONTH_NAMES_CN[m] + '</span></div><button id="nextMonth">&#8250;</button></div>' +
+    '<div class="legend"><span><i style="background:var(--sunday-bg);border:1px solid var(--border)"></i>Niedziela · <span class="cn">周日</span></span><span>"Kopiuj pon–pt" nigdy nie rusza soboty — wpisz ją ręcznie w rozwiniętych dniach, jeśli akurat pracujecie &#183; <span class="cn">"复制"不会填写周六 — 如有加班请在展开的天数中手动填写</span></span></div>' +
+    '<div id="planlist"></div>' +
+    '<div class="actions"><div class="wrap">' +
+      '<button class="btn btn-copy" id="btnCopy">Skopiuj z poprz. mies.<small>从上月复制</small></button>' +
+      '<button class="btn btn-save" id="btnSave">Zapisz plan<small>保存计划</small></button>' +
+    '</div></div>';
 
-  wireMonthNav();
-  renderWeekPicker();
-  document.getElementById('weekLabel').textContent = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + periodGroups.length + ' pozycji · ' + periodGroups.length + ' 项';
-  renderKpis(periodGroups, days, periodLabel);
-  renderPivot(periodGroups, days, periodLabel);
-  renderBars(groups);
+  var html = '';
+  STATE.stations.forEach(function(st) {
+    if (st === 'OP40 OUT') {
+      html += '<div class="stationgroup"><div class="stationgroup-name">' + st + '</div>' +
+        '<div class="automirror">Cel zawsze taki sam jak <b>OP40 IN</b> — to co wejdzie do pieca, tyle musi z niego wyjść, więc nie trzeba tego planować osobno.<br><span class="cn">目标始终与OP40 IN相同——进炉多少，出炉就是多少，因此无需单独计划。</span></div></div>';
+      return;
+    }
+    var stEntry = entry[st] || {};
+    html += '<div class="stationgroup"><div class="stationgroup-name">' + st + '</div>';
+    STATE.shiftLabels.forEach(function(sh) {
+      var shEntry = stEntry[sh] || {};
+      var info = analyzeShift(shEntry, y, m, nDays);
+      var expand = info.filledCount > 0 && !info.uniform;
+
+      var dayCells = '';
+      for (var d = 1; d <= nDays; d++) {
+        var iso = dateISO(y, m, d);
+        var wd = new Date(y, m, d).getDay();
+        var isSun = wd === 0;
+        var isSat = wd === 6;
+        var val = shEntry[iso] !== undefined ? shEntry[iso] : '';
+        dayCells += '<div class="daycell' + (isSun ? ' sun' : '') + '"><div class="dlabel">' + d + ' ' + WD[(wd + 6) % 7] + '</div><input type="number" min="0" placeholder="' + (isSat ? '' : (STATE.targets[st] || '')) + '" value="' + val + '" data-station="' + st.replace(/"/g, '&quot;') + '" data-shift="' + sh + '" data-date="' + iso + '"></div>';
+      }
+
+      html += '<div class="shiftcard" data-station="' + st.replace(/"/g, '&quot;') + '" data-shift="' + sh + '">' +
+        '<div class="shiftcard-head">' +
+          '<span class="shiftpill"><i style="background:' + shiftColor(sh) + '"></i>Zmiana ' + sh + '</span>' +
+          '<input type="number" min="0" class="quickval" placeholder="np. ' + (STATE.targets[st] || '0') + '" value="' + info.quickVal + '">' +
+          '<button type="button" class="btn-mini copy" onclick="quickCopy(this)">Kopiuj pon&#8211;pt<small>复制周一至周五</small></button>' +
+          (info.hasSaturday ? '<span class="irregular-flag">+ sobota</span>' : '') +
+          (expand ? '<span class="irregular-flag">nieregularne</span>' : '') +
+          '<button type="button" class="btn-mini toggle' + (expand ? ' open' : '') + '" onclick="toggleDays(this)">Dni ' + (expand ? '&#9652;' : '&#9662;') + ' <span class="cn">天数</span> (' + info.filledCount + ')</button>' +
+        '</div>' +
+        '<div class="daystrip" style="display:' + (expand ? 'flex' : 'none') + ';">' + dayCells + '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  });
+  document.getElementById('planlist').innerHTML = html || '<div class="empty">Brak stanowisk. <span class="cn">无工位。</span></div>';
+
+  document.getElementById('prevMonth').onclick = function() { STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1); render(); };
+  document.getElementById('nextMonth').onclick = function() { STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() + 1, 1); render(); };
+  document.getElementById('btnCopy').onclick = copyFromPrevMonth;
+  document.getElementById('btnSave').onclick = savePlan;
 }
 
-function fmtWeekRange(week) {
-  var s = week.start.split('-'), e = week.end.split('-');
-  return s[2] + '/' + s[1] + ' &#8211; ' + e[2] + '/' + e[1];
+function setDaysOpen(card, open) {
+  var strip = card.querySelector('.daystrip');
+  var btn = card.querySelector('.btn-mini.toggle');
+  strip.style.display = open ? 'flex' : 'none';
+  btn.classList.toggle('open', open);
+  btn.innerHTML = 'Dni ' + (open ? '&#9652;' : '&#9662;') + ' <span class="cn">天数</span> (' + strip.querySelectorAll('input').length + ')';
 }
-function fmtWeekRangePlain(week) {
-  var s = week.start.split('-'), e = week.end.split('-');
-  return s[2] + '/' + s[1] + ' – ' + e[2] + '/' + e[1];
-}
-
-function monthNavHtml() {
-  return '<div class="monthnav"><button id="prevMonth">&#8249;</button><div class="mlabel">' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + '<span class="cn">' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></div><button id="nextMonth">&#8250;</button></div>';
-}
-function wireMonthNav() {
-  document.getElementById('prevMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() - 1, 1); loadMonth(); };
-  document.getElementById('nextMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() + 1, 1); loadMonth(); };
-  var exportBtn = document.getElementById('btnExport');
-  if (exportBtn) exportBtn.onclick = exportToExcel;
+function toggleDays(btn) {
+  var card = btn.closest('.shiftcard');
+  var open = card.querySelector('.daystrip').style.display !== 'none';
+  setDaysOpen(card, !open);
 }
 
-// Eksport calego miesiaca (nie tylko wybranego tygodnia) do pliku .xls —
-// zwykla tabela HTML zapisana z rozszerzeniem .xls, ktora Excel otwiera
-// bezposrednio (dziala offline, bez zadnej biblioteki/CDN, spojnie z
-// reszta apki). Przy otwarciu Excel moze zapytac o potwierdzenie formatu
-// — to normalne przy tej metodzie, wystarczy kliknac "Tak".
-function exportToExcel() {
-  if (!STATE.rows.length) { return; }
-  var days = monthDays(STATE.monthDate);
-  var groups = groupByStationShift(STATE.rows);
-  var byStation = {}, stationOrder = [];
-  groups.forEach(function(g) { if (!byStation[g.station]) { byStation[g.station] = []; stationOrder.push(g.station); } byStation[g.station].push(g); });
+// Wypelnia tylko pon-pt — sobota i niedziela to nie standardowe dni
+// robocze (sobota bywa dodatkowa zmiana, wiec zostaje do recznego
+// wstawienia w rozwinietych dniach, tam gdzie faktycznie pracowano).
+function quickCopy(btn) {
+  var card = btn.closest('.shiftcard');
+  var n = Number(card.querySelector('.quickval').value) || 0;
+  if (n <= 0) { showToast('Wpisz liczbę większą od 0 · 请输入大于0的数字', 'err'); return; }
+  card.querySelectorAll('.daystrip input').forEach(function(el) {
+    var parts = el.dataset.date.split('-');
+    var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
+    if (wd !== 0 && wd !== 6) el.value = n;
+  });
+  setDaysOpen(card, true);
+  showToast('Skopiowano na pon–pt · 已复制到周一至周五', 'ok');
+}
 
-  var title = 'Plan vs. wykonanie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear();
-  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
-    '<head><meta charset="UTF-8">' +
-    '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
-    '<x:Name>Plan vs wykonanie</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>' +
-    '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
-    '<style>' +
-    'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}' +
-    'th,td{border:1px solid #999999;padding:3px 6px;text-align:center;white-space:nowrap;mso-number-format:"@"}' +
-    'th{background:#1A6ED8;color:#ffffff;font-weight:bold}' +
-    '.station{background:#e8eef7;font-weight:bold;text-align:left;vertical-align:middle}' +
-    '.lbl{text-align:left;font-weight:bold;background:#f2f2f2}' +
-    '.crit{background:#ffb3b3}.warn{background:#ffe1a8}.good{background:#c9f0d6}' +
-    'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
-    '</style></head><body>' +
-    '<h1>' + title + '</h1><table>';
+function collectPlanFromInputs() {
+  var entry = {};
+  document.querySelectorAll('.daystrip input').forEach(function(el) {
+    var st = el.dataset.station, sh = el.dataset.shift, iso = el.dataset.date;
+    var v = Number(el.value) || 0;
+    if (v > 0) {
+      if (!entry[st]) entry[st] = {};
+      if (!entry[st][sh]) entry[st][sh] = {};
+      entry[st][sh][iso] = v;
+    }
+  });
+  return entry;
+}
 
-  html += '<tr><th rowspan="2">Stanowisko</th><th rowspan="2">Zmiana</th><th rowspan="2">Wska&#378;nik</th>';
-  days.forEach(function(d) { var dd = d.split('-'); html += '<th>' + dd[2] + '/' + dd[1] + '</th>'; });
-  html += '<th rowspan="2">Suma m-c</th></tr><tr>';
-  days.forEach(function(d) { var parts = d.split('-'); var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay(); html += '<th>' + DAY_LABELS[(wd + 6) % 7] + '</th>'; });
-  html += '</tr>';
-
-  stationOrder.forEach(function(stName) {
-    var shifts = byStation[stName];
-    shifts.forEach(function(g, si) {
-      var planRow = '', actualRow = '', pctRow = '';
-      var sumPlan = 0, sumActual = 0;
-      days.forEach(function(d) {
-        var rec = g.byDate[d];
-        var plan = rec ? rec.plan : 0, actual = rec ? rec.qty : 0;
-        sumPlan += plan; sumActual += actual;
-        var pct = plan > 0 ? Math.round((actual / plan) * 100) : null;
-        var cls = pct === null ? '' : (pct >= 95 ? 'good' : pct >= 80 ? 'warn' : 'crit');
-        planRow += '<td>' + (plan || '') + '</td>';
-        actualRow += '<td class="' + cls + '">' + (actual || '') + '</td>';
-        pctRow += '<td class="' + cls + '">' + (pct === null ? '' : pct + '%') + '</td>';
+function copyFromPrevMonth() {
+  var prev = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1);
+  var prevEntry = STATE.plan[monthKey(prev)];
+  if (!prevEntry) { showToast('Brak planu w poprzednim miesiącu · 上月无计划', 'err'); return; }
+  var prevDays = daysInMonth(prev);
+  var thisDays = daysInMonth(STATE.viewMonth);
+  var y = STATE.viewMonth.getFullYear(), m = STATE.viewMonth.getMonth();
+  var newEntry = {};
+  Object.keys(prevEntry).forEach(function(st) {
+    newEntry[st] = {};
+    Object.keys(prevEntry[st]).forEach(function(sh) {
+      newEntry[st][sh] = {};
+      Object.keys(prevEntry[st][sh]).forEach(function(iso) {
+        var dayNum = Number(iso.split('-')[2]);
+        if (dayNum <= thisDays) newEntry[st][sh][dateISO(y, m, dayNum)] = prevEntry[st][sh][iso];
       });
-      var totalPct = sumPlan > 0 ? Math.round((sumActual / sumPlan) * 100) : null;
-      html += '<tr>' + (si === 0 ? '<td class="station" rowspan="' + (shifts.length * 3) + '">' + stName + '</td>' : '') +
-        '<td rowspan="3">Zmiana ' + g.shift + '</td><td class="lbl">Plan</td>' + planRow + '<td>' + sumPlan + '</td></tr>';
-      html += '<tr><td class="lbl">Wykonanie</td>' + actualRow + '<td>' + sumActual + '</td></tr>';
-      html += '<tr><td class="lbl">% planu</td>' + pctRow + '<td>' + (totalPct === null ? '' : totalPct + '%') + '</td></tr>';
     });
   });
-
-  html += '</table></body></html>';
-
-  var blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'CFM_Plan_vs_Wykonanie_' + toISO(STATE.monthDate).slice(0, 7) + '.xls';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+  STATE.plan[monthKey(STATE.viewMonth)] = newEntry;
+  render();
+  showToast('Skopiowano z poprzedniego miesiąca (wg dnia miesiąca) · 已按日期从上月复制', 'ok');
 }
 
-function renderWeekPicker() {
-  var el = document.getElementById('weekPicker');
-  el.innerHTML = STATE.weeks.map(function(w, i) {
-    return '<button data-i="' + i + '" class="' + (STATE.viewMode === 'week' && i === STATE.selectedWeekIdx ? 'on' : '') + '">' + fmtWeekRange(w) + '</button>';
-  }).join('') + '<span class="sep"></span><button id="btnMonthView" class="month' + (STATE.viewMode === 'month' ? ' on' : '') + '">Cały miesiąc <span class="cn">整月</span></button>';
-  document.getElementById('btnMonthView').onclick = function() { STATE.viewMode = 'month'; render(); };
-  el.querySelectorAll('button:not(#btnMonthView)').forEach(function(b) {
-    b.onclick = function() { STATE.viewMode = 'week'; STATE.selectedWeekIdx = Number(b.dataset.i); render(); };
+function savePlan() {
+  var mk = monthKey(STATE.viewMonth);
+  STATE.plan[mk] = collectPlanFromInputs();
+  localStorage.setItem('cfm_monthly_plan', JSON.stringify(STATE.plan));
+
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_monthly_plan', wartosc: JSON.stringify(STATE.plan) })
+  }).then(function() {
+    showToast('Plan zapisany! · 计划已保存!', 'ok');
+  }).catch(function() {
+    showToast('Zapisano lokalnie, błąd wysyłki · 已本地保存，发送失败', 'err');
   });
-}
-
-function renderKpis(groups, days, periodLabel) {
-  var totalActual = 0, totalPlan = 0, totalOk = 0, totalNg = 0;
-  groups.forEach(function(g) {
-    days.forEach(function(d) {
-      var r = g.byDate[d];
-      if (!r) return;
-      totalActual += r.qty; totalPlan += r.plan; totalOk += r.ok_count; totalNg += (r.scrap + r.rework);
-    });
-  });
-  var completion = totalPlan > 0 ? Math.round((totalActual / totalPlan) * 100) : null;
-  var passRate = totalActual > 0 ? ((totalOk / totalActual) * 100).toFixed(1) : null;
-  var periodLbl = periodLabel === 'mies.' ? '(mies.)' : '(tydz.)';
-  var periodLblCn = periodLabel === 'mies.' ? '（本月）' : '（本周）';
-  var kpis = [
-    { lbl: 'Wykonanie planu ' + periodLbl, lblCn: '计划完成率' + periodLblCn, val: completion === null ? '&#8212;' : completion + '%', sub: 'plan: ' + fmt(totalPlan) + ' szt. · 计划', bar: completion === null ? 0 : Math.min(completion, 100), color: completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)' },
-    { lbl: 'Pass rate ' + periodLbl, lblCn: '合格率' + periodLblCn, val: passRate === null ? '&#8212;' : passRate + '%', sub: totalNg + ' szt. braków · 件不合格', bar: passRate || 0, color: 'var(--blue)' },
-    { lbl: 'Wyprodukowano', lblCn: '已生产', val: fmt(totalActual), sub: 'zgodnych: ' + fmt(totalOk) + ' · 合格', bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
-    { lbl: 'Wpisów w okresie', lblCn: '本期记录数', val: groups.reduce(function(s, g) { return s + Object.keys(g.byDate).length; }, 0), sub: groups.length + ' stanowisko/zmiana · 工位/班次', bar: 100, color: 'var(--faint)' }
-  ];
-  document.getElementById('kpis').innerHTML = kpis.map(function(k) {
-    return '<div class="kpi"><div class="kpi-lbl">' + k.lbl + '<span class="cn">' + k.lblCn + '</span></div><div class="kpi-val">' + k.val + '</div><div class="kpi-sub">' + k.sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, k.bar) + '%;background:' + k.color + '"></i></div></div>';
-  }).join('');
-}
-
-function renderPivot(groups, days, periodLabel) {
-  var table = document.getElementById('pivot');
-  var todayISO = toISO(new Date());
-  if (!groups.length) { table.parentElement.parentElement.innerHTML = '<div class="empty">Brak wpisów w tym okresie. <span class="cn">本期无记录。</span></div>'; return; }
-  var thead = '<thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Zmiana<span class="cn">班次</span></th>' +
-    days.map(function(d) {
-      var dd = d.split('-');
-      var wd = new Date(Number(dd[0]), Number(dd[1]) - 1, Number(dd[2])).getDay();
-      var wi = (wd + 6) % 7;
-      return '<th class="' + (d === todayISO ? 'today' : '') + '">' + DAY_LABELS[wi] + '<br><span style="font-weight:400;text-transform:none;font-size:10px">' + dd[2] + '/' + dd[1] + '</span><span class="cn">' + DAY_LABELS_CN[wi] + '</span></th>';
-    }).join('') +
-    '<th>Suma ' + periodLabel + '<span class="cn">总计</span></th></tr></thead>';
-
-  var byStation = {};
-  var stationOrder = [];
-  groups.forEach(function(g) { if (!byStation[g.station]) { byStation[g.station] = []; stationOrder.push(g.station); } byStation[g.station].push(g); });
-
-  var rows = '';
-  stationOrder.forEach(function(stName) {
-    var shifts = byStation[stName];
-    shifts.forEach(function(g, si) {
-      var periodActual = 0, periodPlan = 0, periodOk = 0, periodQty = 0;
-      var periodRows = [];
-      var cells = days.map(function(d) {
-        var r = g.byDate[d];
-        if (!r) return '<td><span class="pct off">&#8212;</span></td>';
-        periodActual += r.qty; periodPlan += r.plan; periodOk += r.ok_count; periodQty += r.qty;
-        periodRows.push(r);
-        return '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.qty) + '</span><span class="cell-plan">/' + fmt(r.plan) + '</span></div></td>';
-      }).join('');
-      var periodPct = periodPlan > 0 ? Math.round((periodActual / periodPlan) * 100) : null;
-      var passRate = periodQty > 0 ? ((periodOk / periodQty) * 100).toFixed(1) : '&#8212;';
-      var reasons = aggregateReasons(periodRows);
-      rows += '<tr class="' + (si === 0 ? 'grouphead' : '') + '">' +
-        (si === 0 ? '<td rowspan="' + shifts.length * 2 + '"><div class="stationname">' + stName + '</div></td>' : '') +
-        '<td><span class="shiftpill"><i style="background:' + shiftColor(g.shift) + '"></i>Zmiana ' + g.shift + '</span></td>' +
-        cells + '<td><span class="rowtotal">' + fmt(periodActual) + '</span></td></tr>' +
-        '<tr class="subrow"><td colspan="' + days.length + '">wykonanie · 完成率: <span class="pct ' + pctClass(periodPct) + '" style="margin-left:4px">' + (periodPct === null ? '&#8212;' : periodPct + '%') + '</span>' +
-        '<button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">Powody braków &#9662; <span class="cn">原因</span></button>' +
-        '<div class="reasonbox">' + reasonsHtml(reasons) + '</div>' +
-        '</td><td class="pr">pass · 合格率 ' + passRate + '%</td></tr>';
-    });
-  });
-  table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
-}
-
-function renderBars(groups) {
-  var el = document.getElementById('bars');
-  if (!groups.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
-  var byStation = {};
-  var order = [];
-  groups.forEach(function(g) {
-    if (!byStation[g.station]) { byStation[g.station] = { actual: 0, plan: 0 }; order.push(g.station); }
-    Object.keys(g.byDate).forEach(function(d) { byStation[g.station].actual += g.byDate[d].qty; byStation[g.station].plan += g.byDate[d].plan; });
-  });
-  el.innerHTML = order.map(function(name) {
-    var s = byStation[name];
-    var pct = s.plan > 0 ? Math.round((s.actual / s.plan) * 100) : 0;
-    var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
-    return '<div class="barrow"><div class="barrow-lbl">' + name + '</div>' +
-      '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
-      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(s.actual) + '/' + fmt(s.plan) + '</div></div>';
-  }).join('');
 }
 
 init();

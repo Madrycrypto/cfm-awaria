@@ -182,12 +182,23 @@ function init() {
     return;
   }
   loadMonth();
+
+  // Auto-odswiezanie — strona sama NIE wie kiedy ktos wyslal raport w
+  // apce, wiec dopytujemy backend co jakis czas w tle (bez migania
+  // "Ladowanie..." i bez zrzucania widoku ktory user akurat oglada), plus
+  // natychmiast po powrocie na te karte/zakladke (np. przelaczenie z apki
+  // z powrotem na statystyki).
+  setInterval(function() { loadMonth({ silent: true, keepSelection: true }); }, 45000);
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) loadMonth({ silent: true, keepSelection: true });
+  });
 }
 
-function loadMonth() {
+function loadMonth(opts) {
+  opts = opts || {};
   var wh = getWH();
   var r = monthRange(STATE.monthDate);
-  document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
+  if (!opts.silent) document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
   fetch(wh + '?event_type=STATYSTYKI&start=' + r.start + '&end=' + r.end)
     .then(function(res) { return res.json(); })
     .then(function(data) {
@@ -202,7 +213,7 @@ function loadMonth() {
       liveEl.innerHTML = '<span class="live-pulse"></span>zasilane z RaportDzienny <span class="cn">数据来自日报表</span>';
       document.getElementById('lastUpdate').textContent = 'odświeżono: ' + new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) + ' · 已更新';
       STATE.rows = data.historia || [];
-      computeWeeks();
+      computeWeeks(opts.keepSelection);
       render();
     })
     .catch(function() {
@@ -213,7 +224,7 @@ function loadMonth() {
     });
 }
 
-function computeWeeks() {
+function computeWeeks(keepSelection) {
   var r = monthRange(STATE.monthDate);
   var firstMonday = mondayOf(r.startD);
   var weeks = [];
@@ -225,6 +236,10 @@ function computeWeeks() {
     cursor = addDays(cursor, 7);
   }
   STATE.weeks = weeks;
+  // Przy cichym auto-odswiezeniu (keepSelection) nie przeskakujemy
+  // uzytkownikowi z powrotem na "dzisiejszy" tydzien/widok — zostaje na
+  // tym, co akurat sobie ogladal.
+  if (keepSelection && STATE.selectedWeekIdx < weeks.length) return;
   var todayISO = toISO(new Date());
   var idx = weeks.findIndex(function(w) { return todayISO >= w.start && todayISO <= w.end; });
   STATE.selectedWeekIdx = idx >= 0 ? idx : weeks.length - 1;
@@ -305,7 +320,7 @@ function render() {
 
   app.innerHTML =
     '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub" id="weekLabel"></div></div>' +
-    '<div class="headactions">' + monthNavHtml() + '<button class="btn-export" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
+    '<div class="headactions">' + monthNavHtml() + '<button class="btn-export" id="btnRefresh" style="background:var(--surface-2);color:var(--text);border:1px solid var(--border)">Odśwież <span class="cn">刷新</span></button><button class="btn-export" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
     '<div class="weekpicker" id="weekPicker"></div>' +
     '<div class="kpis" id="kpis"></div>' +
     '<div class="section"><div class="section-head"><h2>Wykonanie planu &#183; dzień po dniu<span class="cn">计划完成率 &#183; 逐日</span></h2><div class="legend">' +
@@ -338,6 +353,8 @@ function wireMonthNav() {
   document.getElementById('nextMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() + 1, 1); loadMonth(); };
   var exportBtn = document.getElementById('btnExport');
   if (exportBtn) exportBtn.onclick = exportToExcel;
+  var refreshBtn = document.getElementById('btnRefresh');
+  if (refreshBtn) refreshBtn.onclick = function() { loadMonth({ keepSelection: true }); };
 }
 
 // Eksport calego miesiaca (nie tylko wybranego tygodnia) do pliku .xls —

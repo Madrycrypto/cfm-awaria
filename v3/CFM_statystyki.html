@@ -48,6 +48,10 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .monthnav button:hover{color:var(--text);background:var(--surface-2)}
 .monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:uppercase;min-width:130px;text-align:center}
 .monthnav .mlabel .cn{font-size:11px;text-transform:none;margin-left:4px}
+.headactions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn-export{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:#fff;background:var(--green);border:none;padding:10px 16px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.btn-export:hover{background:#22b45c}
+.btn-export .cn{color:rgba(255,255,255,0.75);font-size:11px}
 
 .weekpicker{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
 .weekpicker button{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:8px 14px;border-radius:9px;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
@@ -246,7 +250,8 @@ function render() {
   var weekGroups = groupByStationShift(STATE.rows.filter(function(r) { return r.date >= week.start && r.date <= week.end; }));
 
   app.innerHTML =
-    '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub" id="weekLabel"></div></div>' + monthNavHtml() + '</div>' +
+    '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub" id="weekLabel"></div></div>' +
+    '<div class="headactions">' + monthNavHtml() + '<button class="btn-export" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
     '<div class="weekpicker" id="weekPicker"></div>' +
     '<div class="kpis" id="kpis"></div>' +
     '<div class="section"><div class="section-head"><h2>Wykonanie planu &#183; dzień po dniu<span class="cn">计划完成率 &#183; 逐日</span></h2><div class="legend">' +
@@ -278,6 +283,82 @@ function monthNavHtml() {
 function wireMonthNav() {
   document.getElementById('prevMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() - 1, 1); loadMonth(); };
   document.getElementById('nextMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() + 1, 1); loadMonth(); };
+  var exportBtn = document.getElementById('btnExport');
+  if (exportBtn) exportBtn.onclick = exportToExcel;
+}
+
+// Eksport calego miesiaca (nie tylko wybranego tygodnia) do pliku .xls —
+// zwykla tabela HTML zapisana z rozszerzeniem .xls, ktora Excel otwiera
+// bezposrednio (dziala offline, bez zadnej biblioteki/CDN, spojnie z
+// reszta apki). Przy otwarciu Excel moze zapytac o potwierdzenie formatu
+// — to normalne przy tej metodzie, wystarczy kliknac "Tak".
+function exportToExcel() {
+  if (!STATE.rows.length) { return; }
+  var r = monthRange(STATE.monthDate);
+  var days = [];
+  var cursor = new Date(r.startD);
+  while (cursor <= r.endD) { days.push(toISO(cursor)); cursor = addDays(cursor, 1); }
+
+  var groups = groupByStationShift(STATE.rows);
+  var byStation = {}, stationOrder = [];
+  groups.forEach(function(g) { if (!byStation[g.station]) { byStation[g.station] = []; stationOrder.push(g.station); } byStation[g.station].push(g); });
+
+  var title = 'Plan vs. wykonanie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear();
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta charset="UTF-8">' +
+    '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
+    '<x:Name>Plan vs wykonanie</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>' +
+    '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
+    '<style>' +
+    'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}' +
+    'th,td{border:1px solid #999999;padding:3px 6px;text-align:center;white-space:nowrap;mso-number-format:"@"}' +
+    'th{background:#1A6ED8;color:#ffffff;font-weight:bold}' +
+    '.station{background:#e8eef7;font-weight:bold;text-align:left;vertical-align:middle}' +
+    '.lbl{text-align:left;font-weight:bold;background:#f2f2f2}' +
+    '.crit{background:#ffb3b3}.warn{background:#ffe1a8}.good{background:#c9f0d6}' +
+    'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
+    '</style></head><body>' +
+    '<h1>' + title + '</h1><table>';
+
+  html += '<tr><th rowspan="2">Stanowisko</th><th rowspan="2">Zmiana</th><th rowspan="2">Wska&#378;nik</th>';
+  days.forEach(function(d) { var dd = d.split('-'); html += '<th>' + dd[2] + '/' + dd[1] + '</th>'; });
+  html += '<th rowspan="2">Suma m-c</th></tr><tr>';
+  days.forEach(function(d) { var parts = d.split('-'); var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay(); html += '<th>' + DAY_LABELS[(wd + 6) % 7] + '</th>'; });
+  html += '</tr>';
+
+  stationOrder.forEach(function(stName) {
+    var shifts = byStation[stName];
+    shifts.forEach(function(g, si) {
+      var planRow = '', actualRow = '', pctRow = '';
+      var sumPlan = 0, sumActual = 0;
+      days.forEach(function(d) {
+        var rec = g.byDate[d];
+        var plan = rec ? rec.plan : 0, actual = rec ? rec.qty : 0;
+        sumPlan += plan; sumActual += actual;
+        var pct = plan > 0 ? Math.round((actual / plan) * 100) : null;
+        var cls = pct === null ? '' : (pct >= 95 ? 'good' : pct >= 80 ? 'warn' : 'crit');
+        planRow += '<td>' + (plan || '') + '</td>';
+        actualRow += '<td class="' + cls + '">' + (actual || '') + '</td>';
+        pctRow += '<td class="' + cls + '">' + (pct === null ? '' : pct + '%') + '</td>';
+      });
+      var totalPct = sumPlan > 0 ? Math.round((sumActual / sumPlan) * 100) : null;
+      html += '<tr>' + (si === 0 ? '<td class="station" rowspan="' + (shifts.length * 3) + '">' + stName + '</td>' : '') +
+        '<td rowspan="3">Zmiana ' + g.shift + '</td><td class="lbl">Plan</td>' + planRow + '<td>' + sumPlan + '</td></tr>';
+      html += '<tr><td class="lbl">Wykonanie</td>' + actualRow + '<td>' + sumActual + '</td></tr>';
+      html += '<tr><td class="lbl">% planu</td>' + pctRow + '<td>' + (totalPct === null ? '' : totalPct + '%') + '</td></tr>';
+    });
+  });
+
+  html += '</table></body></html>';
+
+  var blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'CFM_Plan_vs_Wykonanie_' + toISO(STATE.monthDate).slice(0, 7) + '.xls';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
 }
 
 function renderWeekPicker() {

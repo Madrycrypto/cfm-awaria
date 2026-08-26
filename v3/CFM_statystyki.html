@@ -155,7 +155,7 @@ tbody tr.grouphead td{padding-top:16px}
 <script>
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
 
-var STATE = { monthDate: new Date(), rows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week' };
+var STATE = { monthDate: new Date(), rows: [], reworkRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'] };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -181,7 +181,22 @@ function init() {
     document.getElementById('app').innerHTML = '<div class="empty">Nie skonfigurowano połączenia na tym urządzeniu.<br><span class="cn">此设备尚未配置连接。</span><br><br>Otwórz główną apkę CFM &#8594; Panel Admina &#8594; Połączenie, skonfiguruj Webhook URL, wróć tutaj i odśwież stronę.<br><span class="cn">打开CFM主应用 &#8594; 管理面板 &#8594; 连接，配置Webhook网址，然后返回此页面刷新。</span></div>';
     return;
   }
-  loadMonth();
+  // Lista stanowisk/zmian (do pokazania WSZYSTKICH stanowisk w tabeli,
+  // nawet tych bez wpisow w danym okresie — nie tylko OP40 OUT, ktore
+  // celowo pomijamy, bo jego cel i tak jest zawsze kopia OP40 IN) — nie
+  // trzeba tego odswiezac co 45s razem z reszta, wystarczy raz na start.
+  fetch(wh + '?event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var u = (data && data.ustawienia) || {};
+      try { STATE.stations = JSON.parse(u.cfm_stations || '[]'); } catch (e) { STATE.stations = []; }
+      try {
+        var shifts = JSON.parse(u.cfm_shifts || 'null');
+        if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
+      } catch (e) {}
+    })
+    .catch(function() {})
+    .then(loadMonth);
 
   // Auto-odswiezanie — strona sama NIE wie kiedy ktos wyslal raport w
   // apce, wiec dopytujemy backend co jakis czas w tle (bez migania
@@ -213,6 +228,7 @@ function loadMonth(opts) {
       liveEl.innerHTML = '<span class="live-pulse"></span>zasilane z RaportDzienny <span class="cn">数据来自日报表</span>';
       document.getElementById('lastUpdate').textContent = 'odświeżono: ' + new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) + ' · 已更新';
       STATE.rows = data.historia || [];
+      STATE.reworkRows = data.rework_historia || [];
       computeWeeks(opts.keepSelection);
       render();
     })
@@ -259,6 +275,29 @@ function groupByStationShift(rows) {
     return ga.shift < gb.shift ? -1 : ga.shift > gb.shift ? 1 : 0;
   });
   return order.map(function(k) { return map[k]; });
+}
+
+// Jak groupByStationShift, ale zamiast pokazywac TYLKO te stanowiska,
+// ktore akurat maja wpis w danym okresie, pokazuje WSZYSTKIE skonfigurowane
+// stanowiska (w kolejnosci z Panelu Admina) — puste tez, zeby od razu bylo
+// widac ktore stanowisko nie wyslalo jeszcze raportu. OP40 OUT pomijamy
+// zawsze — jego cel jest kopia OP40 IN, wiec nie ma osobnej linii.
+// Bez skonfigurowanej listy stanowisk (np. GET_USTAWIENIA jeszcze sie nie
+// wczytalo) spada z powrotem na "tylko to co jest w danych".
+function buildGroups(rows) {
+  var discovered = groupByStationShift(rows);
+  if (!STATE.stations.length) return discovered;
+  var byKey = {};
+  discovered.forEach(function(g) { byKey[g.station + '||' + g.shift] = g; });
+  var list = [];
+  STATE.stations.forEach(function(st) {
+    if (st === 'OP40 OUT') return;
+    STATE.shiftLabels.forEach(function(sh) {
+      var key = st + '||' + sh;
+      list.push(byKey[key] || { station: st, shift: sh, byDate: {} });
+    });
+  });
+  return list;
 }
 
 function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
@@ -315,8 +354,8 @@ function render() {
   var isMonth = STATE.viewMode === 'month';
   var days = isMonth ? monthDays(STATE.monthDate) : STATE.weeks[STATE.selectedWeekIdx].days;
   var periodLabel = isMonth ? 'mies.' : 'tyg.';
-  var groups = groupByStationShift(STATE.rows);
-  var periodGroups = groupByStationShift(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
+  var groups = buildGroups(STATE.rows);
+  var periodGroups = buildGroups(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
 
   app.innerHTML =
     '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub" id="weekLabel"></div></div>' +
@@ -326,14 +365,17 @@ function render() {
     '<div class="section"><div class="section-head"><h2>Wykonanie planu &#183; dzień po dniu<span class="cn">计划完成率 &#183; 逐日</span></h2><div class="legend">' +
       '<span><i style="background:#3fd17a"></i>&#8805; 95%</span><span><i style="background:#f0a030"></i>80&#8211;94%</span><span><i style="background:#ff7070"></i>&lt; 80%</span>' +
     '</div></div><div class="tablewrap"><div class="tablescroll"><table id="pivot"></table></div></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>';
+    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
+    '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>';
 
   wireMonthNav();
   renderWeekPicker();
-  document.getElementById('weekLabel').textContent = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + periodGroups.length + ' pozycji · ' + periodGroups.length + ' 项';
+  var filledCount = periodGroups.filter(function(g) { return Object.keys(g.byDate).length > 0; }).length;
+  document.getElementById('weekLabel').textContent = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + filledCount + '/' + periodGroups.length + ' pozycji z wpisami · ' + filledCount + '/' + periodGroups.length + ' 项有记录';
   renderKpis(periodGroups, days, periodLabel);
   renderPivot(periodGroups, days, periodLabel);
   renderBars(groups);
+  renderReworkBalance(days);
 }
 
 function fmtWeekRange(week) {
@@ -365,7 +407,7 @@ function wireMonthNav() {
 function exportToExcel() {
   if (!STATE.rows.length) { return; }
   var days = monthDays(STATE.monthDate);
-  var groups = groupByStationShift(STATE.rows);
+  var groups = buildGroups(STATE.rows);
   var byStation = {}, stationOrder = [];
   groups.forEach(function(g) { if (!byStation[g.station]) { byStation[g.station] = []; stationOrder.push(g.station); } byStation[g.station].push(g); });
 
@@ -524,6 +566,32 @@ function renderBars(groups) {
     return '<div class="barrow"><div class="barrow-lbl">' + name + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
       '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(s.actual) + '/' + fmt(s.plan) + '</div></div>';
+  }).join('');
+}
+
+// Bilans reworku per strefa — ile faktycznie trafilo do przetworzenia
+// (processed = odzyskane + zlom koncowy), ile z tego wroci jako DOBRE
+// sztuki, a ile ostatecznie poszlo na zlom. To CELOWO osobny wskaznik od
+// pass rate raportu zmiany (patrz rozmowa o rozliczaniu reworku) — pass
+// rate zostaje "jak bylo w momencie raportu", a tu widac realny odzysk.
+function renderReworkBalance(days) {
+  var el = document.getElementById('reworkBalance');
+  var rows = STATE.reworkRows.filter(function(r) { return days.indexOf(r.date) >= 0; });
+  if (!rows.length) { el.innerHTML = '<div class="empty">Brak przetworzeń reworku w tym okresie. <span class="cn">本期无返修处理记录。</span></div>'; return; }
+  var byZone = {};
+  var order = [];
+  rows.forEach(function(r) {
+    if (!byZone[r.zone]) { byZone[r.zone] = { label: r.zone_label || r.zone, processed: 0, recovered: 0, finalScrap: 0 }; order.push(r.zone); }
+    var z = byZone[r.zone];
+    z.processed += r.processed; z.recovered += r.recovered; z.finalScrap += r.final_scrap;
+  });
+  el.innerHTML = order.map(function(key) {
+    var z = byZone[key];
+    var pct = z.processed > 0 ? Math.round((z.recovered / z.processed) * 100) : 0;
+    var color = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--orange)' : 'var(--red)';
+    return '<div class="barrow"><div class="barrow-lbl">' + z.label + '</div>' +
+      '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
+      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;odzysk ' + fmt(z.recovered) + '/' + fmt(z.processed) + ' &#183; złom ' + fmt(z.finalScrap) + '</div></div>';
   }).join('');
 }
 

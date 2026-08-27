@@ -56,6 +56,21 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 .chip-empty{font-size:12px;color:var(--faint);padding:6px 0}
 
+.crewtags{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px;min-height:20px}
+.crewtag{display:inline-flex;align-items:center;gap:7px;font-family:var(--fb);font-weight:600;font-size:12.5px;color:#fff;background:var(--blue);border-radius:20px;padding:6px 8px 6px 13px}
+.crewtag button{background:rgba(255,255,255,0.2);border:none;color:#fff;width:17px;height:17px;border-radius:50%;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.crewtag button:hover{background:rgba(255,255,255,0.35)}
+.crewtags-empty{font-size:12px;color:var(--faint);font-style:italic}
+.addrow{display:flex;gap:8px;margin-bottom:10px}
+.addinput{flex:1;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:7px;color:var(--text);font-family:var(--fb);font-size:13px;padding:8px 12px}
+.addinput:focus{outline:none;border-color:var(--blue)}
+.addbtn{font-family:var(--fh);font-weight:700;font-size:12px;letter-spacing:0.03em;text-transform:uppercase;background:var(--green);color:#fff;border:none;border-radius:7px;padding:0 16px;cursor:pointer}
+.addbtn:hover{filter:brightness(1.1)}
+.quicklbl{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px}
+.quickpick{display:flex;flex-wrap:wrap;gap:6px}
+.quickchip{font-family:var(--fb);font-weight:500;font-size:11.5px;color:var(--muted);background:none;border:1px dashed var(--border-soft);border-radius:16px;padding:5px 11px;cursor:pointer}
+.quickchip:hover{color:var(--text);border-color:var(--faint)}
+
 .actions{position:sticky;bottom:0;background:var(--bg);padding:14px 0;border-top:1px solid var(--border);margin-top:-1px}
 .actions .wrap{display:flex;gap:10px;width:100%;padding:0 20px}
 .btn{font-family:var(--fh);font-weight:800;font-size:14px;letter-spacing:0.05em;text-transform:uppercase;border:none;border-radius:10px;padding:14px;cursor:pointer;transition:filter .15s}
@@ -136,7 +151,6 @@ function init() {
       try { STATE.workers = JSON.parse(u.cfm_workers || '[]'); } catch (e) { STATE.workers = []; }
       try { STATE.crew = JSON.parse(u.cfm_crew || '{}'); } catch (e) { STATE.crew = {}; }
       if (!STATE.stations.length) { showConnError('Brak skonfigurowanych stanowisk · 未配置工位'); return; }
-      if (!STATE.workers.length) { showConnError('Brak skonfigurowanych pracowników — dodaj ich najpierw w głównej apce (Panel Admina &#8594; Pracownicy). <span class="cn">未配置员工 &#8212; 请先在主应用中添加。</span>'); return; }
       liveEl.className = 'live';
       liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
       render();
@@ -166,8 +180,8 @@ function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(
 function render() {
   var app = document.getElementById('app');
   app.innerHTML =
-    '<div class="pagehead"><h1>Obsada stanowisk <span class="cn">工位人员配置</span></h1><div class="sub">Kto pracuje na którym stanowisku, w której zmianie (grupie) &#8212; używane do wyliczenia premii na stronie Premie. Zaznacz pracowników klikając na nazwisko.<br><span class="cn">谁在哪个工位、哪个班次（组）工作 &#8212; 用于奖金计算。点击姓名进行选择。</span></div></div>' +
-    '<div class="note"><div class="ic">i</div><div><b>Zmiana = tożsamość grupy, nie pora dnia.</b> <span class="cn">班次 = 组的身份，不是时间段。</span><br>Ta lista jest trwała, nie miesięczna &#8212; edytuj ją, gdy skład drużyny się zmienia (ktoś dołącza/odchodzi), nie co miesiąc.<br><span class="cn">此列表是持续性的，不是按月的 &#8212; 只有在团队成员变化时才需要编辑。</span></div></div>' +
+    '<div class="pagehead"><h1>Obsada stanowisk <span class="cn">工位人员配置</span></h1><div class="sub">Kto pracuje na którym stanowisku, w której zmianie (grupie) &#8212; używane do wyliczenia premii na stronie Premie. Wpisz imię i nazwisko i kliknij "Dodaj", albo wybierz kogoś z szybkiego wyboru poniżej. Kliknij &#215; przy nazwisku, żeby usunąć.<br><span class="cn">谁在哪个工位、哪个班次（组）工作 &#8212; 用于奖金计算。输入姓名并点击"添加"，或从下方快速选择。点击姓名旁的&#215;可删除。</span></div></div>' +
+    '<div class="note"><div class="ic">i</div><div><b>Zmiana = tożsamość grupy, nie pora dnia.</b> <span class="cn">班次 = 组的身份，不是时间段。</span><br>Ta lista jest trwała, nie miesięczna &#8212; edytuj ją, gdy skład drużyny się zmienia (ktoś dołącza/odchodzi), nie co miesiąc. Dodane tu osoby nie muszą być na liście "Pracownicy" w głównej apce &#8212; to niezależna lista.<br><span class="cn">此列表是持续性的，不是按月的。在此添加的人员不需要在主应用的"员工"列表中 &#8212; 这是独立的列表。</span></div></div>' +
     '<div id="stationlist"></div>' +
     '<div class="actions"><div class="wrap"><button class="btn btn-save" id="btnSave">Zapisz obsadę<small>保存人员配置</small></button></div></div>';
 
@@ -177,12 +191,14 @@ function render() {
     html += '<div class="stationgroup"><div class="stationgroup-name">' + st + '</div>';
     STATE.shiftLabels.forEach(function(sh) {
       var crewList = stCrew[sh] || [];
+      var quickOptions = STATE.workers.filter(function(w) { return crewList.indexOf(w) < 0; });
       html += '<div class="shiftcard" data-station="' + st.replace(/"/g, '&quot;') + '" data-shift="' + sh + '">' +
         '<div class="shiftcard-head"><span class="shiftpill"><i style="background:' + shiftColor(sh) + '"></i>Zmiana ' + sh + '</span><span class="crewcount">' + crewList.length + ' os.</span></div>' +
-        '<div class="chiplist">' + STATE.workers.map(function(w) {
-          var on = crewList.indexOf(w) >= 0;
-          return '<button type="button" class="chip' + (on ? ' on' : '') + '" data-worker="' + w.replace(/"/g, '&quot;') + '">' + w + '</button>';
-        }).join('') + '</div>' +
+        '<div class="crewtags">' + crewTagsHtml(crewList) + '</div>' +
+        '<div class="addrow"><input type="text" class="addinput" placeholder="Imię i nazwisko&#8230; · 姓名&#8230;"><button type="button" class="addbtn">Dodaj<small style="display:block;font-family:var(--fc);font-weight:400;font-size:9px">添加</small></button></div>' +
+        (quickOptions.length ? '<div class="quicklbl">Szybki wybór &#183; 快速选择</div><div class="quickpick">' + quickOptions.map(function(w) {
+          return '<button type="button" class="quickchip" data-worker="' + w.replace(/"/g, '&quot;') + '">+ ' + w + '</button>';
+        }).join('') + '</div>' : '') +
       '</div>';
     });
     html += '</div>';
@@ -190,23 +206,72 @@ function render() {
   document.getElementById('stationlist').innerHTML = html || '<div class="empty">Brak stanowisk. <span class="cn">无工位。</span></div>';
 
   document.getElementById('stationlist').addEventListener('click', function(e) {
-    var chip = e.target.closest('.chip');
-    if (!chip) return;
-    chip.classList.toggle('on');
-    var card = chip.closest('.shiftcard');
-    var count = card.querySelectorAll('.chip.on').length;
-    card.querySelector('.crewcount').textContent = count + ' os.';
-    markDirty();
+    var removeBtn = e.target.closest('.crewtag button');
+    if (removeBtn) {
+      var cardForRemoval = removeBtn.closest('.shiftcard');
+      removeBtn.closest('.crewtag').remove();
+      refreshCrewCount(cardForRemoval);
+      markDirty();
+      return;
+    }
+    var quickChip = e.target.closest('.quickchip');
+    if (quickChip) { addNameToCard(quickChip.closest('.shiftcard'), quickChip.dataset.worker); quickChip.remove(); return; }
+    var addBtn = e.target.closest('.addbtn');
+    if (addBtn) { submitAddInput(addBtn.closest('.shiftcard')); return; }
+  });
+  document.getElementById('stationlist').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    var input = e.target.closest('.addinput');
+    if (!input) return;
+    e.preventDefault();
+    submitAddInput(input.closest('.shiftcard'));
   });
 
   document.getElementById('btnSave').onclick = savePlan;
+}
+
+function crewTagsHtml(names) {
+  if (!names.length) return '<span class="crewtags-empty">brak obsady &#183; 无人员</span>';
+  return names.map(function(n) {
+    return '<span class="crewtag" data-name="' + n.replace(/"/g, '&quot;') + '">' + n + '<button type="button" title="Usuń">&#10005;</button></span>';
+  }).join('');
+}
+
+function refreshCrewCount(card) {
+  var tags = card.querySelectorAll('.crewtag');
+  card.querySelector('.crewcount').textContent = tags.length + ' os.';
+  if (!tags.length) card.querySelector('.crewtags').innerHTML = '<span class="crewtags-empty">brak obsady &#183; 无人员</span>';
+}
+
+function addNameToCard(card, name) {
+  name = (name || '').trim();
+  if (!name) return;
+  var existing = Array.prototype.map.call(card.querySelectorAll('.crewtag'), function(t) { return t.dataset.name; });
+  if (existing.indexOf(name) >= 0) { showToast('Ta osoba jest już na liście · 此人已在名单中', 'err'); return; }
+  var tagsEl = card.querySelector('.crewtags');
+  var emptyEl = tagsEl.querySelector('.crewtags-empty');
+  if (emptyEl) emptyEl.remove();
+  var span = document.createElement('span');
+  span.className = 'crewtag';
+  span.dataset.name = name;
+  span.innerHTML = name.replace(/</g, '&lt;') + '<button type="button" title="Usuń">&#10005;</button>';
+  tagsEl.appendChild(span);
+  refreshCrewCount(card);
+  markDirty();
+}
+
+function submitAddInput(card) {
+  var input = card.querySelector('.addinput');
+  addNameToCard(card, input.value);
+  input.value = '';
+  input.focus();
 }
 
 function collectCrewFromUI() {
   var crew = {};
   document.querySelectorAll('.shiftcard').forEach(function(card) {
     var st = card.dataset.station, sh = card.dataset.shift;
-    var names = Array.prototype.map.call(card.querySelectorAll('.chip.on'), function(c) { return c.dataset.worker; });
+    var names = Array.prototype.map.call(card.querySelectorAll('.crewtag'), function(t) { return t.dataset.name; });
     if (!names.length) return;
     if (!crew[st]) crew[st] = {};
     crew[st][sh] = names;

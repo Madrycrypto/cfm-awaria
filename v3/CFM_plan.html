@@ -86,6 +86,9 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .btn:hover{filter:brightness(1.1)}
 .btn-copy{background:var(--surface-2);color:var(--text);border:1px solid var(--border);flex:1}
 .btn-save{background:var(--blue);color:#fff;flex:2}
+.btn-save.pulse{background:var(--orange, #D97706);animation:savepulse 1.4s ease-in-out infinite}
+@keyframes savepulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+@media (prefers-reduced-motion:reduce){.btn-save.pulse{animation:none}}
 .btn small{display:block;font-family:var(--fc);font-weight:400;text-transform:none;font-size:10.5px;opacity:.75;margin-top:2px}
 
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:40}
@@ -124,8 +127,25 @@ var WD = ['pn','wt','śr','cz','pt','so','nd'];
 
 var STATE = {
   viewMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-  stations: [], shiftLabels: ['A', 'B', 'C'], targets: {}, plan: {}
+  stations: [], shiftLabels: ['A', 'B', 'C'], targets: {}, plan: {}, dirty: false
 };
+
+function markDirty() {
+  if (STATE.dirty) return;
+  STATE.dirty = true;
+  var btn = document.getElementById('btnSave');
+  if (btn) { btn.classList.add('pulse'); btn.innerHTML = 'Zapisz plan &#8212; masz niezapisane zmiany!<small>保存计划 &#8212; 有未保存的更改!</small>'; }
+}
+function clearDirty() {
+  STATE.dirty = false;
+  var btn = document.getElementById('btnSave');
+  if (btn) { btn.classList.remove('pulse'); btn.innerHTML = 'Zapisz plan<small>保存计划</small>'; }
+}
+window.addEventListener('beforeunload', function(e) {
+  if (!STATE.dirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function monthKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
@@ -258,9 +278,19 @@ function render() {
     html += '</div>';
   });
   document.getElementById('planlist').innerHTML = html || '<div class="empty">Brak stanowisk. <span class="cn">无工位。</span></div>';
+  document.getElementById('planlist').addEventListener('input', function(e) {
+    if (e.target && e.target.matches('.daystrip input')) markDirty();
+  });
+  if (STATE.dirty) markDirty(); // odtworz wizualny stan przycisku po re-renderze (np. po kopiowaniu)
 
-  document.getElementById('prevMonth').onclick = function() { STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1); render(); };
-  document.getElementById('nextMonth').onclick = function() { STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() + 1, 1); render(); };
+  // Zmiana miesiaca NIE wysyla nic na serwer — ale zeby recznie wpisane
+  // (jeszcze niezapisane) wartosci dla aktualnie ogladanego miesiaca nie
+  // zniknely po prostu przez przejscie na inny miesiac, zbieramy je do
+  // STATE.plan PRZED przelaczeniem widoku. To NIE zastepuje "Zapisz plan"
+  // (na serwer nadal trzeba wyslac recznie) — chroni tylko przed utrata
+  // danych w ramach tej samej sesji w przegladarce.
+  document.getElementById('prevMonth').onclick = function() { STATE.plan[monthKey(STATE.viewMonth)] = collectPlanFromInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1); render(); };
+  document.getElementById('nextMonth').onclick = function() { STATE.plan[monthKey(STATE.viewMonth)] = collectPlanFromInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() + 1, 1); render(); };
   document.getElementById('btnCopy').onclick = copyFromPrevMonth;
   document.getElementById('btnSave').onclick = savePlan;
 }
@@ -291,7 +321,8 @@ function quickCopy(btn) {
     if (wd !== 0 && wd !== 6) el.value = n;
   });
   setDaysOpen(card, true);
-  showToast('Skopiowano na pon–pt · 已复制到周一至周五', 'ok');
+  markDirty();
+  showToast('Skopiowano na pon–pt — pamiętaj kliknąć "Zapisz plan"! · 已复制 — 别忘了点击"保存计划"!', 'ok');
 }
 
 function collectPlanFromInputs() {
@@ -328,13 +359,15 @@ function copyFromPrevMonth() {
   });
   STATE.plan[monthKey(STATE.viewMonth)] = newEntry;
   render();
-  showToast('Skopiowano z poprzedniego miesiąca (wg dnia miesiąca) · 已按日期从上月复制', 'ok');
+  markDirty();
+  showToast('Skopiowano z poprzedniego miesiąca — pamiętaj kliknąć "Zapisz plan"! · 已从上月复制 — 别忘了点击"保存计划"!', 'ok');
 }
 
 function savePlan() {
   var mk = monthKey(STATE.viewMonth);
   STATE.plan[mk] = collectPlanFromInputs();
   localStorage.setItem('cfm_monthly_plan', JSON.stringify(STATE.plan));
+  clearDirty();
 
   var wh = getWH();
   fetch(wh, {

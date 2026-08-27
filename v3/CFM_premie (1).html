@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0d0d0d">
+<title>CFM · Premie</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
+  --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
+  --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
+  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;
+  --good-bg:rgba(26,158,80,0.14);--warn-bg:rgba(217,119,6,0.16);--crit-bg:rgba(217,43,43,0.16);
+  --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
+body{padding-bottom:60px}
+.wrap{max-width:1400px;margin:0 auto;padding:0 20px}
+.cn{font-family:var(--fc);color:var(--faint);font-weight:400}
+::selection{background:var(--blue);color:#fff}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar-inner{max-width:1400px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
+.logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
+.crumb{font-size:13px;color:var(--muted)}
+.crumb b{color:var(--text);font-weight:600}
+.topbar-right{margin-left:auto;font-size:12px;color:var(--faint);text-align:right;line-height:1.4}
+.topbar-right .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:600}
+.topbar-right .live.off{color:var(--red)}
+.live-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
+
+.pagehead{padding:28px 0 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+h1{font-family:var(--fh);font-weight:800;font-size:30px;letter-spacing:0.2px}
+h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
+.sub{color:var(--muted);font-size:14px;margin-top:4px}
+.headactions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.monthnav{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px}
+.monthnav button{background:none;border:none;color:var(--muted);font-size:18px;padding:6px 12px;cursor:pointer;border-radius:8px}
+.monthnav button:hover{color:var(--text);background:var(--surface-2)}
+.monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:uppercase;min-width:130px;text-align:center}
+.monthnav .mlabel .cn{font-size:11px;text-transform:none;margin-left:4px}
+.btn-mini{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:#fff;background:var(--green);border:none;padding:10px 16px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.btn-mini:hover{filter:brightness(1.1)}
+.btn-mini.cfg{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+.btn-mini .cn{color:rgba(255,255,255,0.75);font-size:11px}
+
+.note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:22px}
+.note b{color:var(--text)}
+.note .ic{font-family:var(--fh);font-weight:900;font-size:18px;color:var(--blue-soft);flex-shrink:0}
+
+.cfgpanel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:24px}
+.cfgpanel h3{font-family:var(--fh);font-weight:700;font-size:15px;margin-bottom:12px}
+.cfgtable{width:100%;border-collapse:collapse;margin-bottom:16px}
+.cfgtable th{font-size:10.5px;text-transform:uppercase;color:var(--faint);text-align:left;padding:4px 8px;font-weight:600}
+.cfgtable td{padding:4px 8px}
+.cfgtable input{width:100%;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:13px;text-align:center;padding:6px 4px}
+.cfgtable input:focus{outline:none;border-color:var(--blue)}
+.cfgtable td.lbl{font-weight:600;font-size:13px;color:var(--text);text-align:left}
+.cfgtable td.stlist{font-size:11px;color:var(--faint)}
+.cfgactions{display:flex;gap:10px}
+.btn-cfg-save{font-family:var(--fh);font-weight:700;font-size:13px;color:#fff;background:var(--blue);border:none;padding:9px 16px;border-radius:8px;cursor:pointer}
+.btn-cfg-save.pulse{background:var(--orange);animation:savepulse 1.4s ease-in-out infinite}
+@keyframes savepulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+@media (prefers-reduced-motion:reduce){.btn-cfg-save.pulse{animation:none}}
+
+.tablewrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:24px}
+.tablescroll{overflow-x:auto}
+table.results{border-collapse:collapse;width:100%;min-width:960px}
+table.results thead th{font-family:var(--fb);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);text-align:right;padding:12px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+table.results thead th:first-child,table.results thead th:nth-child(2),table.results thead th:nth-child(3){text-align:left}
+table.results tbody td{padding:10px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+table.results tbody td:first-child,table.results tbody td:nth-child(2),table.results tbody td:nth-child(3){text-align:left}
+table.results tbody tr:last-child td{border-bottom:none}
+.stationname{font-family:var(--fh);font-weight:700;font-size:15px;color:var(--text)}
+.shiftpill{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);font-weight:700;font-size:12px}
+.shiftpill i{width:7px;height:7px;border-radius:50%}
+.crewnames{font-size:11px;color:var(--muted);line-height:1.5;max-width:220px;white-space:normal}
+.crewnames.empty{color:var(--faint);font-style:italic}
+.pct{display:inline-block;min-width:44px;padding:3px 7px;border-radius:6px;font-weight:700;font-size:12px}
+.pct.good{background:var(--good-bg);color:#3fd17a}
+.pct.warn{background:var(--warn-bg);color:#f0a030}
+.pct.crit{background:var(--crit-bg);color:#ff7070}
+.pct.off{color:var(--faint);background:none;font-weight:500}
+.premia{font-family:var(--fh);font-weight:800;font-size:14px}
+.premia.yes{color:#3fd17a}
+.premia.no{color:var(--faint);font-weight:500;font-size:13px}
+
+.empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="dot"></span>CFM</div>
+    <div class="crumb"><b>Premie <span class="cn">奖金</span></b></div>
+    <div class="topbar-right">
+      <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+  <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
+</div>
+
+<script>
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
+
+var MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+var MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+// Domyslna konfiguracja premii — dokladnie wg tabeli referencyjnej
+// dostarczonej przez usera (lipiec 2026). Edytowalna w UI (panel
+// "Konfiguracja"), zapisywana jako cfm_premia_config. OP40 IN celowo NIE
+// jest w zadnej grupie — do premii liczy sie tylko OP40 OUT (realna liczba
+// sztuk, ktore faktycznie wyszly z pieca; OP40 IN mierzy to samo u wejscia,
+// wiec liczenie obu razem podwajaloby sztuki).
+var DEFAULT_CONFIG = {
+  groups: [
+    { key: 'linia_glowna', label: 'Linia główna OP50~GP12', stations: ['GP12', 'OP51/52'], progWyzszy: 580, premiaWyzsza: 600, progNizszy: 540, premiaNizsza: 400, passRate: 99 },
+    { key: 'op60_61', label: 'OP60/OP61', stations: ['OP60/61'], progWyzszy: 400, premiaWyzsza: 800, progNizszy: 360, premiaNizsza: 600, passRate: 99 },
+    { key: 'op30_33', label: 'OP30/OP33A/OP33B', stations: ['OP30', 'OP33A', 'OP33B'], progWyzszy: 350, premiaWyzsza: 600, progNizszy: 330, premiaNizsza: 400, passRate: 99 },
+    { key: 'op40', label: 'OP40 – lutowanie', stations: ['OP40 OUT'], progWyzszy: 2500, premiaWyzsza: 600, progNizszy: 2300, premiaNizsza: 400, passRate: 99 },
+  ],
+  wydajnosc: { 'OP30': 9350, 'OP33A': 47, 'OP33B': 47, 'OP40 OUT': 134, 'GP12': 78, 'OP51/52': 78, 'OP60/61': 50 },
+};
+
+var STATE = {
+  monthDate: new Date(), stations: [], shiftLabels: ['A', 'B', 'C'], workers: [], crew: {},
+  config: null, shiftsData: [], downtime: {}, configOpen: false, configDirty: false,
+};
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function monthRange(d) {
+  var start = new Date(d.getFullYear(), d.getMonth(), 1);
+  var end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return { start: toISO(start), end: toISO(end) };
+}
+function fmt(n) { return n === null || n === undefined ? '&#8212;' : Math.round(n).toLocaleString('pl-PL'); }
+function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
+function pctClass(p, req) { if (p === null) return 'off'; if (p >= req) return 'good'; if (p >= req - 10) return 'warn'; return 'crit'; }
+
+function showConnError(msg) {
+  var liveEl = document.getElementById('liveStatus');
+  liveEl.className = 'live off';
+  liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
+  document.getElementById('app').innerHTML = '<div class="empty">' + (msg || 'Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span>') + '</div>';
+}
+
+function init() {
+  var wh = getWH();
+  var liveEl = document.getElementById('liveStatus');
+  if (!wh) {
+    liveEl.className = 'live off';
+    liveEl.innerHTML = '<span class="live-pulse"></span>brak połączenia <span class="cn">未连接</span>';
+    document.getElementById('app').innerHTML = '<div class="empty">Nie skonfigurowano połączenia na tym urządzeniu.<br><span class="cn">此设备尚未配置连接。</span><br><br>Otwórz główną apkę CFM &#8594; Panel Admina &#8594; Połączenie, skonfiguruj Webhook URL, wróć tutaj i odśwież stronę.<br><span class="cn">打开CFM主应用 &#8594; 管理面板 &#8594; 连接，配置Webhook网址，然后返回此页面刷新。</span></div>';
+    return;
+  }
+  fetch(wh + '?event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { showConnError(); return; }
+      var u = data.ustawienia || {};
+      try { STATE.stations = JSON.parse(u.cfm_stations || '[]'); } catch (e) { STATE.stations = []; }
+      try {
+        var shifts = JSON.parse(u.cfm_shifts || 'null');
+        if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
+      } catch (e) {}
+      try { STATE.workers = JSON.parse(u.cfm_workers || '[]'); } catch (e) { STATE.workers = []; }
+      try { STATE.crew = JSON.parse(u.cfm_crew || '{}'); } catch (e) { STATE.crew = {}; }
+      try { STATE.config = u.cfm_premia_config ? JSON.parse(u.cfm_premia_config) : JSON.parse(JSON.stringify(DEFAULT_CONFIG)); } catch (e) { STATE.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); }
+      loadMonth();
+    })
+    .catch(function() { showConnError(); });
+}
+
+function loadMonth() {
+  var wh = getWH();
+  var r = monthRange(STATE.monthDate);
+  document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
+  fetch(wh + '?event_type=PREMIA&start=' + r.start + '&end=' + r.end)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      var liveEl = document.getElementById('liveStatus');
+      if (data.status !== 'ok') { showConnError(); return; }
+      liveEl.className = 'live';
+      liveEl.innerHTML = '<span class="live-pulse"></span>zasilane z RaportDzienny + Awarie <span class="cn">数据来自日报表+故障记录</span>';
+      STATE.shiftsData = data.shifts || [];
+      STATE.downtime = data.downtime || {};
+      render();
+    })
+    .catch(function() { showConnError(); });
+}
+
+function findGroup(station) {
+  return STATE.config.groups.find(function(g) { return g.stations.indexOf(station) >= 0; });
+}
+
+// Liczy wszystkie wskazniki dla kazdego stanowiska (nalezacego do jakiejs
+// grupy premiowej) x zmiana. Wzor odtworzony z przykladowej tabeli usera:
+//   Wyk. skorygowane = Sr.wykonanie/zmiane + Wydajnosc(h) [stala 60-min
+//     "odzysk maintenance"] + Odzysk-downtime
+//   Odzysk-downtime = (laczny czas przestoju stanowiska w minutach w tym
+//     miesiacu * Wydajnosc/60) / (LACZNA liczba zmian tego stanowiska we
+//     WSZYSTKICH grupach A/B/C razem w tym miesiacu)
+//     — Awarie nie zapisuje do ktorej grupy (A/B/C) nalezal operator w
+//     momencie awarii (zmiana to tozsamosc grupy, nie stala pora dnia —
+//     nie da sie tego wywnioskowac z samej godziny), wiec przestoj
+//     stanowiska rozkladamy rowno na wszystkie jego zmiany w miesiacu.
+//     To jest przyblizenie — sprawdz wynik na znanym miesiacu przed
+//     uzyciem do realnych wyplat.
+//   Premia = brak jesli: brak obsady NA TEJ zmianie, LUB pass rate ponizej
+//     wymaganego progu grupy. W przeciwnym razie premia wyzsza/nizsza/brak
+//     wg progow wykonania skorygowanego.
+function computeRows() {
+  var byKey = {};
+  STATE.shiftsData.forEach(function(d) { byKey[d.station + '||' + d.shift] = d; });
+
+  var rows = [];
+  STATE.stations.forEach(function(station) {
+    var group = findGroup(station);
+    if (!group) return;
+    STATE.shiftLabels.forEach(function(shift) {
+      var d = byKey[station + '||' + shift] || { sumQty: 0, sumOk: 0, count: 0 };
+      var crewList = (STATE.crew[station] && STATE.crew[station][shift]) || [];
+      var avgQty = d.count > 0 ? d.sumQty / d.count : 0;
+      var avgOk = d.count > 0 ? d.sumOk / d.count : 0;
+      var passRate = d.sumQty > 0 ? (d.sumOk / d.sumQty) * 100 : null;
+      var wydajnosc = STATE.config.wydajnosc[station] || 0;
+      // Przestoj przypisany DOKLADNIE do tej zmiany (kolumna 'shift' w
+      // Awariach) — starsze wpisy sprzed wprowadzenia tego pola nie maja
+      // zmiany zapisanej i nie trafiaja tutaj (patrz handlePremia w .gs).
+      var downtimeMin = STATE.downtime[station + '||' + shift] || 0;
+      var odzyskDowntime = d.count > 0 ? (downtimeMin * (wydajnosc / 60)) / d.count : 0;
+      var wyk = avgQty + wydajnosc + odzyskDowntime;
+      var premia = null;
+      if (crewList.length > 0 && passRate !== null && Math.round(passRate) >= group.passRate) {
+        if (wyk >= group.progWyzszy) premia = group.premiaWyzsza;
+        else if (wyk >= group.progNizszy) premia = group.premiaNizsza;
+      }
+      rows.push({ station: station, shift: shift, group: group, crewList: crewList, avgQty: avgQty, avgOk: avgOk, passRate: passRate, wydajnosc: wydajnosc, odzyskDowntime: odzyskDowntime, wyk: wyk, premia: premia, count: d.count });
+    });
+  });
+  return rows;
+}
+
+function monthNavHtml() {
+  return '<div class="monthnav"><button id="prevMonth">&#8249;</button><div class="mlabel">' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + '<span class="cn">' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></div><button id="nextMonth">&#8250;</button></div>';
+}
+
+function render() {
+  var app = document.getElementById('app');
+  var rows = computeRows();
+
+  app.innerHTML =
+    '<div class="pagehead"><div><h1>Premie <span class="cn">奖金</span></h1><div class="sub">Wyliczone automatycznie z planu produkcji, raportów i przestojów &#8212; miesiąc narastająco.<span class="cn"> 根据生产计划、报告和停机时间自动计算 &#8212; 月度累计。</span></div></div>' +
+    '<div class="headactions">' + monthNavHtml() + '<button class="btn-mini cfg" id="btnCfgToggle">Konfiguracja ' + (STATE.configOpen ? '&#9652;' : '&#9662;') + '<span class="cn">配置</span></button><button class="btn-mini" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
+    '<div class="note"><div class="ic">i</div><div><b>Odzysk-downtime liczy się tylko dla awarii zgłoszonych po tej aktualizacji.</b> <span class="cn">停机恢复量仅计算此次更新后登记的故障。</span><br>Awarie od teraz zapisują, do której zmiany (grupy A/B/C) należał operator w momencie zgłoszenia — przestój liczy się więc dokładnie tam, gdzie się wydarzył. Starsze wpisy sprzed tej zmiany nie mają zmiany zapisanej i nie doliczą się do żadnej grupy (lekko zaniży to odzysk w miesiącach mieszających stare i nowe dane, nigdy nie zawyży).<br><span class="cn">此次更新前的旧故障记录没有班组信息，不会计入任何班组（可能略微低估，但不会高估）。</span></div></div>' +
+    '<div id="cfgpanel"></div>' +
+    '<div class="tablewrap"><div class="tablescroll"><table class="results" id="resultsTable"></table></div></div>';
+
+  document.getElementById('prevMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() - 1, 1); loadMonth(); };
+  document.getElementById('nextMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() + 1, 1); loadMonth(); };
+  document.getElementById('btnCfgToggle').onclick = function() { STATE.configOpen = !STATE.configOpen; render(); };
+  document.getElementById('btnExport').onclick = exportToExcel;
+
+  if (STATE.configOpen) renderConfigPanel();
+  renderResultsTable(rows);
+}
+
+function renderConfigPanel() {
+  var el = document.getElementById('cfgpanel');
+  var groupRows = STATE.config.groups.map(function(g, i) {
+    return '<tr data-gi="' + i + '">' +
+      '<td class="lbl">' + g.label + '<div class="stlist">' + g.stations.join(', ') + '</div></td>' +
+      '<td><input type="number" class="gf" data-f="progWyzszy" value="' + g.progWyzszy + '"></td>' +
+      '<td><input type="number" class="gf" data-f="premiaWyzsza" value="' + g.premiaWyzsza + '"></td>' +
+      '<td><input type="number" class="gf" data-f="progNizszy" value="' + g.progNizszy + '"></td>' +
+      '<td><input type="number" class="gf" data-f="premiaNizsza" value="' + g.premiaNizsza + '"></td>' +
+      '<td><input type="number" class="gf" data-f="passRate" value="' + g.passRate + '"></td>' +
+    '</tr>';
+  }).join('');
+
+  var wKeys = Object.keys(STATE.config.wydajnosc);
+  var wRows = wKeys.map(function(st) {
+    return '<tr data-station="' + st.replace(/"/g, '&quot;') + '"><td class="lbl">' + st + '</td><td><input type="number" class="wf" value="' + STATE.config.wydajnosc[st] + '"></td></tr>';
+  }).join('');
+
+  el.innerHTML =
+    '<div class="cfgpanel">' +
+      '<h3>Progi premii wg grupy stanowisk <span class="cn">按工位组划分的奖金门槛</span></h3>' +
+      '<table class="cfgtable"><thead><tr><th>Grupa</th><th>Próg wyższy</th><th>Premia wyższa (PLN)</th><th>Próg niższy</th><th>Premia niższa (PLN)</th><th>Wymagany pass rate (%)</th></tr></thead><tbody id="groupCfgBody">' + groupRows + '</tbody></table>' +
+      '<h3>Wydajność godzinowa per stanowisko (szt./h) <span class="cn">每小时产能</span></h3>' +
+      '<table class="cfgtable"><thead><tr><th>Stanowisko</th><th>Szt./h</th></tr></thead><tbody id="wydajnoscCfgBody">' + wRows + '</tbody></table>' +
+      '<div class="cfgactions"><button class="btn-cfg-save" id="btnCfgSave">Zapisz konfigurację<span class="cn"> 保存配置</span></button></div>' +
+    '</div>';
+
+  el.addEventListener('input', function() { markCfgDirty(); });
+  document.getElementById('btnCfgSave').onclick = saveConfig;
+}
+
+function markCfgDirty() {
+  STATE.configDirty = true;
+  var btn = document.getElementById('btnCfgSave');
+  if (btn) { btn.classList.add('pulse'); btn.innerHTML = 'Zapisz konfigurację — niezapisane zmiany!<span class="cn"> 保存配置 — 有未保存的更改!</span>'; }
+}
+
+function saveConfig() {
+  document.querySelectorAll('#groupCfgBody tr').forEach(function(tr) {
+    var gi = Number(tr.dataset.gi);
+    tr.querySelectorAll('.gf').forEach(function(inp) { STATE.config.groups[gi][inp.dataset.f] = Number(inp.value) || 0; });
+  });
+  document.querySelectorAll('#wydajnoscCfgBody tr').forEach(function(tr) {
+    var st = tr.dataset.station;
+    var inp = tr.querySelector('.wf');
+    STATE.config.wydajnosc[st] = Number(inp.value) || 0;
+  });
+  STATE.configDirty = false;
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_config', wartosc: JSON.stringify(STATE.config) })
+  }).then(function() { render(); }).catch(function() {});
+}
+
+function renderResultsTable(rows) {
+  var table = document.getElementById('resultsTable');
+  if (!rows.length) { table.parentElement.parentElement.innerHTML = '<div class="empty">Brak stanowisk przypisanych do żadnej grupy premiowej. <span class="cn">没有工位分配到任何奖金组。</span><br>Sprawdź "Konfiguracja" powyżej.</div>'; return; }
+
+  var thead = '<thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Zmiana<span class="cn">班次</span></th><th>Obsada<span class="cn">人员</span></th><th>Śr. wykonanie<span class="cn">平均产量</span></th><th>Śr. dobrych<span class="cn">平均合格</span></th><th>Pass rate<span class="cn">合格率</span></th><th>Wyk. skorygowane<span class="cn">修正产量</span></th><th>Premia<span class="cn">奖金</span></th></tr></thead>';
+
+  var byStation = {};
+  var order = [];
+  rows.forEach(function(r) { if (!byStation[r.station]) { byStation[r.station] = []; order.push(r.station); } byStation[r.station].push(r); });
+
+  var body = '';
+  order.forEach(function(st) {
+    var list = byStation[st];
+    list.forEach(function(r, si) {
+      var crewHtml = r.crewList.length ? r.crewList.join('<br>') : '<span class="crewnames empty">brak obsady</span>';
+      body += '<tr>' +
+        (si === 0 ? '<td rowspan="' + list.length + '"><div class="stationname">' + st + '</div></td>' : '') +
+        '<td><span class="shiftpill"><i style="background:' + shiftColor(r.shift) + '"></i>Zmiana ' + r.shift + '</span></td>' +
+        '<td><div class="crewnames">' + crewHtml + '</div></td>' +
+        '<td>' + fmt(r.avgQty) + '</td>' +
+        '<td>' + fmt(r.avgOk) + '</td>' +
+        '<td><span class="pct ' + pctClass(r.passRate, r.group.passRate) + '">' + (r.passRate === null ? '&#8212;' : r.passRate.toFixed(1) + '%') + '</span></td>' +
+        '<td>' + fmt(r.wyk) + '</td>' +
+        '<td><span class="premia ' + (r.premia ? 'yes' : 'no') + '">' + (r.premia ? r.premia + ' PLN' : '&#8212;') + '</span></td>' +
+      '</tr>';
+    });
+  });
+  table.innerHTML = thead + '<tbody>' + body + '</tbody>';
+}
+
+function exportToExcel() {
+  var rows = computeRows();
+  if (!rows.length) return;
+  var title = 'Premie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear();
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta charset="UTF-8"><style>' +
+    'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}' +
+    'th,td{border:1px solid #999999;padding:4px 8px;text-align:center;white-space:nowrap}' +
+    'th{background:#1A6ED8;color:#ffffff;font-weight:bold}' +
+    '.station{background:#e8eef7;font-weight:bold;text-align:left}' +
+    '.yes{background:#c9f0d6;font-weight:bold}' +
+    'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
+    '</style></head><body><h1>' + title + '</h1><table>' +
+    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Sr. wykonanie</th><th>Sr. dobrych</th><th>Pass rate</th><th>Wyk. skorygowane</th><th>Premia (PLN)</th></tr>';
+
+  var byStation = {}, order = [];
+  rows.forEach(function(r) { if (!byStation[r.station]) { byStation[r.station] = []; order.push(r.station); } byStation[r.station].push(r); });
+  order.forEach(function(st) {
+    byStation[st].forEach(function(r, si) {
+      html += '<tr>' + (si === 0 ? '<td class="station" rowspan="' + byStation[st].length + '">' + st + '</td>' : '') +
+        '<td>Zmiana ' + r.shift + '</td><td>' + (r.crewList.join(', ') || '-') + '</td>' +
+        '<td>' + Math.round(r.avgQty) + '</td><td>' + Math.round(r.avgOk) + '</td>' +
+        '<td>' + (r.passRate === null ? '' : r.passRate.toFixed(1) + '%') + '</td>' +
+        '<td>' + Math.round(r.wyk) + '</td>' +
+        '<td class="' + (r.premia ? 'yes' : '') + '">' + (r.premia ? r.premia + ' PLN' : '-') + '</td></tr>';
+    });
+  });
+  html += '</table></body></html>';
+
+  var blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'CFM_Premie_' + toISO(STATE.monthDate).slice(0, 7) + '.xls';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+init();
+</script>
+</body>
+</html>

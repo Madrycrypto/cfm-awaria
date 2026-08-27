@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0d0d0d">
+<title>CFM · Obsada</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
+  --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
+  --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
+  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;
+  --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
+body{padding-bottom:86px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+.cn{font-family:var(--fc);color:var(--faint);font-weight:400}
+::selection{background:var(--blue);color:#fff}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar-inner{max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:14px}
+.logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
+.crumb{font-size:13px;color:var(--muted)}
+.crumb b{color:var(--text);font-weight:600}
+.topbar-right{margin-left:auto;font-size:12px;color:var(--faint);text-align:right;line-height:1.4}
+.topbar-right .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:600}
+.topbar-right .live.off{color:var(--red)}
+.live-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
+
+.pagehead{padding:24px 0 16px}
+h1{font-family:var(--fh);font-weight:800;font-size:28px;letter-spacing:0.2px}
+h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
+.sub{color:var(--muted);font-size:13px;margin-top:6px;line-height:1.6}
+
+.stationgroup{margin-bottom:22px}
+.stationgroup-name{font-family:var(--fh);font-weight:800;font-size:16px;margin-bottom:8px}
+.shiftcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:8px}
+.shiftcard-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.shiftpill{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);font-weight:700;font-size:13px}
+.shiftpill i{width:8px;height:8px;border-radius:50%}
+.crewcount{font-size:11px;color:var(--faint)}
+.chiplist{display:flex;flex-wrap:wrap;gap:7px}
+.chip{font-family:var(--fb);font-weight:600;font-size:12.5px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border-soft);border-radius:20px;padding:7px 13px;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.chip:hover{border-color:var(--faint)}
+.chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.chip-empty{font-size:12px;color:var(--faint);padding:6px 0}
+
+.actions{position:sticky;bottom:0;background:var(--bg);padding:14px 0;border-top:1px solid var(--border);margin-top:-1px}
+.actions .wrap{display:flex;gap:10px;width:100%;padding:0 20px}
+.btn{font-family:var(--fh);font-weight:800;font-size:14px;letter-spacing:0.05em;text-transform:uppercase;border:none;border-radius:10px;padding:14px;cursor:pointer;transition:filter .15s}
+.btn:hover{filter:brightness(1.1)}
+.btn-save{background:var(--blue);color:#fff;flex:1}
+.btn-save.pulse{background:var(--orange);animation:savepulse 1.4s ease-in-out infinite}
+@keyframes savepulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+@media (prefers-reduced-motion:reduce){.btn-save.pulse{animation:none}}
+.btn small{display:block;font-family:var(--fc);font-weight:400;text-transform:none;font-size:10.5px;opacity:.75;margin-top:2px}
+
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:40}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(26,158,80,0.4);color:#3fd17a}
+.toast.err{border-color:rgba(217,43,43,0.4);color:#ff7070}
+
+.empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
+.note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:22px}
+.note b{color:var(--text)}
+.note .ic{font-family:var(--fh);font-weight:900;font-size:18px;color:var(--blue-soft);flex-shrink:0}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="dot"></span>CFM</div>
+    <div class="crumb"><b>Obsada stanowisk <span class="cn">工位人员配置</span></b></div>
+    <div class="topbar-right">
+      <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+  <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
+
+var STATE = { stations: [], shiftLabels: ['A', 'B', 'C'], workers: [], crew: {}, dirty: false };
+
+function showToast(msg, kind) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (kind || '');
+  setTimeout(function() { t.className = 'toast ' + (kind || ''); }, 2200);
+}
+
+function showConnError(msg) {
+  var liveEl = document.getElementById('liveStatus');
+  liveEl.className = 'live off';
+  liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
+  document.getElementById('app').innerHTML = '<div class="empty">' + (msg || 'Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span>') + '</div>';
+}
+
+function init() {
+  var wh = getWH();
+  var liveEl = document.getElementById('liveStatus');
+  if (!wh) {
+    liveEl.className = 'live off';
+    liveEl.innerHTML = '<span class="live-pulse"></span>brak połączenia <span class="cn">未连接</span>';
+    document.getElementById('app').innerHTML = '<div class="empty">Nie skonfigurowano połączenia na tym urządzeniu.<br><span class="cn">此设备尚未配置连接。</span><br><br>Otwórz główną apkę CFM &#8594; Panel Admina &#8594; Połączenie, skonfiguruj Webhook URL, wróć tutaj i odśwież stronę.<br><span class="cn">打开CFM主应用 &#8594; 管理面板 &#8594; 连接，配置Webhook网址，然后返回此页面刷新。</span></div>';
+    return;
+  }
+  fetch(wh + '?event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { showConnError(); return; }
+      var u = data.ustawienia || {};
+      try { STATE.stations = JSON.parse(u.cfm_stations || '[]'); } catch (e) { STATE.stations = []; }
+      try {
+        var shifts = JSON.parse(u.cfm_shifts || 'null');
+        if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
+      } catch (e) {}
+      try { STATE.workers = JSON.parse(u.cfm_workers || '[]'); } catch (e) { STATE.workers = []; }
+      try { STATE.crew = JSON.parse(u.cfm_crew || '{}'); } catch (e) { STATE.crew = {}; }
+      if (!STATE.stations.length) { showConnError('Brak skonfigurowanych stanowisk · 未配置工位'); return; }
+      if (!STATE.workers.length) { showConnError('Brak skonfigurowanych pracowników — dodaj ich najpierw w głównej apce (Panel Admina &#8594; Pracownicy). <span class="cn">未配置员工 &#8212; 请先在主应用中添加。</span>'); return; }
+      liveEl.className = 'live';
+      liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
+      render();
+    })
+    .catch(function() { showConnError(); });
+}
+
+function markDirty() {
+  if (STATE.dirty) return;
+  STATE.dirty = true;
+  var btn = document.getElementById('btnSave');
+  if (btn) { btn.classList.add('pulse'); btn.innerHTML = 'Zapisz obsadę &#8212; masz niezapisane zmiany!<small>保存人员配置 &#8212; 有未保存的更改!</small>'; }
+}
+function clearDirty() {
+  STATE.dirty = false;
+  var btn = document.getElementById('btnSave');
+  if (btn) { btn.classList.remove('pulse'); btn.innerHTML = 'Zapisz obsadę<small>保存人员配置</small>'; }
+}
+window.addEventListener('beforeunload', function(e) {
+  if (!STATE.dirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+
+function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
+
+function render() {
+  var app = document.getElementById('app');
+  app.innerHTML =
+    '<div class="pagehead"><h1>Obsada stanowisk <span class="cn">工位人员配置</span></h1><div class="sub">Kto pracuje na którym stanowisku, w której zmianie (grupie) &#8212; używane do wyliczenia premii na stronie Premie. Zaznacz pracowników klikając na nazwisko.<br><span class="cn">谁在哪个工位、哪个班次（组）工作 &#8212; 用于奖金计算。点击姓名进行选择。</span></div></div>' +
+    '<div class="note"><div class="ic">i</div><div><b>Zmiana = tożsamość grupy, nie pora dnia.</b> <span class="cn">班次 = 组的身份，不是时间段。</span><br>Ta lista jest trwała, nie miesięczna &#8212; edytuj ją, gdy skład drużyny się zmienia (ktoś dołącza/odchodzi), nie co miesiąc.<br><span class="cn">此列表是持续性的，不是按月的 &#8212; 只有在团队成员变化时才需要编辑。</span></div></div>' +
+    '<div id="stationlist"></div>' +
+    '<div class="actions"><div class="wrap"><button class="btn btn-save" id="btnSave">Zapisz obsadę<small>保存人员配置</small></button></div></div>';
+
+  var html = '';
+  STATE.stations.forEach(function(st) {
+    var stCrew = STATE.crew[st] || {};
+    html += '<div class="stationgroup"><div class="stationgroup-name">' + st + '</div>';
+    STATE.shiftLabels.forEach(function(sh) {
+      var crewList = stCrew[sh] || [];
+      html += '<div class="shiftcard" data-station="' + st.replace(/"/g, '&quot;') + '" data-shift="' + sh + '">' +
+        '<div class="shiftcard-head"><span class="shiftpill"><i style="background:' + shiftColor(sh) + '"></i>Zmiana ' + sh + '</span><span class="crewcount">' + crewList.length + ' os.</span></div>' +
+        '<div class="chiplist">' + STATE.workers.map(function(w) {
+          var on = crewList.indexOf(w) >= 0;
+          return '<button type="button" class="chip' + (on ? ' on' : '') + '" data-worker="' + w.replace(/"/g, '&quot;') + '">' + w + '</button>';
+        }).join('') + '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+  });
+  document.getElementById('stationlist').innerHTML = html || '<div class="empty">Brak stanowisk. <span class="cn">无工位。</span></div>';
+
+  document.getElementById('stationlist').addEventListener('click', function(e) {
+    var chip = e.target.closest('.chip');
+    if (!chip) return;
+    chip.classList.toggle('on');
+    var card = chip.closest('.shiftcard');
+    var count = card.querySelectorAll('.chip.on').length;
+    card.querySelector('.crewcount').textContent = count + ' os.';
+    markDirty();
+  });
+
+  document.getElementById('btnSave').onclick = savePlan;
+}
+
+function collectCrewFromUI() {
+  var crew = {};
+  document.querySelectorAll('.shiftcard').forEach(function(card) {
+    var st = card.dataset.station, sh = card.dataset.shift;
+    var names = Array.prototype.map.call(card.querySelectorAll('.chip.on'), function(c) { return c.dataset.worker; });
+    if (!names.length) return;
+    if (!crew[st]) crew[st] = {};
+    crew[st][sh] = names;
+  });
+  return crew;
+}
+
+function savePlan() {
+  STATE.crew = collectCrewFromUI();
+  localStorage.setItem('cfm_crew', JSON.stringify(STATE.crew));
+  clearDirty();
+
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_crew', wartosc: JSON.stringify(STATE.crew) })
+  }).then(function() {
+    showToast('Obsada zapisana! · 人员配置已保存!', 'ok');
+  }).catch(function() {
+    showToast('Zapisano lokalnie, błąd wysyłki · 已本地保存，发送失败', 'err');
+  });
+}
+
+init();
+</script>
+</body>
+</html>

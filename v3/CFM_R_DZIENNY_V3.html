@@ -2540,6 +2540,18 @@ function syncStationTargetDefaults() {
 // pobiera arkusz i nadpisuje lokalne dane, jesli sie roznia.
 var SYNCED_SETTINGS_KEYS = ['cfm_workers', 'cfm_stations', 'cfm_station_status', 'cfm_scrap_reasons', 'cfm_rework_reasons', 'cfm_types', 'cfm_station_targets', 'cfm_shifts', 'cfm_station_overtime', 'cfm_monthly_plan'];
 
+// cfm_monthly_plan jest tu TYLKO do ODCZYTU (pobierania z serwera w
+// loadSettingsFromServer) — NIGDY nie jest zbiorczo wypychany przez
+// pushAllSettingsToServer. Powod: plan edytowany jest wylacznie w
+// CFM_plan.html, ktora sama zapisuje na serwer PELNY, aktualny stan.
+// Gdyby ktos na INNYM urzadzeniu (np. tablet na hali, z wlasna,
+// nieodswiezona kopia planu w localStorage) kliknal "Wyslij wszystkie
+// ustawienia", jego STARA lokalna kopia planu nadpisalaby swiezo
+// zapisany plan z innego miesiaca/urzadzenia — dokladnie to sie stalo:
+// plan na wrzesien zniknal, bo cos innego wyslalo z powrotem stara
+// kopie z sama sierpniowa zawartoscia.
+var PUSH_EXCLUDE_KEYS = ['cfm_monthly_plan'];
+
 function pushSettingToServer(key) {
   var wh = getWH();
   if (!wh) return;
@@ -2555,7 +2567,7 @@ function pushSettingToServer(key) {
 function pushAllSettingsToServer() {
   var wh = getWH();
   if (!wh) { showToast('Najpierw skonfiguruj Webhook URL w zakładce Połączenie · 请先在"连接"标签配置Webhook URL', 'err'); return; }
-  SYNCED_SETTINGS_KEYS.forEach(function(key) { pushSettingToServer(key); });
+  SYNCED_SETTINGS_KEYS.forEach(function(key) { if (PUSH_EXCLUDE_KEYS.indexOf(key) < 0) pushSettingToServer(key); });
   showToast('Wysłano wszystkie ustawienia do arkusza! · 所有设置已发送到表格!', 'ok');
 }
 

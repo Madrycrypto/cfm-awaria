@@ -1957,7 +1957,7 @@ function awariaDoStart(station, typFull) {
   localStorage.setItem('cfm_awaria_active', JSON.stringify(awariaActiveBreakdown));
 
   var wh = getWH();
-  if (wh) { new Image().src = wh + '?event_type=START&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) + '&typ=' + encodeURIComponent(typFull) + '&timestamp=' + encodeURIComponent(localIsoString(now)); }
+  if (wh) { new Image().src = wh + '?event_type=START&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) + '&typ=' + encodeURIComponent(typFull) + '&timestamp=' + encodeURIComponent(localIsoString(now)) + '&shift=' + encodeURIComponent(currentShift); }
 
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {

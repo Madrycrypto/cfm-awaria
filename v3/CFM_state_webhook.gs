@@ -51,6 +51,7 @@ function doGet(e) {
     switch (p.event_type) {
       case 'RAPORT_DZIENNY': return handleReport(ss, p);
       case 'HISTORIA_DZIENNA': return handleHistoriaDzienna(ss, p);
+      case 'STATYSTYKI': return handleStatystyki(ss, p);
       case 'START': return handleAwariaStart(ss, p);
       case 'KONIEC': return handleAwariaEnd(ss, p);
       case 'SPRAWDZ': return handleAwariaCheck(ss, p);
@@ -66,6 +67,7 @@ function doGet(e) {
       case 'DELETE_RAPORT_DZIENNY': return handleDeleteRaportDzienny(ss, p);
       case 'DELETE_RAPORT_GODZINNY': return handleDeleteRaportGodzinny(ss, p);
       case 'GET_USTAWIENIA': return handleGetUstawienia(ss, p);
+      case 'PREMIA': return handlePremia(ss, p);
       case 'TEST': return jsonResponse({ status: 'ok', msg: 'polaczenie dziala' });
       default: return jsonResponse({ status: 'error', msg: 'nieznany event_type: ' + p.event_type });
     }
@@ -159,13 +161,16 @@ function normalizeDate_(val) {
 }
 
 // ── RAPORT ZMIANY ────────────────────────────────────────────────────
-// timestamp | date | shift | station | operator | qty | scrap | rework | recovered | ok_count | pass_rate | notes | reasons_json
+// timestamp | date | shift | station | operator | qty | scrap | rework | recovered | ok_count | pass_rate | notes | reasons_json | plan
+// (plan dopisany NA KONCU, zeby nie przesunac kolumn juz zapisanych wierszy)
+var RAPORT_DZIENNY_HEADERS = ['timestamp', 'date', 'shift', 'station', 'operator', 'qty', 'scrap', 'rework', 'recovered', 'ok_count', 'pass_rate', 'notes', 'reasons_json', 'plan'];
 function handleReport(ss, p) {
-  var sheet = getOrCreateSheet(ss, 'RaportDzienny', ['timestamp', 'date', 'shift', 'station', 'operator', 'qty', 'scrap', 'rework', 'recovered', 'ok_count', 'pass_rate', 'notes', 'reasons_json']);
+  var sheet = getOrCreateSheet(ss, 'RaportDzienny', RAPORT_DZIENNY_HEADERS);
+  ensureColumns_(sheet, RAPORT_DZIENNY_HEADERS);
   var row = [
     p.timestamp || '', p.date || '', p.shift || '', p.station || '', p.operator || '',
     Number(p.qty) || 0, Number(p.scrap) || 0, Number(p.rework) || 0, Number(p.recovered) || 0,
-    Number(p.ok_count) || 0, p.pass_rate || '', p.notes || '', p.reasons_json || '',
+    Number(p.ok_count) || 0, p.pass_rate || '', p.notes || '', p.reasons_json || '', Number(p.plan) || 0,
   ];
   // Jedno stanowisko + jedna zmiana + jeden dzien = jeden raport, kto
   // kolwiek go akurat wypelnia — jesli juz istnieje wiersz dla tej daty/
@@ -211,12 +216,113 @@ function handleHistoriaDzienna(ss, p) {
     var entry = {
       timestamp: r[0], date: normalizeDate_(r[1]), shift: r[2], station: r[3], operator: r[4],
       qty: Number(r[5]) || 0, scrap: Number(r[6]) || 0, rework: Number(r[7]) || 0, recovered: Number(r[8]) || 0,
-      ok_count: Number(r[9]) || 0, pass_rate: r[10], notes: r[11], reasons_json: r[12] || '',
+      ok_count: Number(r[9]) || 0, pass_rate: r[10], notes: r[11], reasons_json: r[12] || '', plan: Number(r[13]) || 0,
     };
     historia.push(entry);
     suma += entry.qty; scrap += entry.scrap; rework += entry.rework; recovered += entry.recovered;
   }
   return jsonResponse({ status: 'ok', historia: historia, suma: suma, scrap: scrap, rework: rework, recovered: recovered });
+}
+
+// Zwraca surowe wiersze RaportDzienny z zadanego zakresu dat (wlacznie) —
+// bez agregacji po stronie serwera, zeby strona statystyk mogla sama
+// grupowac/pivotowac wg stanowiska/zmiany/tygodnia bez wielu zapytan.
+function handleStatystyki(ss, p) {
+  var sheet = ss.getSheetByName('RaportDzienny');
+  if (!sheet) return jsonResponse({ status: 'ok', historia: [] });
+  var data = sheet.getDataRange().getValues();
+  var historia = [];
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    var d = normalizeDate_(r[1]);
+    if (p.start && d < p.start) continue;
+    if (p.end && d > p.end) continue;
+    historia.push({
+      date: d, shift: r[2], station: r[3], operator: r[4],
+      qty: Number(r[5]) || 0, scrap: Number(r[6]) || 0, rework: Number(r[7]) || 0,
+      ok_count: Number(r[9]) || 0, plan: Number(r[13]) || 0, reasons_json: r[12] || '',
+    });
+  }
+  historia.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+
+  // Rowniez ReworkProcessing z tego samego zakresu dat — zeby strona
+  // statystyk mogla pokazac, ile z tego co trafilo do reworku faktycznie
+  // wrocilo jako dobre sztuki, a ile ostatecznie poszlo na zlom (bilans
+  // per strefa, NIEZALEZNY od pass rate pojedynczego raportu — patrz
+  // komentarz w handleReworkProcessing o addytywnym charakterze bufora).
+  var reworkHistoria = [];
+  var reworkSheet = ss.getSheetByName('ReworkProcessing');
+  if (reworkSheet) {
+    var rdata = reworkSheet.getDataRange().getValues();
+    for (var j = 1; j < rdata.length; j++) {
+      var rr = rdata[j];
+      var rd = normalizeDate_(rr[1]);
+      if (p.start && rd < p.start) continue;
+      if (p.end && rd > p.end) continue;
+      reworkHistoria.push({
+        date: rd, zone: rr[2], zone_label: rr[9] || rr[2],
+        processed: Number(rr[3]) || 0, recovered: Number(rr[4]) || 0, final_scrap: Number(rr[5]) || 0,
+      });
+    }
+  }
+  return jsonResponse({ status: 'ok', historia: historia, rework_historia: reworkHistoria });
+}
+
+// ── PREMIE ───────────────────────────────────────────────────────────
+// Surowe sumy dla wyliczenia premii (CFM_premie.html robi juz samo
+// wyliczenie wg progow — tu tylko agregujemy dane zrodlowe):
+//   - RaportDzienny: suma qty/ok_count i liczba wpisow, per stanowisko+zmiana,
+//     w podanym zakresie dat.
+//   - Awarie: laczny czas przestoju (min) per STANOWISKO w tym samym
+//     zakresie — BEZ podzialu na zmiane, bo wpis awarii nie zapisuje do
+//     ktorej grupy (A/B/C) nalezal operator w danym momencie (a zmiana to
+//     tozsamosc grupy, nie stala pora dnia, wiec nie da sie tego wywnioskowac
+//     z samej godziny). CFM_premie.html rozklada to rowno na zmiany danego
+//     stanowiska — patrz komentarz tam.
+function handlePremia(ss, p) {
+  var byKey = {};
+  var sheet = ss.getSheetByName('RaportDzienny');
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i];
+      var d = normalizeDate_(r[1]);
+      if (p.start && d < p.start) continue;
+      if (p.end && d > p.end) continue;
+      var key = r[3] + '||' + r[2];
+      if (!byKey[key]) byKey[key] = { station: r[3], shift: r[2], sumQty: 0, sumOk: 0, count: 0 };
+      byKey[key].sumQty += Number(r[5]) || 0;
+      byKey[key].sumOk += Number(r[9]) || 0;
+      byKey[key].count += 1;
+    }
+  }
+
+  // Przestoj przypisany do KONKRETNEJ zmiany (kolumna 'shift', zapisywana
+  // przy START od tej wersji) — starsze wpisy Awarii sprzed tej zmiany nie
+  // maja tej kolumny wypelnionej i trafiaja pod klucz "stanowisko||"
+  // (pusta zmiana), wiec po prostu nie zostana przypisane do zadnej
+  // konkretnej grupy w wyliczeniu premii, zamiast fallszywie zawyzac
+  // ktoras z nich.
+  var downtimeByKey = {};
+  var awSheet = ss.getSheetByName('Awarie');
+  if (awSheet) {
+    var adata = awSheet.getDataRange().getValues();
+    for (var j = 1; j < adata.length; j++) {
+      var ar = adata[j];
+      if (ar[5] !== 'ZAMKNIETA') continue;
+      var ad = normalizeDate_(ar[0]).slice(0, 10);
+      if (p.start && ad < p.start) continue;
+      if (p.end && ad > p.end) continue;
+      var dtKey = ar[1] + '||' + (ar[7] || '');
+      downtimeByKey[dtKey] = (downtimeByKey[dtKey] || 0) + (Number(ar[4]) || 0);
+    }
+  }
+
+  return jsonResponse({
+    status: 'ok',
+    shifts: Object.keys(byKey).map(function (k) { return byKey[k]; }),
+    downtime: downtimeByKey,
+  });
 }
 
 // ── RAPORT GODZINNY ──────────────────────────────────────────────────
@@ -291,17 +397,22 @@ function handleHistoriaGodzinna(ss, p) {
 }
 
 // ── AWARIE ──────────────────────────────────────────────────────────
-// start_timestamp | station | type | koniec_timestamp | czas_min | status | operator
+// start_timestamp | station | type | koniec_timestamp | czas_min | status | operator | shift
+// (shift dopisany NA KONCU — zmiana to tozsamosc grupy A/B/C operatora w
+// momencie zgloszenia awarii, potrzebna do poprawnego przypisania
+// przestoju do wlasciwej grupy w wyliczeniu premii; zapisywana tylko przy
+// START, KONIEC jej nie nadpisuje)
+var AWARIE_HEADERS = ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator', 'shift'];
 function handleAwariaStart(ss, p) {
-  var sheet = getOrCreateSheet(ss, 'Awarie', ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator']);
-  ensureColumns_(sheet, ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator']);
-  sheet.appendRow([p.timestamp || '', p.stanowisko || '', p.typ || '', '', '', 'OTWARTA', p.operator || '']);
+  var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
+  ensureColumns_(sheet, AWARIE_HEADERS);
+  sheet.appendRow([p.timestamp || '', p.stanowisko || '', p.typ || '', '', '', 'OTWARTA', p.operator || '', p.shift || '']);
   return jsonResponse({ status: 'ok' });
 }
 
 function handleAwariaEnd(ss, p) {
-  var sheet = getOrCreateSheet(ss, 'Awarie', ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator']);
-  ensureColumns_(sheet, ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator']);
+  var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
+  ensureColumns_(sheet, AWARIE_HEADERS);
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
     var row = data[i];
@@ -311,7 +422,7 @@ function handleAwariaEnd(ss, p) {
     }
   }
   // Nie znaleziono otwartego wiersza (np. reset stanu w aplikacji) — dopisz kompletny wiersz.
-  sheet.appendRow([p.start_timestamp || '', p.stanowisko || '', p.typ || '', p.koniec_timestamp || '', Number(p.czas_min) || 0, 'ZAMKNIETA', p.operator || '']);
+  sheet.appendRow([p.start_timestamp || '', p.stanowisko || '', p.typ || '', p.koniec_timestamp || '', Number(p.czas_min) || 0, 'ZAMKNIETA', p.operator || '', p.shift || '']);
   return jsonResponse({ status: 'ok' });
 }
 

@@ -184,14 +184,30 @@ function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(
 // kazdej skonfigurowanej zmiany, bo stanowisko moze miec rozne wartosci na
 // A/B/C), a gdy nic nie ma w planie na dzis — spada na staly cel z Panel
 // Admina -> Cele.
+// Cel dzienny sledzi PRZEGLADANY miesiac (STATE.monthDate — ten sam, ktory
+// wlasnie konfigurujesz w panelu), NIE dzisiejsza date kalendarzowa —
+// inaczej otwierajac konfiguracje na przyszly miesiac (np. wrzesien, gdy
+// dzis jest jeszcze 31 sierpnia) widzialbys stara, jeszcze sierpniowa
+// wartosc planu zamiast tej ktora faktycznie zaczyna sie od 1. dnia
+// przegladanego miesiaca. Jesli dzisiejsza data akurat wypada w
+// przegladanym miesiacu, ma pierwszenstwo (najbardziej aktualna) — w
+// przeciwnym razie bierzemy pierwszy dzien tego miesiaca, ktory ma wpis w
+// planie (stanowiska nieregularne, np. lutowanie w piecu, nie pracuja
+// codziennie).
 function getPlanCelForStation(station) {
-  var today = toISO(new Date());
-  var mk = today.slice(0, 7);
+  var mk = monthKey(STATE.monthDate);
   var monthEntry = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station];
   if (monthEntry) {
-    for (var i = 0; i < STATE.shiftLabels.length; i++) {
-      var v = monthEntry[STATE.shiftLabels[i]] && monthEntry[STATE.shiftLabels[i]][today];
-      if (v) return Number(v);
+    var todayIso = toISO(new Date());
+    var candidates = [];
+    if (todayIso.slice(0, 7) === mk) candidates.push(todayIso);
+    var nDays = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() + 1, 0).getDate();
+    for (var d = 1; d <= nDays; d++) candidates.push(mk + '-' + pad(d));
+    for (var ci = 0; ci < candidates.length; ci++) {
+      for (var i = 0; i < STATE.shiftLabels.length; i++) {
+        var v = monthEntry[STATE.shiftLabels[i]] && monthEntry[STATE.shiftLabels[i]][candidates[ci]];
+        if (v) return Number(v);
+      }
     }
   }
   return Number(STATE.stationTargets[station]) || 0;

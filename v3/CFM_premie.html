@@ -147,7 +147,7 @@ var DEFAULT_WYDAJNOSC = { 'OP30': 9350, 'OP33A': 47, 'OP33B': 47, 'OP40 OUT': 13
 
 var STATE = {
   monthDate: new Date(), stations: [], shiftLabels: ['A', 'B', 'C'], workers: [], crew: {},
-  configByMonth: {}, wydajnosc: {}, korektyByMonth: {},
+  configByMonth: {}, wydajnosc: {}, czasPracy: {}, monthlyPlan: {}, stationTargets: {}, korektyByMonth: {},
   activeGroups: null, shiftsData: [], downtime: {}, configOpen: false, configDirty: false,
 };
 
@@ -178,6 +178,24 @@ function monthRange(d) {
 }
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : Math.round(n).toLocaleString('pl-PL'); }
 function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
+
+// Cel dzienny do kalkulatora wydajnosci — ten sam mechanizm co getCelShift()
+// w glownej apce: plan na DZISIAJ ma pierwszenstwo (sprawdzany po kolei dla
+// kazdej skonfigurowanej zmiany, bo stanowisko moze miec rozne wartosci na
+// A/B/C), a gdy nic nie ma w planie na dzis — spada na staly cel z Panel
+// Admina -> Cele.
+function getPlanCelForStation(station) {
+  var today = toISO(new Date());
+  var mk = today.slice(0, 7);
+  var monthEntry = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station];
+  if (monthEntry) {
+    for (var i = 0; i < STATE.shiftLabels.length; i++) {
+      var v = monthEntry[STATE.shiftLabels[i]] && monthEntry[STATE.shiftLabels[i]][today];
+      if (v) return Number(v);
+    }
+  }
+  return Number(STATE.stationTargets[station]) || 0;
+}
 function pctClass(p, req) { if (p === null) return 'off'; if (p >= req) return 'good'; if (p >= req - 10) return 'warn'; return 'crit'; }
 
 function showConnError(msg) {
@@ -210,6 +228,9 @@ function init() {
       try { STATE.crew = JSON.parse(u.cfm_crew || '{}'); } catch (e) { STATE.crew = {}; }
       try { STATE.configByMonth = JSON.parse(u.cfm_premia_config || '{}'); } catch (e) { STATE.configByMonth = {}; }
       try { STATE.wydajnosc = u.cfm_premia_wydajnosc ? JSON.parse(u.cfm_premia_wydajnosc) : JSON.parse(JSON.stringify(DEFAULT_WYDAJNOSC)); } catch (e) { STATE.wydajnosc = JSON.parse(JSON.stringify(DEFAULT_WYDAJNOSC)); }
+      try { STATE.czasPracy = JSON.parse(u.cfm_premia_czas_pracy || '{}'); } catch (e) { STATE.czasPracy = {}; }
+      try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
+      try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
       try { STATE.korektyByMonth = JSON.parse(u.cfm_premia_korekty || '{}'); } catch (e) { STATE.korektyByMonth = {}; }
       loadMonth();
     })
@@ -351,7 +372,14 @@ function renderConfigPanel() {
 
   var wKeys = Object.keys(STATE.wydajnosc);
   var wRows = wKeys.map(function(st) {
-    return '<tr data-station="' + st.replace(/"/g, '&quot;') + '"><td class="lbl">' + st + '</td><td><input type="number" class="wf" value="' + STATE.wydajnosc[st] + '"></td></tr>';
+    var cel = getPlanCelForStation(st);
+    var czas = STATE.czasPracy[st] || 450;
+    return '<tr data-station="' + st.replace(/"/g, '&quot;') + '" data-cel="' + cel + '">' +
+      '<td class="lbl">' + st + '</td>' +
+      '<td>' + (cel > 0 ? fmt(cel) : '&#8212;') + '</td>' +
+      '<td><input type="number" class="czasinput" value="' + czas + '"></td>' +
+      '<td><input type="number" class="wf" value="' + STATE.wydajnosc[st] + '"></td>' +
+    '</tr>';
   }).join('');
 
   el.innerHTML =
@@ -359,11 +387,20 @@ function renderConfigPanel() {
       '<h3>Progi premii wg grupy stanowisk — ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + (inherited ? ' <span style="color:var(--faint);font-weight:500;font-size:11px">(odziedziczone z poprzedniego miesiąca — zapisz, żeby ustawić własne na ten miesiąc)</span>' : '') + ' <span class="cn">按工位组划分的奖金门槛 —— 本月</span></h3>' +
       '<table class="cfgtable"><thead><tr><th>Grupa</th><th>Próg wyższy (% planu)</th><th>Premia wyższa (PLN)</th><th>Próg niższy (% planu)</th><th>Premia niższa (PLN)</th><th>Wymagany pass rate (%)</th></tr></thead><tbody id="groupCfgBody">' + groupRows + '</tbody></table>' +
       '<h3>Wydajność godzinowa per stanowisko (szt./h) <span class="cn">每小时产能（非按月，长期设置）</span></h3>' +
-      '<table class="cfgtable"><thead><tr><th>Stanowisko</th><th>Szt./h</th></tr></thead><tbody id="wydajnoscCfgBody">' + wRows + '</tbody></table>' +
+      '<div class="bulksub">Cel dzienny pobiera się automatycznie z dzisiejszego Planu (lub z Cele, jeśli w Planie nic nie ma na dziś). Wpisz czas pracy (np. 450 min = 8h minus 30 min przerwy) — wydajność wyliczy się sama. Możesz ją też nadpisać ręcznie.<br><span class="cn">每日目标自动从今日计划获取（若计划为空则用"目标"设置）。输入工作时间（如450分钟=8小时减30分钟休息）— 产能会自动计算，也可手动覆盖。</span></div>' +
+      '<table class="cfgtable"><thead><tr><th>Stanowisko</th><th>Cel dzienny (szt., z planu)</th><th>Czas pracy (min)</th><th>Wydajność (szt./h)</th></tr></thead><tbody id="wydajnoscCfgBody">' + wRows + '</tbody></table>' +
       '<div class="cfgactions"><button class="btn-cfg-save" id="btnCfgSave">Zapisz konfigurację na ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn"> 保存本月配置</span></button></div>' +
     '</div>';
 
   el.addEventListener('input', function() { markCfgDirty(); });
+  el.querySelectorAll('.czasinput').forEach(function(inp) {
+    inp.addEventListener('input', function() {
+      var tr = inp.closest('tr');
+      var cel = Number(tr.dataset.cel) || 0;
+      var czas = Number(inp.value) || 0;
+      if (cel > 0 && czas > 0) tr.querySelector('.wf').value = Math.round((cel / czas) * 60);
+    });
+  });
   document.getElementById('btnCfgSave').onclick = saveConfig;
 }
 
@@ -381,8 +418,8 @@ function saveConfig() {
   });
   document.querySelectorAll('#wydajnoscCfgBody tr').forEach(function(tr) {
     var st = tr.dataset.station;
-    var inp = tr.querySelector('.wf');
-    STATE.wydajnosc[st] = Number(inp.value) || 0;
+    STATE.wydajnosc[st] = Number(tr.querySelector('.wf').value) || 0;
+    STATE.czasPracy[st] = Number(tr.querySelector('.czasinput').value) || 0;
   });
   STATE.configByMonth[mk] = STATE.activeGroups;
   STATE.configDirty = false;
@@ -390,6 +427,7 @@ function saveConfig() {
   Promise.all([
     fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_config', wartosc: JSON.stringify(STATE.configByMonth) }) }),
     fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_wydajnosc', wartosc: JSON.stringify(STATE.wydajnosc) }) }),
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_czas_pracy', wartosc: JSON.stringify(STATE.czasPracy) }) }),
   ]).then(function() { render(); }).catch(function() { render(); });
 }
 

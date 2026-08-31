@@ -65,6 +65,8 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .quickval::placeholder{color:var(--faint);font-weight:500}
 .btn-mini{font-family:var(--fh);font-weight:700;font-size:10.5px;letter-spacing:0.03em;text-transform:uppercase;border-radius:7px;padding:8px 12px;cursor:pointer;border:1px solid var(--border);background:none}
 .btn-mini.copy{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-mini.clear{background:none;color:var(--red);border-color:rgba(217,43,43,0.4)}
+.btn-mini.clear:hover{background:rgba(217,43,43,0.12)}
 .btn-mini.toggle{background:var(--surface-2);color:var(--muted);margin-left:auto}
 .btn-mini.toggle:hover{color:var(--text)}
 .btn-mini.toggle.open{color:var(--blue-soft);border-color:var(--blue-soft)}
@@ -130,16 +132,20 @@ var STATE = {
   stations: [], shiftLabels: ['A', 'B', 'C'], targets: {}, plan: {}, dirty: false
 };
 
-function markDirty() {
-  if (STATE.dirty) return;
-  STATE.dirty = true;
+// applySaveButtonState maluje przycisk wg AKTUALNEGO STATE.dirty,
+// niezaleznie od tego czy sama flaga sie wlasnie zmienila — potrzebne po
+// kazdym render() (nowy element #btnSave), zeby "niezapisane zmiany" nie
+// znikaly wizualnie tylko dlatego ze flaga byla juz true przed przebudowa DOM.
+function applySaveButtonState() {
   var btn = document.getElementById('btnSave');
-  if (btn) { btn.classList.add('pulse'); btn.innerHTML = 'Zapisz plan &#8212; masz niezapisane zmiany!<small>保存计划 &#8212; 有未保存的更改!</small>'; }
+  if (!btn) return;
+  if (STATE.dirty) { btn.classList.add('pulse'); btn.innerHTML = 'Zapisz plan &#8212; masz niezapisane zmiany!<small>保存计划 &#8212; 有未保存的更改!</small>'; }
+  else { btn.classList.remove('pulse'); btn.innerHTML = 'Zapisz plan<small>保存计划</small>'; }
 }
+function markDirty() { STATE.dirty = true; applySaveButtonState(); }
 function clearDirty() {
   STATE.dirty = false;
-  var btn = document.getElementById('btnSave');
-  if (btn) { btn.classList.remove('pulse'); btn.innerHTML = 'Zapisz plan<small>保存计划</small>'; }
+  applySaveButtonState();
 }
 window.addEventListener('beforeunload', function(e) {
   if (!STATE.dirty) return;
@@ -268,6 +274,7 @@ function render() {
           '<span class="shiftpill"><i style="background:' + shiftColor(sh) + '"></i>Zmiana ' + sh + '</span>' +
           '<input type="number" min="0" class="quickval" placeholder="np. ' + (STATE.targets[st] || '0') + '" value="' + info.quickVal + '">' +
           '<button type="button" class="btn-mini copy" onclick="quickCopy(this)">Kopiuj pon&#8211;pt<small>复制周一至周五</small></button>' +
+          '<button type="button" class="btn-mini clear" onclick="clearShiftDays(this)">Wyczyść dni<small>清空天数</small></button>' +
           (info.hasSaturday ? '<span class="irregular-flag">+ sobota</span>' : '') +
           (expand ? '<span class="irregular-flag">nieregularne</span>' : '') +
           '<button type="button" class="btn-mini toggle' + (expand ? ' open' : '') + '" onclick="toggleDays(this)">Dni ' + (expand ? '&#9652;' : '&#9662;') + ' <span class="cn">天数</span> (' + info.filledCount + ')</button>' +
@@ -281,7 +288,7 @@ function render() {
   document.getElementById('planlist').addEventListener('input', function(e) {
     if (e.target && e.target.matches('.daystrip input')) markDirty();
   });
-  if (STATE.dirty) markDirty(); // odtworz wizualny stan przycisku po re-renderze (np. po kopiowaniu)
+  applySaveButtonState(); // odtworz wizualny stan przycisku po re-renderze (np. po kopiowaniu)
 
   // Zmiana miesiaca NIE wysyla nic na serwer — ale zeby recznie wpisane
   // (jeszcze niezapisane) wartosci dla aktualnie ogladanego miesiaca nie
@@ -323,6 +330,22 @@ function quickCopy(btn) {
   setDaysOpen(card, true);
   markDirty();
   showToast('Skopiowano na pon–pt — pamiętaj kliknąć "Zapisz plan"! · 已复制 — 别忘了点击"保存计划"!', 'ok');
+}
+
+// Czysci WSZYSTKIE dni tej zmiany naraz (np. gdy przez pomylke wpisano
+// wartosc w cala zmiane, ktorej w ogole nie trzeba planowac) — "Kopiuj
+// pon-pt" celowo nie przyjmuje 0 (to by bylo mylace jako "kopiuj"), wiec
+// czyszczenie jest osobnym, wyraznie nazwanym przyciskiem. Potwierdzenie
+// zabezpiecza przed przypadkowym skasowaniem calego miesiaca dla tej
+// zmiany jednym kliknieciem.
+function clearShiftDays(btn) {
+  var card = btn.closest('.shiftcard');
+  var filled = card.querySelectorAll('.daystrip input').length && Array.prototype.filter.call(card.querySelectorAll('.daystrip input'), function(el) { return el.value !== ''; }).length;
+  if (filled > 0 && !confirm('Wyczyścić wszystkie dni tej zmiany (' + filled + ' wypełnionych)? Tego nie da się cofnąć (dopóki nie klikniesz Zapisz, zmiana jest tylko lokalna).')) return;
+  card.querySelectorAll('.daystrip input').forEach(function(el) { el.value = ''; });
+  card.querySelector('.quickval').value = '';
+  markDirty();
+  showToast('Wyczyszczono — pamiętaj kliknąć "Zapisz plan"! · 已清空 — 别忘了点击"保存计划"!', 'ok');
 }
 
 function collectPlanFromInputs() {

@@ -100,6 +100,8 @@ table.results tbody tr:last-child td{border-bottom:none}
 .cell-stack{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
 .cell-actual{font-weight:700;color:var(--text)}
 .cell-plan{font-size:10.5px;color:var(--faint)}
+.korektacell{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.autolbl{font-size:9.5px;color:var(--faint);white-space:nowrap}
 .korektainput{width:64px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:13px;text-align:center;padding:6px 4px}
 .korektainput:focus{outline:none;border-color:var(--blue)}
 .techbadge{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:700;color:var(--orange);background:var(--warn-bg);border-radius:5px;padding:2px 5px;vertical-align:middle}
@@ -340,7 +342,7 @@ function computeRows() {
       rows.push({
         station: station, shift: shift, group: group, crewList: crewList,
         sumQty: d.sumQty, sumPlan: d.sumPlan, passRate: passRate, wydajnosc: wydajnosc,
-        korektaMin: korektaMin, techApplied: techApplied, finalPct: finalPct, premia: premia, count: d.count,
+        autoDowntimeMin: autoDowntimeMin, korektaMin: korektaMin, techApplied: techApplied, finalPct: finalPct, premia: premia, count: d.count,
       });
     });
   });
@@ -468,7 +470,7 @@ function renderResultsTable(rows) {
         '<td><div class="crewnames">' + crewHtml + '</div></td>' +
         '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.sumQty) + '</span><span class="cell-plan">/' + fmt(r.sumPlan) + '</span></div></td>' +
         '<td><span class="pct ' + pctClass(r.passRate, r.group.passRate) + '">' + (r.passRate === null ? '&#8212;' : r.passRate.toFixed(1) + '%') + '</span></td>' +
-        '<td><input type="number" class="korektainput" min="0" value="' + r.korektaMin + '" data-station="' + r.station.replace(/"/g, '&quot;') + '" data-shift="' + r.shift + '"></td>' +
+        '<td><div class="korektacell"><span class="autolbl">auto z Awarii: ' + r.autoDowntimeMin + ' min</span><input type="number" class="korektainput" min="0" value="' + r.korektaMin + '" data-station="' + r.station.replace(/"/g, '&quot;') + '" data-shift="' + r.shift + '"></div></td>' +
         '<td><span class="pct ' + pctClass(r.finalPct, r.group.progNizszy) + '">' + (r.finalPct === null ? '&#8212;' : r.finalPct.toFixed(1) + '%') + '</span>' + (r.techApplied ? '<span class="techbadge">+60min</span>' : '') + '</td>' +
         '<td><span class="premia ' + (r.premia ? 'yes' : 'no') + '">' + (r.premia ? r.premia + ' PLN' : '&#8212;') + '</span></td>' +
       '</tr>';

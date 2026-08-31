@@ -90,6 +90,16 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:22px}
 .note b{color:var(--text)}
 .note .ic{font-family:var(--fh);font-weight:900;font-size:18px;color:var(--blue-soft);flex-shrink:0}
+
+.bulkpanel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:22px}
+.bulkpanel h3{font-family:var(--fh);font-weight:700;font-size:14px;margin-bottom:4px}
+.bulkpanel .bulksub{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5}
+.bulktextarea{width:100%;min-height:110px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;color:var(--text);font-family:var(--fb);font-size:13px;padding:10px 12px;resize:vertical}
+.bulktextarea:focus{outline:none;border-color:var(--blue)}
+.bulkrow{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px;flex-wrap:wrap}
+.bulkbtn{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer}
+.bulkbtn:hover{filter:brightness(1.1)}
+.bulkcount{font-size:11.5px;color:var(--faint)}
 </style>
 </head>
 <body>
@@ -158,17 +168,18 @@ function init() {
     .catch(function() { showConnError(); });
 }
 
-function markDirty() {
-  if (STATE.dirty) return;
-  STATE.dirty = true;
+// applySaveButtonState maluje przycisk wg AKTUALNEGO STATE.dirty,
+// niezaleznie od tego czy sama flaga sie wlasnie zmienila — potrzebne po
+// kazdym render() (nowy element #btnSave), zeby "niezapisane zmiany" nie
+// znikaly wizualnie tylko dlatego ze flaga byla juz true przed przebudowa DOM.
+function applySaveButtonState() {
   var btn = document.getElementById('btnSave');
-  if (btn) { btn.classList.add('pulse'); btn.innerHTML = 'Zapisz obsadę &#8212; masz niezapisane zmiany!<small>保存人员配置 &#8212; 有未保存的更改!</small>'; }
+  if (!btn) return;
+  if (STATE.dirty) { btn.classList.add('pulse'); btn.innerHTML = 'Zapisz obsadę &#8212; masz niezapisane zmiany!<small>保存人员配置 &#8212; 有未保存的更改!</small>'; }
+  else { btn.classList.remove('pulse'); btn.innerHTML = 'Zapisz obsadę<small>保存人员配置</small>'; }
 }
-function clearDirty() {
-  STATE.dirty = false;
-  var btn = document.getElementById('btnSave');
-  if (btn) { btn.classList.remove('pulse'); btn.innerHTML = 'Zapisz obsadę<small>保存人员配置</small>'; }
-}
+function markDirty() { STATE.dirty = true; applySaveButtonState(); }
+function clearDirty() { STATE.dirty = false; applySaveButtonState(); }
 window.addEventListener('beforeunload', function(e) {
   if (!STATE.dirty) return;
   e.preventDefault();
@@ -182,6 +193,13 @@ function render() {
   app.innerHTML =
     '<div class="pagehead"><h1>Obsada stanowisk <span class="cn">工位人员配置</span></h1><div class="sub">Kto pracuje na którym stanowisku, w której zmianie (grupie) &#8212; używane do wyliczenia premii na stronie Premie. Wpisz imię i nazwisko i kliknij "Dodaj", albo wybierz kogoś z szybkiego wyboru poniżej. Kliknij &#215; przy nazwisku, żeby usunąć.<br><span class="cn">谁在哪个工位、哪个班次（组）工作 &#8212; 用于奖金计算。输入姓名并点击"添加"，或从下方快速选择。点击姓名旁的&#215;可删除。</span></div></div>' +
     '<div class="note"><div class="ic">i</div><div><b>Zmiana = tożsamość grupy, nie pora dnia.</b> <span class="cn">班次 = 组的身份，不是时间段。</span><br>Ta lista jest trwała, nie miesięczna &#8212; edytuj ją, gdy skład drużyny się zmienia (ktoś dołącza/odchodzi), nie co miesiąc. Dodane tu osoby nie muszą być na liście "Pracownicy" w głównej apce &#8212; to niezależna lista.<br><span class="cn">此列表是持续性的，不是按月的。在此添加的人员不需要在主应用的"员工"列表中 &#8212; 这是独立的列表。</span></div></div>' +
+    '<div class="bulkpanel"><h3>Dodaj pracowników do wspólnej listy <span class="cn">批量添加员工到共享列表</span></h3>' +
+      '<div class="bulksub">Wklej listę imion i nazwisk (po jednym w wierszu) i zapisz &#8212; trafią do "Szybki wybór" na każdym stanowisku, żebyś mógł ich sam przypisać poniżej. Zapisuje się od razu do Ustawień na serwerze, więc pojawią się we wszystkich aplikacjach.<br><span class="cn">粘贴姓名列表（每行一个）并保存 &#8212; 会出现在每个工位的"快速选择"中。立即保存到服务器设置，所有设备都能看到。</span></div>' +
+      '<textarea class="bulktextarea" id="bulkTextarea" placeholder="Jan Kowalski&#10;Anna Nowak&#10;..."></textarea>' +
+      '<div class="bulkrow"><span class="bulkcount" id="bulkCount"></span><button type="button" class="bulkbtn" id="btnBulkAdd">Dodaj do wspólnej listy<small style="display:block;font-family:var(--fc);font-weight:400;font-size:10px">添加到共享列表</small></button></div>' +
+      '<div class="quicklbl" style="margin-top:14px">Aktualna wspólna lista &#8212; kliknij &#215; żeby usunąć na stałe &#183; 当前共享列表 &#8212; 点击&#215;永久删除</div>' +
+      '<div class="crewtags" id="workersList">' + workersListHtml() + '</div>' +
+    '</div>' +
     '<div id="stationlist"></div>' +
     '<div class="actions"><div class="wrap"><button class="btn btn-save" id="btnSave">Zapisz obsadę<small>保存人员配置</small></button></div></div>';
 
@@ -228,6 +246,95 @@ function render() {
   });
 
   document.getElementById('btnSave').onclick = savePlan;
+  applySaveButtonState();
+
+  var bulkTextarea = document.getElementById('bulkTextarea');
+  bulkTextarea.addEventListener('input', updateBulkCount);
+  document.getElementById('btnBulkAdd').onclick = bulkAddWorkers;
+
+  document.getElementById('workersList').addEventListener('click', function(e) {
+    var removeBtn = e.target.closest('.crewtag button');
+    if (!removeBtn) return;
+    removeWorkerGlobally(removeBtn.closest('.crewtag').dataset.name);
+  });
+}
+
+function workersListHtml() {
+  if (!STATE.workers.length) return '<span class="crewtags-empty">brak pracowników na wspólnej liście &#183; 共享列表为空</span>';
+  return STATE.workers.map(function(n) {
+    return '<span class="crewtag" data-name="' + n.replace(/"/g, '&quot;') + '">' + n + '<button type="button" title="Usuń na stałe">&#10005;</button></span>';
+  }).join('');
+}
+
+// Usuwa pracownika CALKOWICIE ze wspolnej listy (nie tylko z jednej
+// obsady) — zapisuje sie od razu na serwer. Ktokolwiek juz go ma
+// przypisanego w jakiejs obsadzie stanowiska, zachowuje ten wpis (obsada
+// trzyma nazwiska jako zwykly tekst, niezalezny od tej listy) — po prostu
+// nie bedzie go juz w "Szybki wybor" przy dodawaniu nowych przypisan.
+function removeWorkerGlobally(name) {
+  STATE.workers = STATE.workers.filter(function(w) { return w !== name; });
+  localStorage.setItem('cfm_workers', JSON.stringify(STATE.workers));
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_workers', wartosc: JSON.stringify(STATE.workers) })
+  }).then(function() {
+    showToast('Usunięto ze wspólnej listy · 已从共享列表删除', 'ok');
+    rerenderKeepingCrew();
+  }).catch(function() {
+    showToast('Usunięto lokalnie, błąd wysyłki · 已本地删除，发送失败', 'err');
+    rerenderKeepingCrew();
+  });
+}
+
+function parseBulkNames() {
+  var raw = document.getElementById('bulkTextarea').value;
+  return raw.split('\n').map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+}
+
+function updateBulkCount() {
+  var names = parseBulkNames();
+  var nowe = names.filter(function(n) { return STATE.workers.indexOf(n) < 0; });
+  var el = document.getElementById('bulkCount');
+  if (!names.length) { el.textContent = ''; return; }
+  el.textContent = nowe.length + ' nowych, ' + (names.length - nowe.length) + ' już na liście &#183; ' + nowe.length + ' 新, ' + (names.length - nowe.length) + ' 已存在';
+  el.innerHTML = el.textContent;
+}
+
+// Dopisuje pracownikow do WSPOLNEJ listy cfm_workers (ta sama, ktora
+// zasila "Pracownicy" w Panel Admina glownej apki i operatorow w
+// raportach) — nie do konkretnej obsady stanowiska. Zapisuje sie od razu
+// na serwer (nie czeka na "Zapisz obsade"), zeby bylo widac natychmiast we
+// wszystkich aplikacjach, a nie tylko po zapisaniu calego formularza.
+// Odswiezanie widoku (nowe pozycje w "Szybki wybor") NIE moze zgubic
+// jeszcze niezapisanych zaznaczen w kartach obsady — najpierw zbieramy
+// aktualny stan z DOM z powrotem do STATE.crew, dopiero potem re-renderujemy.
+function rerenderKeepingCrew() {
+  STATE.crew = collectCrewFromUI();
+  render();
+}
+
+function bulkAddWorkers() {
+  var names = parseBulkNames();
+  if (!names.length) { showToast('Wklej najpierw listę nazwisk · 请先粘贴姓名列表', 'err'); return; }
+  var added = 0;
+  names.forEach(function(n) {
+    if (STATE.workers.indexOf(n) < 0) { STATE.workers.push(n); added++; }
+  });
+  localStorage.setItem('cfm_workers', JSON.stringify(STATE.workers));
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_workers', wartosc: JSON.stringify(STATE.workers) })
+  }).then(function() {
+    showToast(added + ' pracowników dodanych do wspólnej listy! · 已添加 ' + added + ' 名员工!', 'ok');
+    rerenderKeepingCrew();
+  }).catch(function() {
+    showToast('Zapisano lokalnie, błąd wysyłki · 已本地保存，发送失败', 'err');
+    rerenderKeepingCrew();
+  });
 }
 
 function crewTagsHtml(names) {

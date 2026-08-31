@@ -290,9 +290,10 @@ function handlePremia(ss, p) {
       if (p.start && d < p.start) continue;
       if (p.end && d > p.end) continue;
       var key = r[3] + '||' + r[2];
-      if (!byKey[key]) byKey[key] = { station: r[3], shift: r[2], sumQty: 0, sumOk: 0, count: 0 };
+      if (!byKey[key]) byKey[key] = { station: r[3], shift: r[2], sumQty: 0, sumOk: 0, sumPlan: 0, count: 0 };
       byKey[key].sumQty += Number(r[5]) || 0;
       byKey[key].sumOk += Number(r[9]) || 0;
+      byKey[key].sumPlan += Number(r[13]) || 0;
       byKey[key].count += 1;
     }
   }

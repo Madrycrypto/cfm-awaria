@@ -507,9 +507,10 @@ function exportToExcel() {
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="UTF-8"><style>' +
     'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}' +
-    'th,td{border:1px solid #999999;padding:4px 8px;text-align:center;white-space:nowrap}' +
+    'th,td{border:1px solid #999999;padding:4px 8px;text-align:center;white-space:nowrap;vertical-align:top}' +
     'th{background:#1A6ED8;color:#ffffff;font-weight:bold}' +
     '.station{background:#e8eef7;font-weight:bold;text-align:left}' +
+    '.crew{text-align:left;white-space:normal;mso-line-height-rule:exactly}' +
     '.yes{background:#c9f0d6;font-weight:bold}' +
     'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
     '</style></head><body><h1>' + title + '</h1><table>' +
@@ -520,7 +521,7 @@ function exportToExcel() {
   order.forEach(function(st) {
     byStation[st].forEach(function(r, si) {
       html += '<tr>' + (si === 0 ? '<td class="station" rowspan="' + byStation[st].length + '">' + st + '</td>' : '') +
-        '<td>Zmiana ' + r.shift + '</td><td>' + (r.crewList.join(', ') || '-') + '</td>' +
+        '<td>Zmiana ' + r.shift + '</td><td class="crew">' + (r.crewList.join('<br>') || '-') + '</td>' +
         '<td>' + Math.round(r.sumQty) + '</td><td>' + Math.round(r.sumPlan) + '</td>' +
         '<td>' + (r.passRate === null ? '' : r.passRate.toFixed(1) + '%') + '</td>' +
         '<td>' + r.korektaMin + '</td>' +

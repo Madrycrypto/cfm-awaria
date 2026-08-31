@@ -286,7 +286,6 @@ button{cursor:pointer;font-family:var(--fh)}
   <div class="shift-badge" id="shiftBadge">
     <div>
       <div class="shift-val" id="shiftDisplay">Zmiana A</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="shiftTimeDisplay">07:00 &#8211; 15:00</div>
     </div>
     <div class="shift-sub">
       <span id="dateDisplay"></span><br>
@@ -850,13 +849,13 @@ function selectShift(s) {
   if (document.getElementById('viewGodzinny').classList.contains('active')) odswiezHistorieGodzinnej();
 }
 
+// Zmiana (A/B/C) to tozsamosc grupy operatorow, NIE stala pora dnia —
+// grupa moze rotowac przez rozne godziny zegarowe. Dlatego badge pokazuje
+// tylko nazwe zmiany, bez sugerowanych godzin od-do (te sa tylko
+// pomocniczym ustawieniem do liczenia nadgodzin w Panel Admina, nie
+// definicja tego czym jest dana zmiana).
 function updateShiftDisplay() {
-  var shifts = getShifts();
-  var labels = ['A', 'B', 'C'];
-  var idx = labels.indexOf(currentShift);
-  var zm = shifts.zmiany[idx >= 0 ? idx : 0];
   document.getElementById('shiftDisplay').textContent = 'Zmiana ' + currentShift + ' · ' + currentShift + '班';
-  document.getElementById('shiftTimeDisplay').textContent = (zm ? zm.od : '?') + ' – ' + (zm ? zm.do : '?');
   var badge = document.getElementById('shiftBadge');
   badge.classList.remove('shift-a', 'shift-b', 'shift-c');
   badge.classList.add('shift-' + currentShift.toLowerCase());

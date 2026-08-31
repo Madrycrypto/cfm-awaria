@@ -94,6 +94,12 @@ table.results tbody tr:last-child td{border-bottom:none}
 .premia{font-family:var(--fh);font-weight:800;font-size:14px}
 .premia.yes{color:#3fd17a}
 .premia.no{color:var(--faint);font-weight:500;font-size:13px}
+.cell-stack{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.cell-actual{font-weight:700;color:var(--text)}
+.cell-plan{font-size:10.5px;color:var(--faint)}
+.korektainput{width:64px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:13px;text-align:center;padding:6px 4px}
+.korektainput:focus{outline:none;border-color:var(--blue)}
+.techbadge{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:700;color:var(--orange);background:var(--warn-bg);border-radius:5px;padding:2px 5px;vertical-align:middle}
 
 .empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
 </style>
@@ -120,26 +126,45 @@ function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
 var MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 var MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 
-// Domyslna konfiguracja premii — dokladnie wg tabeli referencyjnej
-// dostarczonej przez usera (lipiec 2026). Edytowalna w UI (panel
-// "Konfiguracja"), zapisywana jako cfm_premia_config. OP40 IN celowo NIE
-// jest w zadnej grupie — do premii liczy sie tylko OP40 OUT (realna liczba
-// sztuk, ktore faktycznie wyszly z pieca; OP40 IN mierzy to samo u wejscia,
-// wiec liczenie obu razem podwajaloby sztuki).
-var DEFAULT_CONFIG = {
-  groups: [
-    { key: 'linia_glowna', label: 'Linia główna OP50~GP12', stations: ['GP12', 'OP51/52'], progWyzszy: 580, premiaWyzsza: 600, progNizszy: 540, premiaNizsza: 400, passRate: 99 },
-    { key: 'op60_61', label: 'OP60/OP61', stations: ['OP60/61'], progWyzszy: 400, premiaWyzsza: 800, progNizszy: 360, premiaNizsza: 600, passRate: 99 },
-    { key: 'op30_33', label: 'OP30/OP33A/OP33B', stations: ['OP30', 'OP33A', 'OP33B'], progWyzszy: 350, premiaWyzsza: 600, progNizszy: 330, premiaNizsza: 400, passRate: 99 },
-    { key: 'op40', label: 'OP40 – lutowanie', stations: ['OP40 OUT'], progWyzszy: 2500, premiaWyzsza: 600, progNizszy: 2300, premiaNizsza: 400, passRate: 99 },
-  ],
-  wydajnosc: { 'OP30': 9350, 'OP33A': 47, 'OP33B': 47, 'OP40 OUT': 134, 'GP12': 78, 'OP51/52': 78, 'OP60/61': 50 },
-};
+// Progi premii sa teraz w % WYKONANIA PLANU (nie w sztukach jak w
+// pierwszej wersji) i sa EDYTOWALNE PER MIESIAC — cfm_premia_config jest
+// obiektem kluczowanym miesiacem (tak jak cfm_monthly_plan). Miesiac bez
+// wlasnej zapisanej konfiguracji dziedziczy progi z ostatniego miesiaca,
+// ktory ja mial (patrz getConfigForMonth) — az do jawnego zapisania
+// wlasnych wartosci dla tego miesiaca.
+// Wydajnosc godzinowa per stanowisko NIE jest miesieczna (moc maszyny sie
+// nie zmienia z miesiaca na miesiac) — osobny, trwaly klucz cfm_premia_wydajnosc.
+var DEFAULT_GROUPS = [
+  { key: 'linia_glowna', label: 'Linia główna OP50~GP12', stations: ['GP12', 'OP51/52'], progWyzszy: 100, premiaWyzsza: 600, progNizszy: 95, premiaNizsza: 400, passRate: 99 },
+  { key: 'op60_61', label: 'OP60/OP61', stations: ['OP60/61'], progWyzszy: 100, premiaWyzsza: 800, progNizszy: 95, premiaNizsza: 600, passRate: 99 },
+  { key: 'op30_33', label: 'OP30/OP33A/OP33B', stations: ['OP30', 'OP33A', 'OP33B'], progWyzszy: 100, premiaWyzsza: 600, progNizszy: 95, premiaNizsza: 400, passRate: 99 },
+  { key: 'op40', label: 'OP40 – lutowanie', stations: ['OP40 OUT'], progWyzszy: 100, premiaWyzsza: 600, progNizszy: 95, premiaNizsza: 400, passRate: 99 },
+];
+var DEFAULT_WYDAJNOSC = { 'OP30': 9350, 'OP33A': 47, 'OP33B': 47, 'OP40 OUT': 134, 'GP12': 78, 'OP51/52': 78, 'OP60/61': 50 };
 
 var STATE = {
   monthDate: new Date(), stations: [], shiftLabels: ['A', 'B', 'C'], workers: [], crew: {},
-  config: null, shiftsData: [], downtime: {}, configOpen: false, configDirty: false,
+  configByMonth: {}, wydajnosc: {}, korektyByMonth: {},
+  activeGroups: null, shiftsData: [], downtime: {}, configOpen: false, configDirty: false,
 };
+
+function monthKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+
+// Miesiac bez wlasnej konfiguracji dziedziczy z najblizszego WCZESNIEJSZEGO
+// miesiaca, ktory ja ma (przeszukuje do 24 miesiecy wstecz) — inaczej
+// spada na wbudowane wartosci domyslne. Zwraca GLEBOKA KOPIE, zeby
+// edycja biezacego miesiaca nie nadpisywala przez referencje danych
+// odziedziczonych z poprzedniego miesiaca.
+function getConfigForMonth(mk) {
+  if (STATE.configByMonth[mk]) return JSON.parse(JSON.stringify(STATE.configByMonth[mk]));
+  var d = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth(), 1);
+  for (var i = 0; i < 24; i++) {
+    d = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    var k = monthKey(d);
+    if (STATE.configByMonth[k]) return JSON.parse(JSON.stringify(STATE.configByMonth[k]));
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_GROUPS));
+}
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -180,7 +205,9 @@ function init() {
       } catch (e) {}
       try { STATE.workers = JSON.parse(u.cfm_workers || '[]'); } catch (e) { STATE.workers = []; }
       try { STATE.crew = JSON.parse(u.cfm_crew || '{}'); } catch (e) { STATE.crew = {}; }
-      try { STATE.config = u.cfm_premia_config ? JSON.parse(u.cfm_premia_config) : JSON.parse(JSON.stringify(DEFAULT_CONFIG)); } catch (e) { STATE.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); }
+      try { STATE.configByMonth = JSON.parse(u.cfm_premia_config || '{}'); } catch (e) { STATE.configByMonth = {}; }
+      try { STATE.wydajnosc = u.cfm_premia_wydajnosc ? JSON.parse(u.cfm_premia_wydajnosc) : JSON.parse(JSON.stringify(DEFAULT_WYDAJNOSC)); } catch (e) { STATE.wydajnosc = JSON.parse(JSON.stringify(DEFAULT_WYDAJNOSC)); }
+      try { STATE.korektyByMonth = JSON.parse(u.cfm_premia_korekty || '{}'); } catch (e) { STATE.korektyByMonth = {}; }
       loadMonth();
     })
     .catch(function() { showConnError(); });
@@ -189,6 +216,8 @@ function init() {
 function loadMonth() {
   var wh = getWH();
   var r = monthRange(STATE.monthDate);
+  var mk = monthKey(STATE.monthDate);
+  STATE.activeGroups = getConfigForMonth(mk);
   document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
   fetch(wh + '?event_type=PREMIA&start=' + r.start + '&end=' + r.end)
     .then(function(res) { return res.json(); })
@@ -205,52 +234,74 @@ function loadMonth() {
 }
 
 function findGroup(station) {
-  return STATE.config.groups.find(function(g) { return g.stations.indexOf(station) >= 0; });
+  return STATE.activeGroups.find(function(g) { return g.stations.indexOf(station) >= 0; });
 }
 
 // Liczy wszystkie wskazniki dla kazdego stanowiska (nalezacego do jakiejs
-// grupy premiowej) x zmiana. Wzor odtworzony z przykladowej tabeli usera:
-//   Wyk. skorygowane = Sr.wykonanie/zmiane + Wydajnosc(h) [stala 60-min
-//     "odzysk maintenance"] + Odzysk-downtime
-//   Odzysk-downtime = (laczny czas przestoju stanowiska w minutach w tym
-//     miesiacu * Wydajnosc/60) / (LACZNA liczba zmian tego stanowiska we
-//     WSZYSTKICH grupach A/B/C razem w tym miesiacu)
-//     — Awarie nie zapisuje do ktorej grupy (A/B/C) nalezal operator w
-//     momencie awarii (zmiana to tozsamosc grupy, nie stala pora dnia —
-//     nie da sie tego wywnioskowac z samej godziny), wiec przestoj
-//     stanowiska rozkladamy rowno na wszystkie jego zmiany w miesiacu.
-//     To jest przyblizenie — sprawdz wynik na znanym miesiacu przed
-//     uzyciem do realnych wyplat.
-//   Premia = brak jesli: brak obsady NA TEJ zmianie, LUB pass rate ponizej
-//     wymaganego progu grupy. W przeciwnym razie premia wyzsza/nizsza/brak
-//     wg progow wykonania skorygowanego.
+// grupy premiowej) x zmiana, wg ustalonych zasad:
+//   1) Wykonanie planu % = (Suma qty + odzysk z przestoju Awarii) / Suma
+//      planu * 100 — porownywane do progow WYRAZONYCH W % (nie w sztukach).
+//   2) Odzysk z przestoju Awarii = (auto z Awarii + reczna korekta w min)
+//      * wydajnosc/60 — liczy sie ZAWSZE (tak jak dotychczas), niezaleznie
+//      od tego czy wykonanie juz i tak przekracza prog.
+//   3) DOPIERO jesli PO punkcie 2 wykonanie planu nadal < prog nizszy,
+//      dolicza sie DODATKOWO stala "techniczna" rezerwa: 60 min/dzien na
+//      prace przy maszynach (tyle ile bylo raportow w okresie), przeliczona
+//      na sztuki tak samo jak przestoj. To jest warunkowa "poduszka
+//      bezpieczenstwa", nie stale dodawana wartosc.
+//   4) Premia = brak jesli: brak obsady NA TEJ zmianie, LUB pass rate
+//      (z SUROWEJ produkcji, bez korekt) ponizej wymaganego progu grupy.
+//      W przeciwnym razie premia wyzsza/nizsza/brak wg progow % wykonania
+//      planu PO korektach z punktow 2-3.
+// Przestoj z Awarii przypisany jest do KONKRETNEJ zmiany (kolumna 'shift'
+// w Awariach, zapisywana od pewnej aktualizacji) — starsze wpisy sprzed
+// tej zmiany nie maja zmiany zapisanej i nie doliczaja sie nigdzie (lekko
+// zanizy to odzysk w miesiacach mieszajacych stare i nowe dane, nigdy nie
+// zawyzy) — patrz reczna korekta jako sposob na uzupelnienie tego recznie.
 function computeRows() {
   var byKey = {};
   STATE.shiftsData.forEach(function(d) { byKey[d.station + '||' + d.shift] = d; });
+  var mk = monthKey(STATE.monthDate);
+  var korekty = STATE.korektyByMonth[mk] || {};
 
   var rows = [];
   STATE.stations.forEach(function(station) {
     var group = findGroup(station);
     if (!group) return;
     STATE.shiftLabels.forEach(function(shift) {
-      var d = byKey[station + '||' + shift] || { sumQty: 0, sumOk: 0, count: 0 };
+      var key = station + '||' + shift;
+      var d = byKey[key] || { sumQty: 0, sumOk: 0, sumPlan: 0, count: 0 };
       var crewList = (STATE.crew[station] && STATE.crew[station][shift]) || [];
-      var avgQty = d.count > 0 ? d.sumQty / d.count : 0;
-      var avgOk = d.count > 0 ? d.sumOk / d.count : 0;
       var passRate = d.sumQty > 0 ? (d.sumOk / d.sumQty) * 100 : null;
-      var wydajnosc = STATE.config.wydajnosc[station] || 0;
-      // Przestoj przypisany DOKLADNIE do tej zmiany (kolumna 'shift' w
-      // Awariach) — starsze wpisy sprzed wprowadzenia tego pola nie maja
-      // zmiany zapisanej i nie trafiaja tutaj (patrz handlePremia w .gs).
-      var downtimeMin = STATE.downtime[station + '||' + shift] || 0;
-      var odzyskDowntime = d.count > 0 ? (downtimeMin * (wydajnosc / 60)) / d.count : 0;
-      var wyk = avgQty + wydajnosc + odzyskDowntime;
-      var premia = null;
-      if (crewList.length > 0 && passRate !== null && Math.round(passRate) >= group.passRate) {
-        if (wyk >= group.progWyzszy) premia = group.premiaWyzsza;
-        else if (wyk >= group.progNizszy) premia = group.premiaNizsza;
+      var wydajnosc = STATE.wydajnosc[station] || 0;
+
+      var autoDowntimeMin = STATE.downtime[key] || 0;
+      var korektaMin = Number(korekty[key]) || 0;
+      var odzyskAwarie = (autoDowntimeMin + korektaMin) * (wydajnosc / 60);
+      var qtyPoAwariach = d.sumQty + odzyskAwarie;
+      var pctPoAwariach = d.sumPlan > 0 ? (qtyPoAwariach / d.sumPlan) * 100 : null;
+
+      var techApplied = false;
+      var finalQty = qtyPoAwariach;
+      var finalPct = pctPoAwariach;
+      if (pctPoAwariach !== null && pctPoAwariach < group.progNizszy) {
+        var techMin = 60 * d.count;
+        var odzyskTech = techMin * (wydajnosc / 60);
+        finalQty = qtyPoAwariach + odzyskTech;
+        finalPct = d.sumPlan > 0 ? (finalQty / d.sumPlan) * 100 : null;
+        techApplied = true;
       }
-      rows.push({ station: station, shift: shift, group: group, crewList: crewList, avgQty: avgQty, avgOk: avgOk, passRate: passRate, wydajnosc: wydajnosc, odzyskDowntime: odzyskDowntime, wyk: wyk, premia: premia, count: d.count });
+
+      var premia = null;
+      if (crewList.length > 0 && passRate !== null && Math.round(passRate) >= group.passRate && finalPct !== null) {
+        if (finalPct >= group.progWyzszy) premia = group.premiaWyzsza;
+        else if (finalPct >= group.progNizszy) premia = group.premiaNizsza;
+      }
+      rows.push({
+        station: station, shift: shift, group: group, crewList: crewList,
+        sumQty: d.sumQty, sumPlan: d.sumPlan, passRate: passRate, wydajnosc: wydajnosc,
+        korektaMin: korektaMin, techApplied: techApplied, finalPct: finalPct, premia: premia, count: d.count,
+      });
     });
   });
   return rows;
@@ -267,7 +318,7 @@ function render() {
   app.innerHTML =
     '<div class="pagehead"><div><h1>Premie <span class="cn">奖金</span></h1><div class="sub">Wyliczone automatycznie z planu produkcji, raportów i przestojów &#8212; miesiąc narastająco.<span class="cn"> 根据生产计划、报告和停机时间自动计算 &#8212; 月度累计。</span></div></div>' +
     '<div class="headactions">' + monthNavHtml() + '<button class="btn-mini cfg" id="btnCfgToggle">Konfiguracja ' + (STATE.configOpen ? '&#9652;' : '&#9662;') + '<span class="cn">配置</span></button><button class="btn-mini" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
-    '<div class="note"><div class="ic">i</div><div><b>Odzysk-downtime liczy się tylko dla awarii zgłoszonych po tej aktualizacji.</b> <span class="cn">停机恢复量仅计算此次更新后登记的故障。</span><br>Awarie od teraz zapisują, do której zmiany (grupy A/B/C) należał operator w momencie zgłoszenia — przestój liczy się więc dokładnie tam, gdzie się wydarzył. Starsze wpisy sprzed tej zmiany nie mają zmiany zapisanej i nie doliczą się do żadnej grupy (lekko zaniży to odzysk w miesiącach mieszających stare i nowe dane, nigdy nie zawyży).<br><span class="cn">此次更新前的旧故障记录没有班组信息，不会计入任何班组（可能略微低估，但不会高估）。</span></div></div>' +
+    '<div class="note"><div class="ic">i</div><div><b>Wykonanie planu ≥ próg niższy + pass rate ≥ wymagany = premia.</b> <span class="cn">计划完成率≥下限门槛 + 合格率≥要求 = 奖金。</span><br>Przestój z Awarii dolicza się zawsze (automatycznie + Twoja ręczna korekta). Dodatkowa rezerwa 60 min/dzień na prace techniczne dolicza się TYLKO wtedy, gdy bez niej wykonanie planu wyszłoby poniżej progu niższego — w tabeli oznaczone znaczkiem "+60min".<br><span class="cn">故障停机始终计入（自动+手动修正）。每天60分钟的技术维护余量仅在不加它就达不到下限门槛时才会计入 —— 表中标记为"+60分钟"。</span></div></div>' +
     '<div id="cfgpanel"></div>' +
     '<div class="tablewrap"><div class="tablescroll"><table class="results" id="resultsTable"></table></div></div>';
 
@@ -282,29 +333,31 @@ function render() {
 
 function renderConfigPanel() {
   var el = document.getElementById('cfgpanel');
-  var groupRows = STATE.config.groups.map(function(g, i) {
+  var mk = monthKey(STATE.monthDate);
+  var inherited = !STATE.configByMonth[mk];
+  var groupRows = STATE.activeGroups.map(function(g, i) {
     return '<tr data-gi="' + i + '">' +
       '<td class="lbl">' + g.label + '<div class="stlist">' + g.stations.join(', ') + '</div></td>' +
-      '<td><input type="number" class="gf" data-f="progWyzszy" value="' + g.progWyzszy + '"></td>' +
+      '<td><input type="number" class="gf" data-f="progWyzszy" value="' + g.progWyzszy + '"> %</td>' +
       '<td><input type="number" class="gf" data-f="premiaWyzsza" value="' + g.premiaWyzsza + '"></td>' +
-      '<td><input type="number" class="gf" data-f="progNizszy" value="' + g.progNizszy + '"></td>' +
+      '<td><input type="number" class="gf" data-f="progNizszy" value="' + g.progNizszy + '"> %</td>' +
       '<td><input type="number" class="gf" data-f="premiaNizsza" value="' + g.premiaNizsza + '"></td>' +
       '<td><input type="number" class="gf" data-f="passRate" value="' + g.passRate + '"></td>' +
     '</tr>';
   }).join('');
 
-  var wKeys = Object.keys(STATE.config.wydajnosc);
+  var wKeys = Object.keys(STATE.wydajnosc);
   var wRows = wKeys.map(function(st) {
-    return '<tr data-station="' + st.replace(/"/g, '&quot;') + '"><td class="lbl">' + st + '</td><td><input type="number" class="wf" value="' + STATE.config.wydajnosc[st] + '"></td></tr>';
+    return '<tr data-station="' + st.replace(/"/g, '&quot;') + '"><td class="lbl">' + st + '</td><td><input type="number" class="wf" value="' + STATE.wydajnosc[st] + '"></td></tr>';
   }).join('');
 
   el.innerHTML =
     '<div class="cfgpanel">' +
-      '<h3>Progi premii wg grupy stanowisk <span class="cn">按工位组划分的奖金门槛</span></h3>' +
-      '<table class="cfgtable"><thead><tr><th>Grupa</th><th>Próg wyższy</th><th>Premia wyższa (PLN)</th><th>Próg niższy</th><th>Premia niższa (PLN)</th><th>Wymagany pass rate (%)</th></tr></thead><tbody id="groupCfgBody">' + groupRows + '</tbody></table>' +
-      '<h3>Wydajność godzinowa per stanowisko (szt./h) <span class="cn">每小时产能</span></h3>' +
+      '<h3>Progi premii wg grupy stanowisk — ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + (inherited ? ' <span style="color:var(--faint);font-weight:500;font-size:11px">(odziedziczone z poprzedniego miesiąca — zapisz, żeby ustawić własne na ten miesiąc)</span>' : '') + ' <span class="cn">按工位组划分的奖金门槛 —— 本月</span></h3>' +
+      '<table class="cfgtable"><thead><tr><th>Grupa</th><th>Próg wyższy (% planu)</th><th>Premia wyższa (PLN)</th><th>Próg niższy (% planu)</th><th>Premia niższa (PLN)</th><th>Wymagany pass rate (%)</th></tr></thead><tbody id="groupCfgBody">' + groupRows + '</tbody></table>' +
+      '<h3>Wydajność godzinowa per stanowisko (szt./h) <span class="cn">每小时产能（非按月，长期设置）</span></h3>' +
       '<table class="cfgtable"><thead><tr><th>Stanowisko</th><th>Szt./h</th></tr></thead><tbody id="wydajnoscCfgBody">' + wRows + '</tbody></table>' +
-      '<div class="cfgactions"><button class="btn-cfg-save" id="btnCfgSave">Zapisz konfigurację<span class="cn"> 保存配置</span></button></div>' +
+      '<div class="cfgactions"><button class="btn-cfg-save" id="btnCfgSave">Zapisz konfigurację na ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn"> 保存本月配置</span></button></div>' +
     '</div>';
 
   el.addEventListener('input', function() { markCfgDirty(); });
@@ -318,29 +371,30 @@ function markCfgDirty() {
 }
 
 function saveConfig() {
+  var mk = monthKey(STATE.monthDate);
   document.querySelectorAll('#groupCfgBody tr').forEach(function(tr) {
     var gi = Number(tr.dataset.gi);
-    tr.querySelectorAll('.gf').forEach(function(inp) { STATE.config.groups[gi][inp.dataset.f] = Number(inp.value) || 0; });
+    tr.querySelectorAll('.gf').forEach(function(inp) { STATE.activeGroups[gi][inp.dataset.f] = Number(inp.value) || 0; });
   });
   document.querySelectorAll('#wydajnoscCfgBody tr').forEach(function(tr) {
     var st = tr.dataset.station;
     var inp = tr.querySelector('.wf');
-    STATE.config.wydajnosc[st] = Number(inp.value) || 0;
+    STATE.wydajnosc[st] = Number(inp.value) || 0;
   });
+  STATE.configByMonth[mk] = STATE.activeGroups;
   STATE.configDirty = false;
   var wh = getWH();
-  fetch(wh, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_config', wartosc: JSON.stringify(STATE.config) })
-  }).then(function() { render(); }).catch(function() {});
+  Promise.all([
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_config', wartosc: JSON.stringify(STATE.configByMonth) }) }),
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_wydajnosc', wartosc: JSON.stringify(STATE.wydajnosc) }) }),
+  ]).then(function() { render(); }).catch(function() { render(); });
 }
 
 function renderResultsTable(rows) {
   var table = document.getElementById('resultsTable');
   if (!rows.length) { table.parentElement.parentElement.innerHTML = '<div class="empty">Brak stanowisk przypisanych do żadnej grupy premiowej. <span class="cn">没有工位分配到任何奖金组。</span><br>Sprawdź "Konfiguracja" powyżej.</div>'; return; }
 
-  var thead = '<thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Zmiana<span class="cn">班次</span></th><th>Obsada<span class="cn">人员</span></th><th>Śr. wykonanie<span class="cn">平均产量</span></th><th>Śr. dobrych<span class="cn">平均合格</span></th><th>Pass rate<span class="cn">合格率</span></th><th>Wyk. skorygowane<span class="cn">修正产量</span></th><th>Premia<span class="cn">奖金</span></th></tr></thead>';
+  var thead = '<thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Zmiana<span class="cn">班次</span></th><th>Obsada<span class="cn">人员</span></th><th>Produkcja / plan<span class="cn">产量/计划</span></th><th>Pass rate<span class="cn">合格率</span></th><th>Korekta przestoju (min)<span class="cn">停机修正（分钟）</span></th><th>Wykonanie planu<span class="cn">计划完成率</span></th><th>Premia<span class="cn">奖金</span></th></tr></thead>';
 
   var byStation = {};
   var order = [];
@@ -355,15 +409,36 @@ function renderResultsTable(rows) {
         (si === 0 ? '<td rowspan="' + list.length + '"><div class="stationname">' + st + '</div></td>' : '') +
         '<td><span class="shiftpill"><i style="background:' + shiftColor(r.shift) + '"></i>Zmiana ' + r.shift + '</span></td>' +
         '<td><div class="crewnames">' + crewHtml + '</div></td>' +
-        '<td>' + fmt(r.avgQty) + '</td>' +
-        '<td>' + fmt(r.avgOk) + '</td>' +
+        '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.sumQty) + '</span><span class="cell-plan">/' + fmt(r.sumPlan) + '</span></div></td>' +
         '<td><span class="pct ' + pctClass(r.passRate, r.group.passRate) + '">' + (r.passRate === null ? '&#8212;' : r.passRate.toFixed(1) + '%') + '</span></td>' +
-        '<td>' + fmt(r.wyk) + '</td>' +
+        '<td><input type="number" class="korektainput" min="0" value="' + r.korektaMin + '" data-station="' + r.station.replace(/"/g, '&quot;') + '" data-shift="' + r.shift + '"></td>' +
+        '<td><span class="pct ' + pctClass(r.finalPct, r.group.progNizszy) + '">' + (r.finalPct === null ? '&#8212;' : r.finalPct.toFixed(1) + '%') + '</span>' + (r.techApplied ? '<span class="techbadge">+60min</span>' : '') + '</td>' +
         '<td><span class="premia ' + (r.premia ? 'yes' : 'no') + '">' + (r.premia ? r.premia + ' PLN' : '&#8212;') + '</span></td>' +
       '</tr>';
     });
   });
   table.innerHTML = thead + '<tbody>' + body + '</tbody>';
+
+  table.querySelectorAll('.korektainput').forEach(function(inp) {
+    inp.addEventListener('change', function() { saveKorekta(inp.dataset.station, inp.dataset.shift, inp.value); });
+  });
+}
+
+// Reczna korekta przestoju zapisuje sie NATYCHMIAST po opuszczeniu pola
+// (nie czeka na osobny przycisk "Zapisz") — to drobna liczba, ktora ma byc
+// szybko poprawialna, a nie kolejny formularz do pamietania o zapisaniu.
+function saveKorekta(station, shift, value) {
+  var mk = monthKey(STATE.monthDate);
+  if (!STATE.korektyByMonth[mk]) STATE.korektyByMonth[mk] = {};
+  var n = Number(value) || 0;
+  if (n > 0) STATE.korektyByMonth[mk][station + '||' + shift] = n;
+  else delete STATE.korektyByMonth[mk][station + '||' + shift];
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_korekty', wartosc: JSON.stringify(STATE.korektyByMonth) })
+  }).then(function() { render(); }).catch(function() { render(); });
 }
 
 function exportToExcel() {
@@ -379,7 +454,7 @@ function exportToExcel() {
     '.yes{background:#c9f0d6;font-weight:bold}' +
     'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
     '</style></head><body><h1>' + title + '</h1><table>' +
-    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Sr. wykonanie</th><th>Sr. dobrych</th><th>Pass rate</th><th>Wyk. skorygowane</th><th>Premia (PLN)</th></tr>';
+    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Produkcja</th><th>Plan</th><th>Pass rate</th><th>Korekta przestoju (min)</th><th>Wykonanie planu</th><th>Premia (PLN)</th></tr>';
 
   var byStation = {}, order = [];
   rows.forEach(function(r) { if (!byStation[r.station]) { byStation[r.station] = []; order.push(r.station); } byStation[r.station].push(r); });
@@ -387,9 +462,10 @@ function exportToExcel() {
     byStation[st].forEach(function(r, si) {
       html += '<tr>' + (si === 0 ? '<td class="station" rowspan="' + byStation[st].length + '">' + st + '</td>' : '') +
         '<td>Zmiana ' + r.shift + '</td><td>' + (r.crewList.join(', ') || '-') + '</td>' +
-        '<td>' + Math.round(r.avgQty) + '</td><td>' + Math.round(r.avgOk) + '</td>' +
+        '<td>' + Math.round(r.sumQty) + '</td><td>' + Math.round(r.sumPlan) + '</td>' +
         '<td>' + (r.passRate === null ? '' : r.passRate.toFixed(1) + '%') + '</td>' +
-        '<td>' + Math.round(r.wyk) + '</td>' +
+        '<td>' + r.korektaMin + '</td>' +
+        '<td>' + (r.finalPct === null ? '' : r.finalPct.toFixed(1) + '%' + (r.techApplied ? ' (+60min/dzien)' : '')) + '</td>' +
         '<td class="' + (r.premia ? 'yes' : '') + '">' + (r.premia ? r.premia + ' PLN' : '-') + '</td></tr>';
     });
   });

@@ -65,6 +65,9 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .cfgtable td{padding:4px 8px}
 .cfgtable input{width:100%;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:13px;text-align:center;padding:6px 4px}
 .cfgtable input:focus{outline:none;border-color:var(--blue)}
+.cfgtable .pctfield{display:flex;align-items:center;gap:6px}
+.cfgtable .pctfield input{width:auto;flex:1;min-width:0}
+.cfgtable .pctfield span{color:var(--faint);font-size:12px;flex-shrink:0}
 .cfgtable td.lbl{font-weight:600;font-size:13px;color:var(--text);text-align:left}
 .cfgtable td.stlist{font-size:11px;color:var(--faint)}
 .cfgactions{display:flex;gap:10px}
@@ -338,9 +341,9 @@ function renderConfigPanel() {
   var groupRows = STATE.activeGroups.map(function(g, i) {
     return '<tr data-gi="' + i + '">' +
       '<td class="lbl">' + g.label + '<div class="stlist">' + g.stations.join(', ') + '</div></td>' +
-      '<td><input type="number" class="gf" data-f="progWyzszy" value="' + g.progWyzszy + '"> %</td>' +
+      '<td><div class="pctfield"><input type="number" class="gf" data-f="progWyzszy" value="' + g.progWyzszy + '"><span>%</span></div></td>' +
       '<td><input type="number" class="gf" data-f="premiaWyzsza" value="' + g.premiaWyzsza + '"></td>' +
-      '<td><input type="number" class="gf" data-f="progNizszy" value="' + g.progNizszy + '"> %</td>' +
+      '<td><div class="pctfield"><input type="number" class="gf" data-f="progNizszy" value="' + g.progNizszy + '"><span>%</span></div></td>' +
       '<td><input type="number" class="gf" data-f="premiaNizsza" value="' + g.premiaNizsza + '"></td>' +
       '<td><input type="number" class="gf" data-f="passRate" value="' + g.passRate + '"></td>' +
     '</tr>';

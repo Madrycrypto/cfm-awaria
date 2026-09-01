@@ -2884,6 +2884,7 @@ function preloadFromGodzinny() {
     document.getElementById('btnAwariaEnd').disabled = false;
   }
   awariaRenderHistory();
+  switchView('godzinny'); // domyslna zakladka na starcie apki — Raport godzinny, nie Raport zmiany
 
   loadSettingsFromServer(function(changed) {
     if (!changed) return;

@@ -965,87 +965,92 @@ var DEFAULT_PARTS_OP30_33 = [
   '6530159 Header主板 · Kolektor',
   '6530160 Side plate侧板 · Płyta boczna'
 ];
+// Numery porzadkowe (1., 2., 3. ...) wpisane NA STALE w tekst kazdej
+// przyczyny — to oficjalna numeracja z firmowego wzoru (kodeksu) per
+// stanowisko, wiec musi zostac widoczna niezaleznie od kolejnosci na
+// liscie. Numery czesci (np. '6530154 Core...') NIE sa numerowane — to
+// osobna kategoria (fizyczny numer katalogowy czesci, nie kod przyczyny) i
+// zostaja zachowane bez zmian, tak jak byly wczesniej dopisane recznie.
 var DEFAULT_REASONS_OP33 = [
-  '失效模式 · tryb awarii',
-  '三角区 · Trójkąt',
-  '呛管 · rurka dławiąca',
-  '短带 · krótka opaska',
-  '闭管 · zamknięta rurka',
-  '花带 · wstążka',
-  '芯体散热带倒伏 · Mieszkanie rdzeniowego radiatora',
-  '侧板移位/变形 · Przemieszczenie / odkształcenie płyty bocznej',
-  '主板变形 · Odkształcenie płyty głównej',
-  '芯体变形 · Deformacja rdzenia',
-  'R角 · Kąt R',
-  '调机报废 · Złom dostosowania',
-].concat(['6530154 Core芯子 · Rdzeń']).concat(DEFAULT_PARTS_OP30_33).concat(['其他 · inne']);
+  '1. 三角区 · Obszar trójkątny',
+  '2. 呛管 · Zablokowanie rury',
+  '3. 短带 · Krótki pasek',
+  '4. 闭管 · Zamknięta rura',
+  '5. 花带 · Nierówny pasek',
+  '6. 芯体散热带倒伏 · Pasek chłodzący rdzenia – przewrócenie',
+  '7. 侧板移位/变形 · Przesunięcie/odkształcenie płyty bocznej',
+  '8. 主板变形 · Odkształcenie płyty głównej',
+  '9. 芯体变形 · Odkształcenie rdzenia',
+  '10. R角 · Kąt R',
+  '11. 调机报废 · Brak możliwości regulacji – urządzenie nienadające się do użytku',
+].concat(['6530154 Core芯子 · Rdzeń']).concat(DEFAULT_PARTS_OP30_33).concat(['12. 其他 · Inne']);
 var DEFAULT_REASONS_OP30 = DEFAULT_PARTS_OP30_33.concat(['其他 · inne']);
 var DEFAULT_REASONS_OP40_IN = [
-  '钎焊管子磕碰 · Lutowane wybrzuszenie rury',
-  '芯体钎剂残留 · Pozostałość topnika rdzeniowego',
-  '掉带 · upuść taśmę',
-  '黑点 · czarna plama',
-  '呛管 · rurka dławiąca',
-  '卡扣不良 · Zła sprzączka',
-  '主板变形 · Odkształcenie płyty głównej',
-  '侧板移位/变形 · Przemieszczenie / odkształcenie płyty bocznej',
-  '回炉虚焊 · Wirtualne spawanie w piecu zwrotnym',
-  '花带 · wstążka',
-  '焊模印（铁丝） · Drukowanie matryc spawalniczych (drut)',
-  '三角区漏 · przeciek trójkąta',
-  '短带 · krótka opaska',
-  '闭管 · zamknięta rurka',
-  '实验 · eksperyment',
+  '1. 钎焊管子磕碰 · Uderzenia w rurki lutowane',
+  '2. 芯体钎剂残留 · Pozostałości topnika w rdzeniu',
+  '3. 掉带 · Opadająca taśma',
+  '4. 黑点 · Czarne plamki',
+  '5. 呛管 · Zablokowanie rurki',
+  '6. 卡扣不良 · Nieprawidłowe zatrzaskiwanie',
+  '7. 主板变形 · Odkształcenie płyty głównej',
+  '8. 侧板移位/变形 · Przesunięcie/odkształcenie płyty bocznej',
+  '9. 回炉虚焊 · Niedokładne lutowanie po powrocie do pieca',
+  '10. 花带 · Nierówna taśma',
+  '11. 焊模印（铁丝） · Odciski formy lutowniczej (drut)',
+  '12. 三角区漏 · Nieszczelność w obszarze trójkąta',
+  '13. 短带 · Krótka taśma',
+  '14. 闭管 · Zamknięta rura',
+  '15. 实验 · Test',
   '6530154 Core芯子 · Rdzeń',
   '6530159 Header主板 · Kolektor',
   '6530160 Side plate侧板 · Płyta boczna',
-  '其他 · inne'
+  '16. 其他 · Inne'
 ];
 var DEFAULT_REASONS_OP40_OUT = [
-  '漏光 · lekki wyciek',
+  '1. 漏光 · prześwity',
   '6530154 Core芯子 · Rdzeń'
 ];
 var DEFAULT_REASONS_OP51_52 = [
-  '芯体表面管子磕碰 · Kolizja rury powierzchni rdzenia',
-  '呛管 · rurka dławiąca',
-  '管口磕碰 · Uderzenie dyszy',
-  '短带 · krótka opaska',
-  '扣压不良 · Słabe potrącenie',
-  '闭管 · zamknięta rurka',
-  '虚焊 · wirtualne spawanie',
-  '水室断裂 · pęknięcie komory',
-  '掉带 · upuść taśmę',
-  '花带 · wstążka',
-  '芯体散热带倒伏 · Mieszkanie rdzeniowego radiatora',
-  '扣压后管子磕碰 · Guzki do rur po wstrzymaniu',
-  '调机报废 · Złom dostosowania',
-  '气密不合格 · Niekwalifikowana szczelność',
-  '线扫不合格 · Skanowanie linii nie powiodło się',
-  '位置度不合格 · Stopień stanowiska bez kwalifikacji',
+  '1. 芯体表面管子磕碰 · Uszkodzenie powierzchni rury rdzenia',
+  '2. 呛管 · Zablokowanie rury',
+  '3. 管口磕碰 · Uszkodzenie końcówki rury',
+  '4. 短带 · Zbyt krótka taśma',
+  '5. 扣压不良 · Nieprawidłowe zaciśnięcie',
+  '6. 闭管 · Zamknięta rura',
+  '7. 虚焊 · Niedokładne zgrzewanie',
+  '8. 水室断裂 · Pęknięcie komory wodnej',
+  '9. 掉带 · Opadnięcie taśmy',
+  '10. 花带 · Nierówna taśma',
+  '11. 芯体散热带倒伏 · Przewrócenie taśmy chłodzącej rdzenia',
+  '12. 扣压后管子磕碰 · Uderzenie rurki po zaciskaniu',
+  '13. 调机报废 · Brak przydatności do eksploatacji po regulacji',
+  '14. 气密不合格 · Niezgodność z wymaganiami szczelności',
+  '15. 线扫不合格 · Niezgodność z wymaganiami czyszczenia drutem',
+  '16. 位置度不合格 · Niezgodność z wymaganiami położenia',
   '6530154 Core芯子 · Rdzeń',
-  '其他 · inne'
+  '17. 其他 · Inne'
 ];
 var DEFAULT_REASONS_OP60_61 = [
-  '注塑件断裂 · Pęknięcie wypraski',
-  '风叶扭矩角度超标 · Zbyt duży moment łopatki',
-  '风扇罩扭矩角度超标 · Zbyt duży moment osłony wentylatora',
-  '风叶螺丝反转 · Odwrócona śruba łopatki',
-  '风扇罩螺丝反转 · Odwrócona śruba osłony',
-  '注塑件海绵条未粘牢 · Niedoklejona gąbka',
-  '平衡测试不过 · Test balansu niezaliczony',
+  '1. 注塑件断裂 · Pęknięcie elementu formowanego wtryskowo',
+  '2. 风叶扭矩角度超标 · Przekroczenie dopuszczalnego kąta momentu obrotowego łopatek wentylatora',
+  '3. 风扇罩扭矩角度超标 · Przekroczenie dopuszczalnego kąta momentu obrotowego osłony wentylatora',
+  '4. 风叶螺丝反转 · Odwrócenie śrub łopatek wentylatora',
+  '5. 风扇罩螺丝反转 · Odwrócenie śrub osłony wentylatora',
+  '6. 注塑件海绵条未粘牢 · Niewłaściwe przyklejenie listwy gąbkowej do elementu formowanego wtryskowo',
+  '7. 平衡测试不过 · Niepowodzenie testu wyważenia',
   '6743865-01 Electrical machinery电机 · Silnik elektryczny',
-  '其他 · inne'
+  '8. 其他 · Inne'
 ];
 var DEFAULT_REASONS_GP12 = [
-  '挡石网断裂 · Pęknięta siatka ochronna',
-  '海绵条不粘 · Niedoklejona gąbka',
-  '芯体磕碰 · Uderzenie rdzenia',
-  '水室管口划伤 · Zarysowany króciec komory',
-  '模块总成影像不过 · Nie przeszedł kontroli wizyjnej modułu',
-  '负压检测不过 · Nie przeszedł testu podciśnienia',
-  '缺漏件检测不过 · Wykryto brak elementu',
-  '全尺寸检测不过 · Nie przeszedł kontroli wymiarowej',
-  '注塑件断裂缺料 · Pęknięcie/brak materiału wypraski',
+  '1. 挡石网断裂 · Pęknięcie siatki kamiennej',
+  '2. 海绵条不粘 · Nieklejenie się pasków gąbkowych',
+  '3. 芯体磕碰 · Uszkodzenie rdzenia',
+  '4. 水室管口划伤 · Zarysowanie otworu rury komory wodnej',
+  '5. 模块总成影像不过 · Moduł nie przeszedł kontroli wizualnej',
+  '6. 负压检测不过 · Nie przeszedł testu podciśnienia',
+  '7. 缺漏件检测不过 · Nie przeszedł testu na brakujące elementy',
+  '8. 全尺寸检测不过 · Nie przeszedł kontroli wymiarowej',
+  '9. 注塑件断裂缺料 · Pęknięcie lub brak materiału w elementach formowanych wtryskowo',
   '6743787-01 Upper isolator上减震垫 · Górna podkładka amortyzująca',
   '6743865-01 Electrical machinery电机 · Silnik elektryczny',
   '6743788-01 Lower isolator减震垫 · Dolna podkładka amortyzująca',
@@ -1055,7 +1060,7 @@ var DEFAULT_REASONS_GP12 = [
   '6530152-01 Sealing海绵条 · Taśma uszczelniająca',
   '6530152-03 Sealing海绵条 · Taśma uszczelniająca',
   '6530152-32 Sealing海绵条 · Taśma uszczelniająca',
-  '其他 · inne'
+  '10. 其他 · Inne'
 ];
 var QUALITY_REASON_DEFAULTS = {
   'OP30': DEFAULT_REASONS_OP30,
@@ -1067,6 +1072,14 @@ var QUALITY_REASON_DEFAULTS = {
   'OP60/61': DEFAULT_REASONS_OP60_61,
   'GP12': DEFAULT_REASONS_GP12
 };
+// Podbij ta liczbe za kazdym razem, gdy TRESC istniejacych przyczyn w
+// QUALITY_REASON_DEFAULTS sie zmienia (nie tylko gdy dochodzi nowa stacja
+// — to juz obsluguje syncQualityReasonDefaults ponizej). Kazde urzadzenie,
+// ktore wczyta kod z wyzsza wersja niz ma zapisana lokalnie, zrobi
+// JEDNORAZOWO PELNY RESET (nie doklejanie) swoich list scrap/rework do
+// swiezych wartosci z kodu i wyśle je na serwer — bez tego trzeba by
+// recznie usuwac stare zduplikowane wpisy na kazdym telefonie z osobna.
+var REASONS_VERSION = 2;
 function defaultReasonsMap() {
   var map = {};
   Object.keys(QUALITY_REASON_DEFAULTS).forEach(function(st) { map[st] = QUALITY_REASON_DEFAULTS[st].slice(); });
@@ -1088,6 +1101,26 @@ function syncQualityReasonDefaults(storageKey) {
     });
   });
   if (changed) localStorage.setItem(storageKey, JSON.stringify(map));
+}
+// Uruchamiane RAZ na urzadzenie, przy pierwszym starcie kodu z podbita
+// REASONS_VERSION — w odroznieniu od syncQualityReasonDefaults (ktora tylko
+// DOKLEJA brakujace pozycje, nigdy nie usuwa/zmienia istniejacych) ta
+// funkcja robi PELNY RESET obu list scrap/rework do swiezych wartosci z
+// kodu i wysyla je na serwer, zeby stare/zdublowane wpisy (np. sprzed
+// zmiany numeracji przyczyn) zniknely wszedzie bez recznego czyszczenia
+// kazdego telefonu z osobna. Wlasne, dodatkowe przyczyny dopisane recznie
+// w Panelu Admina (spoza kodu) zostana przy tym resecie utracone — to
+// swiadomy kompromis, uzasadniony tym ze lista ma teraz byc zrodlem prawdy
+// z firmowego wzoru.
+function ensureReasonsVersion() {
+  var stored = Number(localStorage.getItem('cfm_reasons_version') || '0');
+  if (stored >= REASONS_VERSION) return;
+  var freshMap = defaultReasonsMap();
+  localStorage.setItem('cfm_scrap_reasons', JSON.stringify(freshMap));
+  localStorage.setItem('cfm_rework_reasons', JSON.stringify(freshMap));
+  localStorage.setItem('cfm_reasons_version', String(REASONS_VERSION));
+  pushSettingToServer('cfm_scrap_reasons');
+  pushSettingToServer('cfm_rework_reasons');
 }
 function getScrapReasonsMap() { var s = localStorage.getItem('cfm_scrap_reasons'); return s ? JSON.parse(s) : defaultReasonsMap(); }
 function getReworkReasonsMap() { var s = localStorage.getItem('cfm_rework_reasons'); return s ? JSON.parse(s) : defaultReasonsMap(); }
@@ -2515,6 +2548,7 @@ function applyFactoryDefaults() {
       localStorage.setItem(key, defaults[key]);
     }
   });
+  ensureReasonsVersion();
   syncQualityReasonDefaults('cfm_scrap_reasons');
   syncQualityReasonDefaults('cfm_rework_reasons');
   syncStationTargetDefaults();

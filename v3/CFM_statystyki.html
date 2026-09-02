@@ -115,6 +115,10 @@ tbody tr.grouphead td{padding-top:16px}
 .subrow .pr{font-variant-numeric:tabular-nums;font-weight:600}
 
 .barsgrid{display:flex;flex-direction:column;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px}
+.weekblock{margin-bottom:14px}
+.weekblock:last-child{margin-bottom:0}
+.weekblock-head{font-family:var(--fh);font-weight:700;font-size:13px;color:var(--muted);margin-bottom:8px;padding-left:2px}
+.weekblock .barsgrid{padding:16px 18px;gap:12px}
 .barrow{display:grid;grid-template-columns:170px 1fr 130px;align-items:center;gap:16px}
 .barrow-lbl{font-family:var(--fh);font-weight:700;font-size:14px}
 .bartrack{position:relative;height:22px;background:var(--border-soft);border-radius:6px;overflow:hidden}
@@ -366,6 +370,7 @@ function render() {
       '<span><i style="background:#3fd17a"></i>&#8805; 95%</span><span><i style="background:#f0a030"></i>80&#8211;94%</span><span><i style="background:#ff7070"></i>&lt; 80%</span>' +
     '</div></div><div class="tablewrap"><div class="tablescroll"><table id="pivot"></table></div></div></div>' +
     '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
+    '<div class="section"><div class="section-head"><h2>Bilans tygodniowy<span class="cn">每周计划平衡</span></h2></div><div id="weeklyBalance"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>';
 
   wireMonthNav();
@@ -375,6 +380,7 @@ function render() {
   renderKpis(periodGroups, days, periodLabel);
   renderPivot(periodGroups, days, periodLabel);
   renderBars(groups);
+  renderWeeklyBalance();
   renderReworkBalance(days);
 }
 
@@ -559,22 +565,38 @@ function renderPivot(groups, days, periodLabel) {
   table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
 }
 
-function renderBars(groups) {
-  var el = document.getElementById('bars');
-  if (!groups.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
+// Wspolna logika pask-per-stanowisko, uzywana zarowno dla bilansu
+// miesiecznego jak i kazdego tygodnia z osobna (renderWeeklyBalance) —
+// ZAWSZE per stanowisko, nigdy nie sumuje roznych stanowisk razem (rozne
+// skale — np. OP30 ~70000/dzien vs GP12 ~630/dzien — zsumowane razem
+// dawaloby bezsensowna, zdominowana przez najwieksze stanowisko liczbe).
+function barsHtml(groups) {
+  if (!groups.length) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
   var byStation = {};
   var order = [];
   groups.forEach(function(g) {
     if (!byStation[g.station]) { byStation[g.station] = { actual: 0, plan: 0 }; order.push(g.station); }
     Object.keys(g.byDate).forEach(function(d) { byStation[g.station].actual += g.byDate[d].qty; byStation[g.station].plan += g.byDate[d].plan; });
   });
-  el.innerHTML = order.map(function(name) {
+  return order.map(function(name) {
     var s = byStation[name];
     var pct = s.plan > 0 ? Math.round((s.actual / s.plan) * 100) : 0;
     var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
     return '<div class="barrow"><div class="barrow-lbl">' + name + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
       '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(s.actual) + '/' + fmt(s.plan) + '</div></div>';
+  }).join('');
+}
+function renderBars(groups) {
+  document.getElementById('bars').innerHTML = barsHtml(groups);
+}
+
+function renderWeeklyBalance() {
+  var el = document.getElementById('weeklyBalance');
+  if (!STATE.weeks.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
+  el.innerHTML = STATE.weeks.map(function(w) {
+    var weekGroups = buildGroups(STATE.rows.filter(function(r) { return r.date >= w.start && r.date <= w.end; }));
+    return '<div class="weekblock"><div class="weekblock-head">' + fmtWeekRange(w) + '</div><div class="barsgrid">' + barsHtml(weekGroups) + '</div></div>';
   }).join('');
 }
 

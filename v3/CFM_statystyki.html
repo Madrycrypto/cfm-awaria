@@ -373,6 +373,7 @@ function render() {
     '</div></div><div class="tablewrap"><div class="tablescroll"><table id="pivot"></table></div></div></div>' +
     '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Bilans tygodniowy<span class="cn">每周计划平衡</span></h2></div><div id="weeklyBalance"></div></div>' +
+    '<div class="section"><div class="section-head"><h2>Bilans dzienny<span class="cn">每日计划平衡</span></h2></div><div id="dailyBalance"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>';
 
   wireMonthNav();
@@ -383,6 +384,7 @@ function render() {
   renderPivot(periodGroups, days, periodLabel);
   renderBars(groups);
   renderWeeklyBalance();
+  renderDailyBalance(days);
   renderReworkBalance(days);
 }
 
@@ -651,6 +653,24 @@ function renderWeeklyBalance() {
   el.innerHTML = STATE.weeks.map(function(w) {
     var weekGroups = buildGroups(STATE.rows.filter(function(r) { return r.date >= w.start && r.date <= w.end; }));
     return '<div class="weekblock"><div class="weekblock-head">' + fmtWeekRange(w) + '</div><div class="barsgrid">' + barsHtml(weekGroups, w.days) + '</div></div>';
+  }).join('');
+}
+
+// Ten sam wzor co tygodniowy, ale dla kazdego pojedynczego dnia z
+// biezaco przegladanego okresu (tydzien albo caly miesiac, w zaleznosci
+// od przelacznika u gory strony) — dzien bez zadnego wpisu i bez planu
+// jest przez barsHtml/getPeriodPlan po prostu pomijany per stanowisko
+// (patrz komentarz w barsHtml), wiec dni calkowicie puste pokazuja "Brak danych."
+function renderDailyBalance(days) {
+  var el = document.getElementById('dailyBalance');
+  if (!days.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
+  var todayISO = toISO(new Date());
+  el.innerHTML = days.map(function(d) {
+    var dayGroups = buildGroups(STATE.rows.filter(function(r) { return r.date === d; }));
+    var parts = d.split('-');
+    var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
+    var label = DAY_LABELS[(wd + 6) % 7] + ' ' + parts[2] + '/' + parts[1] + (d === todayISO ? ' · dziś' : '');
+    return '<div class="weekblock"><div class="weekblock-head">' + label + '</div><div class="barsgrid">' + barsHtml(dayGroups, [d]) + '</div></div>';
   }).join('');
 }
 

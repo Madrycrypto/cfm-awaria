@@ -125,12 +125,11 @@ tbody tr.grouphead td{padding-top:16px}
 .barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
 .barrow-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);white-space:nowrap}
 .barrow-pct b{font-family:var(--fh);font-size:12.5px;font-weight:800}
-.dailybarrow{margin-bottom:4px}
-.dailybarrow:last-child{margin-bottom:0}
-.worktimecorr{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:4px 2px 0 0;font-size:9.5px;color:var(--faint)}
-.wtinput{width:52px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:12px;text-align:center;padding:4px 3px}
+.dailybarrow{display:grid;grid-template-columns:74px 1fr 90px 46px;align-items:center;gap:6px}
+.wtinput{width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:10.5px;text-align:center;padding:5px 1px}
 .wtinput:focus{outline:none;border-color:var(--blue)}
 .wtinput::placeholder{color:var(--faint);font-weight:600}
+.wthint{font-size:10px;color:var(--faint);padding:0 2px 2px;text-align:right}
 
 .note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
 .note b{color:var(--text)}
@@ -142,6 +141,8 @@ tbody tr.grouphead td{padding-top:16px}
   .kpis{grid-template-columns:repeat(2,1fr)}
   h1{font-size:24px}
   .barrow{grid-template-columns:52px 1fr 70px;gap:6px}
+  .dailybarrow{grid-template-columns:54px 1fr 78px 38px;gap:4px}
+  .wtinput{font-size:10px;padding:5px 0}
 }
 </style>
 </head>
@@ -525,7 +526,7 @@ function renderKpis(groups, days, periodLabel) {
   var kpis = [
     { lbl: 'Wykonanie planu ' + periodLbl + ' (GP12)', lblCn: '计划完成率' + periodLblCn + '（GP12）', val: completion === null ? '&#8212;' : completion + '%', sub: 'plan: ' + fmt(totalPlan) + ' szt. · 计划', bar: completion === null ? 0 : Math.min(completion, 100), color: completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)' },
     { lbl: 'Pass rate ' + periodLbl + ' (GP12)', lblCn: '合格率' + periodLblCn + '（GP12）', val: passRate === null ? '&#8212;' : passRate + '%', sub: totalNg + ' szt. braków · 件不合格', bar: passRate || 0, color: 'var(--blue)' },
-    { lbl: 'Wyprodukowano (GP12)', lblCn: '已生产（GP12）', val: fmt(totalActual), sub: 'zgodnych: ' + fmt(totalOkWithRecovered) + (totalRecovered > 0 ? ' (w tym odzyskane: ' + fmt(totalRecovered) + ')' : '') + ' · 合格', bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
+    { lbl: 'Zgodnych (GP12)', lblCn: '合格数量（GP12）', val: fmt(totalOkWithRecovered), sub: (totalRecovered > 0 ? '(w tym odzyskane: ' + fmt(totalRecovered) + ') · 含挽回' : 'z raportów GP12 · 合格'), bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
     { lbl: 'Wpisów w okresie', lblCn: '本期记录数', val: groups.reduce(function(s, g) { return s + Object.keys(g.byDate).length; }, 0), sub: groups.length + ' stanowisko/zmiana · 工位/班次', bar: 100, color: 'var(--faint)' }
   ];
   document.getElementById('kpis').innerHTML = kpis.map(function(k) {
@@ -709,17 +710,18 @@ function dailyBarsHtml(groups, dateIso) {
     return hasData || hasPlan;
   });
   if (!rows.length) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
-  return rows.map(function(g) {
+  var hint = '<div class="wthint">dostępny czas pracy (min), domyślnie ' + getFullShiftMinutes(rows[0].station) + ' &#183; 可用工作时间（分钟）</div>';
+  return hint + rows.map(function(g) {
     var actual = g.byDate[dateIso] ? g.byDate[dateIso].qty : 0;
     var plan = effectivePlanEntry(g.station, g.shift, dateIso) || 0;
     var pct = plan > 0 ? Math.round((actual / plan) * 100) : 0;
     var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
     var full = getFullShiftMinutes(g.station);
     var korekta = getWorktimeKorekta(g.station, g.shift, dateIso);
-    return '<div class="dailybarrow"><div class="barrow"><div class="barrow-lbl">' + g.station + ' ' + g.shift + '</div>' +
+    return '<div class="dailybarrow"><div class="barrow-lbl">' + g.station + ' ' + g.shift + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
-      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(actual) + '/' + fmt(plan) + '</div></div>' +
-      '<div class="worktimecorr">dostępny czas pracy (min) &#183; 可用工作时间<input type="number" class="wtinput" min="0" placeholder="' + full + '" value="' + (korekta === null ? '' : korekta) + '" data-station="' + g.station.replace(/"/g, '&quot;') + '" data-shift="' + g.shift + '" data-date="' + dateIso + '"></div></div>';
+      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(actual) + '/' + fmt(plan) + '</div>' +
+      '<input type="number" class="wtinput" min="0" placeholder="' + full + '" title="Dostępny czas pracy (min) &#183; 可用工作时间" value="' + (korekta === null ? '' : korekta) + '" data-station="' + g.station.replace(/"/g, '&quot;') + '" data-shift="' + g.shift + '" data-date="' + dateIso + '"></div>';
   }).join('');
 }
 

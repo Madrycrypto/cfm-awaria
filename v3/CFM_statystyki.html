@@ -120,6 +120,7 @@ tbody tr.grouphead td{padding-top:16px}
 .weekblock-head{font-family:var(--fh);font-weight:700;font-size:12px;color:var(--muted);margin-bottom:6px;padding-left:2px}
 .weekblock .barsgrid{padding:10px 12px;gap:6px}
 .barrow{display:grid;grid-template-columns:64px 1fr 84px;align-items:center;gap:8px}
+#shiftComparison .barrow{grid-template-columns:96px 1fr 110px}
 .barrow-lbl{font-family:var(--fh);font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bartrack{position:relative;height:11px;background:var(--border-soft);border-radius:5px;overflow:hidden}
 .barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
@@ -130,6 +131,7 @@ tbody tr.grouphead td{padding-top:16px}
 .wtinput:focus{outline:none;border-color:var(--blue)}
 .wtinput::placeholder{color:var(--faint);font-weight:600}
 .wthint{font-size:10px;color:var(--faint);padding:0 2px 2px;text-align:right}
+.shiftsubhead{font-family:var(--fh);font-weight:800;font-size:10px;letter-spacing:.3px;text-transform:uppercase;padding-left:2px}
 
 .note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
 .note b{color:var(--text)}
@@ -141,6 +143,7 @@ tbody tr.grouphead td{padding-top:16px}
   .kpis{grid-template-columns:repeat(2,1fr)}
   h1{font-size:24px}
   .barrow{grid-template-columns:52px 1fr 70px;gap:6px}
+  #shiftComparison .barrow{grid-template-columns:74px 1fr 92px}
   .dailybarrow{grid-template-columns:54px 1fr 78px 38px;gap:4px}
   .wtinput{font-size:10px;padding:5px 0}
 }
@@ -377,6 +380,7 @@ function render() {
     '<div class="headactions">' + monthNavHtml() + '<button class="btn-export" id="btnRefresh" style="background:var(--surface-2);color:var(--text);border:1px solid var(--border)">Odśwież <span class="cn">刷新</span></button><button class="btn-export" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
     '<div class="weekpicker" id="weekPicker"></div>' +
     '<div class="kpis" id="kpis"></div>' +
+    '<div class="section"><div class="section-head"><h2>Porównanie zmian &#183; która lepsza<span class="cn">班次对比 &#183; 哪个更好</span></h2></div><div class="barsgrid" id="shiftComparison"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Wykonanie planu &#183; dzień po dniu<span class="cn">计划完成率 &#183; 逐日</span></h2><div class="legend">' +
       '<span><i style="background:#3fd17a"></i>&#8805; 95%</span><span><i style="background:#f0a030"></i>80&#8211;94%</span><span><i style="background:#ff7070"></i>&lt; 80%</span>' +
     '</div></div><div class="tablewrap"><div class="tablescroll"><table id="pivot"></table></div></div></div>' +
@@ -390,6 +394,7 @@ function render() {
   var filledCount = periodGroups.filter(function(g) { return Object.keys(g.byDate).length > 0; }).length;
   document.getElementById('weekLabel').textContent = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + filledCount + '/' + periodGroups.length + ' pozycji z wpisami · ' + filledCount + '/' + periodGroups.length + ' 项有记录';
   renderKpis(periodGroups, days, periodLabel);
+  renderShiftComparison(periodGroups, days);
   renderPivot(periodGroups, days, periodLabel);
   renderBars(groups);
   renderWeeklyBalance();
@@ -531,6 +536,42 @@ function renderKpis(groups, days, periodLabel) {
   ];
   document.getElementById('kpis').innerHTML = kpis.map(function(k) {
     return '<div class="kpi"><div class="kpi-lbl">' + k.lbl + '<span class="cn">' + k.lblCn + '</span></div><div class="kpi-val">' + k.val + '</div><div class="kpi-sub">' + k.sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, k.bar) + '%;background:' + k.color + '"></i></div></div>';
+  }).join('');
+}
+
+// Ktora zmiana (A/B/C — tozsamosc zespolu, nie pora dnia) wypada lepiej w
+// danym okresie. Roznych stanowisk NIE mozna po prostu zsumowac (inna skala,
+// patrz komentarz przy barsHtml), wiec dla kazdej zmiany usredniamy % wykonania
+// planu z WSZYSTKICH jej stanowisk po rowno — kazde stanowisko liczy sie tyle
+// samo, niezaleznie od wolumenu. Pomijamy kombinacje stanowisko+zmiana bez
+// zadnego sladu (bez danych i bez wpisu w Planie) — tak samo jak barsHtml.
+function renderShiftComparison(groups, days) {
+  var el = document.getElementById('shiftComparison');
+  var byShift = {};
+  groups.forEach(function(g) {
+    var hasData = Object.keys(g.byDate).length > 0;
+    var hasPlanEntries = days.some(function(d) { return planEntryFor(g.station, g.shift, d) !== null; });
+    if (!hasData && !hasPlanEntries) return;
+    var actual = 0, ok = 0;
+    Object.keys(g.byDate).forEach(function(d) { actual += g.byDate[d].qty; ok += g.byDate[d].ok_count; });
+    var plan = getPeriodPlan(g.station, g.shift, days);
+    if (!byShift[g.shift]) byShift[g.shift] = { pcts: [], passRates: [] };
+    if (plan > 0) byShift[g.shift].pcts.push((actual / plan) * 100);
+    if (actual > 0) byShift[g.shift].passRates.push((ok / actual) * 100);
+  });
+  var shiftsOrder = STATE.shiftLabels.filter(function(s) { return byShift[s] && byShift[s].pcts.length; });
+  if (!shiftsOrder.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
+  var avg = function(arr) { return arr.length ? Math.round(arr.reduce(function(a, x) { return a + x; }, 0) / arr.length) : null; };
+  var rows = shiftsOrder.map(function(s) {
+    return { shift: s, pct: avg(byShift[s].pcts), passRate: avg(byShift[s].passRates), n: byShift[s].pcts.length };
+  });
+  rows.sort(function(a, b) { return b.pct - a.pct; });
+  el.innerHTML = rows.map(function(r, i) {
+    var color = r.pct >= 95 ? 'var(--green)' : r.pct >= 80 ? 'var(--orange)' : 'var(--red)';
+    var crown = i === 0 && rows.length > 1 ? ' &#9733;' : '';
+    return '<div class="barrow"><div class="barrow-lbl" style="color:' + shiftColor(r.shift) + '">Zmiana ' + r.shift + crown + '</div>' +
+      '<div class="bartrack"><div class="barfill" style="width:' + Math.min(r.pct, 100) + '%;background:' + color + '"></div></div>' +
+      '<div class="barrow-pct"><b style="color:' + color + '">' + r.pct + '%</b> &nbsp;śr. wykonania' + (r.passRate !== null ? ' &#183; pass ' + r.passRate + '%' : '') + '</div></div>';
   }).join('');
 }
 
@@ -710,18 +751,25 @@ function dailyBarsHtml(groups, dateIso) {
     return hasData || hasPlan;
   });
   if (!rows.length) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
+  var byShift = {};
+  rows.forEach(function(g) { if (!byShift[g.shift]) byShift[g.shift] = []; byShift[g.shift].push(g); });
+  var shiftsOrder = STATE.shiftLabels.filter(function(s) { return byShift[s]; });
   var hint = '<div class="wthint">dostępny czas pracy (min), domyślnie ' + getFullShiftMinutes(rows[0].station) + ' &#183; 可用工作时间（分钟）</div>';
-  return hint + rows.map(function(g) {
-    var actual = g.byDate[dateIso] ? g.byDate[dateIso].qty : 0;
-    var plan = effectivePlanEntry(g.station, g.shift, dateIso) || 0;
-    var pct = plan > 0 ? Math.round((actual / plan) * 100) : 0;
-    var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
-    var full = getFullShiftMinutes(g.station);
-    var korekta = getWorktimeKorekta(g.station, g.shift, dateIso);
-    return '<div class="dailybarrow"><div class="barrow-lbl">' + g.station + ' ' + g.shift + '</div>' +
-      '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
-      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(actual) + '/' + fmt(plan) + '</div>' +
-      '<input type="number" class="wtinput" min="0" placeholder="' + full + '" title="Dostępny czas pracy (min) &#183; 可用工作时间" value="' + (korekta === null ? '' : korekta) + '" data-station="' + g.station.replace(/"/g, '&quot;') + '" data-shift="' + g.shift + '" data-date="' + dateIso + '"></div>';
+  return hint + shiftsOrder.map(function(s) {
+    var head = '<div class="shiftsubhead" style="color:' + shiftColor(s) + '">Zmiana ' + s + '</div>';
+    var rowsHtml = byShift[s].map(function(g) {
+      var actual = g.byDate[dateIso] ? g.byDate[dateIso].qty : 0;
+      var plan = effectivePlanEntry(g.station, g.shift, dateIso) || 0;
+      var pct = plan > 0 ? Math.round((actual / plan) * 100) : 0;
+      var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
+      var full = getFullShiftMinutes(g.station);
+      var korekta = getWorktimeKorekta(g.station, g.shift, dateIso);
+      return '<div class="dailybarrow"><div class="barrow-lbl">' + g.station + '</div>' +
+        '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
+        '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(actual) + '/' + fmt(plan) + '</div>' +
+        '<input type="number" class="wtinput" min="0" placeholder="' + full + '" title="Dostępny czas pracy (min) &#183; 可用工作时间" value="' + (korekta === null ? '' : korekta) + '" data-station="' + g.station.replace(/"/g, '&quot;') + '" data-shift="' + g.shift + '" data-date="' + dateIso + '"></div>';
+    }).join('');
+    return head + rowsHtml;
   }).join('');
 }
 

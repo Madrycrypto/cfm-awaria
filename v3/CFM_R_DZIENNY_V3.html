@@ -312,19 +312,9 @@ button{cursor:pointer;font-family:var(--fh)}
       <div class="shift-sub">
         Raport za uko&#324;czon&#261; godzin&#281;<br>
         <span class="cn">&#25253;&#21578;&#24050;&#32467;&#26463;&#30340;&#23567;&#26102;</span><br>
-        <a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);">Zmie&#324; r&#281;cznie &#183; &#25163;&#21160;</a><br>
-        <span id="godzDateDisplay" style="color:var(--text);"></span>
-        <a href="#" onclick="toggleGodzDate();return false;" style="color:var(--blue);">Zmie&#324; dzie&#324; &#183; &#20462;&#25913;&#26085;&#26399;</a>
+        <a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);">Zmie&#324; r&#281;cznie &#183; &#25163;&#21160;</a>
       </div>
     </div>
-    <div id="godzDateBanner" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(217,119,6,0.16);border:1px solid rgba(240,160,48,0.35);border-radius:9px;font-size:11.5px;color:#f0a030;font-weight:700;text-align:center;">
-      &#9888; Wprowadzasz dane dla innego dnia! &#183; 正在为其他日期录入数据!
-    </div>
-  </div>
-
-  <div id="godzDateManual" style="display:none;margin-bottom:10px;">
-    <div class="lbl">Dzie&#324; &#183; &#26085;&#26399;</div>
-    <input type="date" id="godzDateInput" onchange="setGodzDate()" style="width:100%;font-size:14px;padding:10px;margin-top:6px;">
   </div>
 
   <div id="hourBlock" style="display:none;">
@@ -844,6 +834,7 @@ function setRaportDate() {
   document.getElementById('raportDateManual').style.display = 'none';
   odswiezDzisiajWpisy();
   loadShiftComparison();
+  if (document.getElementById('viewGodzinny').classList.contains('active')) odswiezHistorieGodzinnej();
 }
 updateDateDisplay();
 
@@ -2712,31 +2703,14 @@ function mergeReasonMapFromServer(key, serverVal) {
 // liczony automatycznie z celu/zmiane (Panel Admina -> Cele), nie ma osobnej
 // konfiguracji celu jak w starej apce godzinnej.
 var manualHour = null;
-var currentGodzDate = null; // null = dzisiaj; ustawiane recznie zeby wprowadzic/poprawic zapomniany raport z wczesniejszego dnia
 var isEditingGodz = false;
 var editingGodzOriginalHour = null;
-function getGodzDate() { return currentGodzDate || localDateString(); }
 function formatDatePl(iso) { var p = (iso || '').split('-'); return p.length === 3 ? (p[2] + '.' + p[1] + '.' + p[0]) : iso; }
-function updateGodzDateDisplay() {
-  var isToday = !currentGodzDate;
-  var el = document.getElementById('godzDateDisplay');
-  if (el) el.textContent = formatDatePl(getGodzDate()) + (isToday ? ' (dziś)' : '');
-  var banner = document.getElementById('godzDateBanner');
-  if (banner) banner.style.display = isToday ? 'none' : 'block';
-}
-function toggleGodzDate() {
-  var el = document.getElementById('godzDateManual');
-  var open = el.style.display === 'block';
-  el.style.display = open ? 'none' : 'block';
-  if (!open) document.getElementById('godzDateInput').value = getGodzDate();
-}
-function setGodzDate() {
-  var v = document.getElementById('godzDateInput').value;
-  currentGodzDate = (v && v !== localDateString()) ? v : null;
-  updateGodzDateDisplay();
-  document.getElementById('godzDateManual').style.display = 'none';
-  odswiezHistorieGodzinnej();
-}
+// Godzinny dzieli TEN SAM wybor dnia co Raport zmiany (jedna kontrolka
+// "Zmien dzien" w gornej ramce Zmiana, patrz getRaportDate/setRaportDate) —
+// osobna data tylko dla godzinnego bylaby myląca (dwa niezalezne "Zmien
+// dzien" w jednym widoku, latwo pomylic ktore gdzie dziala).
+function getGodzDate() { return getRaportDate(); }
 var HOUR_LABELS = { 7: '7:00-8:00', 8: '8:00-9:00', 9: '9:00-10:00', 10: '10:00-11:00', 11: '11:00-12:00', 12: '12:00-13:00', 13: '13:00-14:00', 14: '14:00-15:00', 15: '15:00-16:00', 16: '16:00-17:00', 17: '17:00-18:00', 18: '18:00-19:00', 19: '19:00-20:00', 20: '20:00-21:00', 21: '21:00-22:00', 22: '22:00-23:00', 23: '23:00-0:00', 0: '0:00-1:00', 1: '1:00-2:00', 2: '2:00-3:00', 3: '3:00-4:00', 4: '4:00-5:00', 5: '5:00-6:00', 6: '6:00-7:00' };
 // Grupa czasem pracuje w nadgodzinach po polnocy — godzina "0:00-1:00" itd.
 // zegarowo wypada juz na NASTEPNYM dniu kalendarzowym, ale logicznie
@@ -2753,7 +2727,7 @@ var HOUR_LABELS = { 7: '7:00-8:00', 8: '8:00-9:00', 9: '9:00-10:00', 10: '10:00-
 // wylaczona z pytania jako "z definicji nocna".
 var EARLY_HOURS = ['0:00-1:00', '1:00-2:00', '2:00-3:00', '3:00-4:00', '4:00-5:00'];
 function resolveGodzDateForSubmit(hour) {
-  if (currentGodzDate) return currentGodzDate; // recznie wybrany inny dzien ma pierwszenstwo — nie pytaj ponownie
+  if (currentRaportDate) return currentRaportDate; // recznie wybrany inny dzien ma pierwszenstwo — nie pytaj ponownie
   if (EARLY_HOURS.indexOf(hour) >= 0) {
     var isOvertime = confirm('Godzina ' + hour + ' — czy to jeszcze nadgodziny z WCZORAJSZEJ zmiany, a nie nowy dzień?\n' + hour + ' — 这仍是昨天班次的加班，不是新的一天吗？');
     if (isOvertime) {
@@ -2773,7 +2747,6 @@ function getSelectedHour() { return manualHour || getAutoHour(); }
 function updateHourDisplay() {
   var el = document.getElementById('hourVal');
   if (el) el.textContent = getSelectedHour();
-  updateGodzDateDisplay();
 }
 function toggleManualHour() { document.getElementById('hourManual').style.display = document.getElementById('hourManual').style.display === 'block' ? 'none' : 'block'; }
 function setManualHour() {

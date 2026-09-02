@@ -2710,6 +2710,32 @@ function setGodzDate() {
   odswiezHistorieGodzinnej();
 }
 var HOUR_LABELS = { 7: '7:00-8:00', 8: '8:00-9:00', 9: '9:00-10:00', 10: '10:00-11:00', 11: '11:00-12:00', 12: '12:00-13:00', 13: '13:00-14:00', 14: '14:00-15:00', 15: '15:00-16:00', 16: '16:00-17:00', 17: '17:00-18:00', 18: '18:00-19:00', 19: '19:00-20:00', 20: '20:00-21:00', 21: '21:00-22:00', 22: '22:00-23:00', 23: '23:00-0:00', 0: '0:00-1:00', 1: '1:00-2:00', 2: '2:00-3:00', 3: '3:00-4:00', 4: '4:00-5:00', 5: '5:00-6:00', 6: '6:00-7:00' };
+// Grupa czasem pracuje w nadgodzinach po polnocy — godzina "0:00-1:00" itd.
+// zegarowo wypada juz na NASTEPNYM dniu kalendarzowym, ale logicznie
+// nalezy jeszcze do WCZORAJSZEJ zmiany. Bez pytania apka cicho
+// przypisywala taki wpis do dzisiejszej daty, myląc "Historia dzisiaj"/
+// Raport zmiany kolejnej grupy, ktora rano widziala obcy wpis z nocnych
+// nadgodzin zamiast swoich danych.
+// WAZNE: pytamy o to dla KAZDEJ zmiany (A/B/C) jednakowo — zmiana to
+// tozsamosc GRUPY, nie stala pora dnia (grupa moze rotowac przez rozne
+// godziny), wiec nie wolno zakladac po samej literze ktora grupa "zwykle"
+// pracuje noca. To by bylo dokladnie tym bledem, ktorego apka ma unikac
+// wszedzie indziej (patrz plakietka zmiany, przypisanie przestoju do
+// grupy w Premiach itd.) — tu bylby taki sam blad, gdyby zmiana C byla
+// wylaczona z pytania jako "z definicji nocna".
+var EARLY_HOURS = ['0:00-1:00', '1:00-2:00', '2:00-3:00', '3:00-4:00', '4:00-5:00'];
+function resolveGodzDateForSubmit(hour) {
+  if (currentGodzDate) return currentGodzDate; // recznie wybrany inny dzien ma pierwszenstwo — nie pytaj ponownie
+  if (EARLY_HOURS.indexOf(hour) >= 0) {
+    var isOvertime = confirm('Godzina ' + hour + ' — czy to jeszcze nadgodziny z WCZORAJSZEJ zmiany, a nie nowy dzień?\n' + hour + ' — 这仍是昨天班次的加班，不是新的一天吗？');
+    if (isOvertime) {
+      var y = new Date();
+      y.setDate(y.getDate() - 1);
+      return localDateString(y);
+    }
+  }
+  return localDateString();
+}
 function getAutoHour() {
   var n = new Date(), h = n.getHours(), m = n.getMinutes();
   var rH = (m <= 10 && h > 0) ? h - 1 : (m <= 10 && h === 0) ? 23 : h;
@@ -2787,7 +2813,7 @@ function doSubmitGodzinny() {
     var payload = {
       event_type: 'RAPORT_GODZINNY', operator: op, station: st, shift: currentShift, hour: hour,
       orig_hour: (isEditingGodz && editingGodzOriginalHour) ? editingGodzOriginalHour : hour,
-      date: getGodzDate(),
+      date: resolveGodzDateForSubmit(hour),
       qty: qty, rework: String(reworkN), rework_reasons_json: JSON.stringify(reworkEntries),
       rework_other_desc: otherDesc, delay: delay, timestamp: localIsoString(now)
     };

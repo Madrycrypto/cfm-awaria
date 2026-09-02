@@ -418,7 +418,7 @@ button{cursor:pointer;font-family:var(--fh)}
 
     <div class="field">
       <div class="lbl">Uwagi &#183; &#22791;&#27880; <span class="cn">&#8211; opcjonalnie</span></div>
-      <textarea id="notesInput" placeholder="Uwagi dotycz&#261;ce zmiany...&#10;&#35831;&#22635;&#20889;&#29677;&#27425;&#22791;&#27880;..." rows="2"></textarea>
+      <textarea id="notesInput" placeholder="Uwagi dotycz&#261;ce zmiany...&#10;&#35831;&#22635;&#20889;&#29677;&#27425;&#22791;&#27880;..." rows="2" autocomplete="off"></textarea>
     </div>
 
     <button class="btn-submit" id="btnSubmit" onclick="submitForm()">
@@ -490,12 +490,12 @@ button{cursor:pointer;font-family:var(--fh)}
 
     <div class="field" id="reworkNoteField" style="display:none;">
       <div class="lbl">Uzasadnienie <span class="req">*</span> <span class="cn">&#8212; przekroczono dostępny bufor</span></div>
-      <textarea id="reworkNoteInput" placeholder="Np. korekta zaległości z poprzedniego tygodnia... · 例如：上周积压的调整..." rows="2"></textarea>
+      <textarea id="reworkNoteInput" placeholder="Np. korekta zaległości z poprzedniego tygodnia... · 例如：上周积压的调整..." rows="2" autocomplete="off"></textarea>
     </div>
 
     <div class="field">
       <div class="lbl">Uwagi &#183; &#22791;&#27880; <span class="cn">&#8211; opcjonalnie, np. które maszyny</span></div>
-      <textarea id="reworkNotesInput" rows="2" placeholder="Np. rework z OP33A i OP33B z tego tygodnia... · 例如：本周OP33A和OP33B的返修..."></textarea>
+      <textarea id="reworkNotesInput" rows="2" placeholder="Np. rework z OP33A i OP33B z tego tygodnia... · 例如：本周OP33A和OP33B的返修..." autocomplete="off"></textarea>
     </div>
 
     <button type="button" class="btn-rework-submit" id="btnReworkSubmit" onclick="submitReworkProcessing()">
@@ -526,7 +526,7 @@ button{cursor:pointer;font-family:var(--fh)}
 
     <div class="awaria-desc-box" id="awariaDescBox">
       <span class="awaria-desc-lbl" id="awariaDescLbl">Opis &#183; &#25551;&#36848; *</span>
-      <textarea class="awaria-desc-input" id="awariaDescInput" rows="3" placeholder="Opisz przyczyn&#281; awarii...&#10;&#35831;&#25551;&#36848;&#25925;&#38556;&#21407;&#22240;..."></textarea>
+      <textarea class="awaria-desc-input" id="awariaDescInput" rows="3" placeholder="Opisz przyczyn&#281; awarii...&#10;&#35831;&#25551;&#36848;&#25925;&#38556;&#21407;&#22240;..." autocomplete="off"></textarea>
     </div>
 
     <div class="div"></div>
@@ -563,7 +563,7 @@ button{cursor:pointer;font-family:var(--fh)}
       </div>
       <div class="field" style="margin-top:10px;margin-bottom:0;">
         <div class="lbl">Pow&#243;d op&#243;&#378;nienia &#183; &#24310;&#36831;&#21407;&#22240; <span class="cn">&#8211; opcjonalnie, np. brak materia&#322;u, szkolenie</span></div>
-        <input type="text" id="godzDelayInput" placeholder="Opisz pow&#243;d... &#183; 请描述原因...">
+        <input type="text" id="godzDelayInput" placeholder="Opisz pow&#243;d... &#183; 请描述原因..." autocomplete="off">
       </div>
     </div>
 
@@ -576,7 +576,7 @@ button{cursor:pointer;font-family:var(--fh)}
       <div id="godzReworkReasonsTable"></div>
       <div class="field" id="godzReworkOtherField" style="display:none;margin-top:10px;margin-bottom:0;">
         <div class="lbl">Opisz "inne" &#183; &#25551;&#36848;&#8220;&#20854;&#20182;&#8221; <span class="req">*</span></div>
-        <input type="text" id="godzReworkOtherDesc" placeholder="Opisz pow&#243;d... &#183; 请描述原因...">
+        <input type="text" id="godzReworkOtherDesc" placeholder="Opisz pow&#243;d... &#183; 请描述原因..." autocomplete="off">
       </div>
     </div>
 
@@ -741,7 +741,7 @@ button{cursor:pointer;font-family:var(--fh)}
 
     <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">Webhook URL</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Google Apps Script, u&#380;ywany te&#380; przez modu&#322; Awaria</div>
-    <input type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px;margin-bottom:8px;">
+    <input type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px;margin-bottom:8px;" autocomplete="off">
     <div id="webhookStatusLine" style="font-size:12px;margin-bottom:12px;"></div>
     <button onclick="saveWebhook()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;margin-bottom:8px;">Zapisz i testuj &#183; &#20445;&#23384;</button>
     <button onclick="pushAllSettingsToServer()" style="width:100%;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;font-family:var(--fh);font-size:13px;font-weight:700;padding:10px;cursor:pointer;margin-bottom:8px;">Wy&#347;lij wszystkie ustawienia do arkusza teraz &#183; 立即发送所有设置到表格</button>
@@ -753,15 +753,15 @@ button{cursor:pointer;font-family:var(--fh)}
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Bezpo&#347;rednia integracja z arkuszem Feishu przez proxy &#8212; raport, przyczyny jako&#347;ci i awarie</div>
     <div class="field">
       <div class="lbl" style="font-size:9px;">Feishu Proxy URL</div>
-      <input type="text" id="feishuProxyInput" placeholder="https://your-proxy.workers.dev" style="font-size:12px;">
+      <input type="text" id="feishuProxyInput" placeholder="https://your-proxy.workers.dev" style="font-size:12px;" autocomplete="off">
     </div>
     <div class="field">
       <div class="lbl" style="font-size:9px;">Spreadsheet Token</div>
-      <input type="text" id="feishuSheetTokenInput" placeholder="shtcnXXXXXXXX" style="font-size:12px;">
+      <input type="text" id="feishuSheetTokenInput" placeholder="shtcnXXXXXXXX" style="font-size:12px;" autocomplete="off">
     </div>
     <div class="field">
       <div class="lbl" style="font-size:9px;">Sheet ID (nazwa zak&#322;adki raportu)</div>
-      <input type="text" id="feishuSheetIdInput" placeholder="RaportDzienny" style="font-size:12px;">
+      <input type="text" id="feishuSheetIdInput" placeholder="RaportDzienny" style="font-size:12px;" autocomplete="off">
     </div>
     <div id="feishuStatusLine" style="margin-bottom:8px;"></div>
     <button onclick="saveFeishu()" style="width:100%;background:#3370FF;color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz Feishu &#183; &#20445;&#23384;&#39134;&#20070;</button>

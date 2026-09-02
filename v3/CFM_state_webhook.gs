@@ -176,11 +176,13 @@ function handleReport(ss, p) {
   // kolwiek go akurat wypelnia — jesli juz istnieje wiersz dla tej daty/
   // zmiany/stanowiska, podmien go zamiast dopisywac duplikat (operator NIE
   // jest czescia klucza, to tylko informacja kto ostatnio wyslal/poprawil).
-  var data = sheet.getDataRange().getValues();
-  for (var i = data.length - 1; i >= 1; i--) {
-    var r = data[i];
+  var lastRow = sheet.getLastRow();
+  var tail = getTailRows_(sheet, 5000);
+  for (var i = tail.length - 1; i >= 0; i--) {
+    var r = tail[i];
     if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station) {
-      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      var sheetRow = (lastRow - tail.length) + i + 1;
+      sheet.getRange(sheetRow, 1, 1, row.length).setValues([row]);
       return jsonResponse({ status: 'ok', updated: true });
     }
   }
@@ -191,11 +193,13 @@ function handleReport(ss, p) {
 function handleDeleteRaportDzienny(ss, p) {
   var sheet = ss.getSheetByName('RaportDzienny');
   if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
-  var data = sheet.getDataRange().getValues();
-  for (var i = data.length - 1; i >= 1; i--) {
-    var r = data[i];
+  var lastRow = sheet.getLastRow();
+  var tail = getTailRows_(sheet, 5000);
+  for (var i = tail.length - 1; i >= 0; i--) {
+    var r = tail[i];
     if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station) {
-      sheet.deleteRow(i + 1);
+      var sheetRow = (lastRow - tail.length) + i + 1;
+      sheet.deleteRow(sheetRow);
       return jsonResponse({ status: 'ok', deleted: true });
     }
   }
@@ -205,12 +209,16 @@ function handleDeleteRaportDzienny(ss, p) {
 function handleHistoriaDzienna(ss, p) {
   var sheet = ss.getSheetByName('RaportDzienny');
   if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
-  var data = sheet.getDataRange().getValues();
-  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+  var data = getTailRows_(sheet, 5000);
+  // Data z apki — pozwala przegladac/uzupelniac historie dowolnego
+  // wczesniejszego dnia, nie tylko dzisiejszego (patrz Zmien dzien w
+  // Raporcie zmiany). Fallback na dzisiaj dla starszych wersji apki bez
+  // pola date.
+  var targetDate = p.date || Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
   var historia = [], suma = 0, scrap = 0, rework = 0, recovered = 0;
-  for (var i = 1; i < data.length; i++) {
+  for (var i = 0; i < data.length; i++) {
     var r = data[i];
-    if (normalizeDate_(r[1]) !== today) continue;
+    if (normalizeDate_(r[1]) !== targetDate) continue;
     if (p.stanowisko && r[3] !== p.stanowisko) continue;
     if (p.operator && r[4] !== p.operator) continue;
     var entry = {
@@ -333,10 +341,29 @@ function handlePremia(ss, p) {
 // Raportu Zmiany na koncu zmiany — dopiero wyslanie Raportu Zmiany
 // faktycznie zapisuje dane i zasila bufor, zeby nic nie liczylo sie podwojnie.
 // timestamp | date | shift | hour | station | operator | qty | rework | rework_reasons_json | rework_other_desc | delay
+// Czyta tylko OSTATNIE maxRows wierszy arkusza (bez naglowka) zamiast
+// calej historii od poczatku — Godzinny/Dzienny dotycza prawie zawsze
+// niedawnych dni (nawet wpisy "wsteczne" trafiaja fizycznie na KONIEC
+// arkusza, tylko z wczesniejsza data w kolumnie), a pelne
+// getDataRange().getValues() na duzym, rosnacym z czasem arkuszu jest
+// glownym powodem powolnego wczytywania. Jesli kiedys trzeba by wrocic
+// dalej niz maxRows wierszy wstecz (raczej nie w tym zastosowaniu), ta
+// funkcja tego nie znajdzie — zwieksz maxRows w razie potrzeby.
+function getTailRows_(sheet, maxRows) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow <= 1) return [];
+  var startRow = Math.max(2, lastRow - maxRows + 1);
+  return sheet.getRange(startRow, 1, lastRow - startRow + 1, lastCol).getValues();
+}
+
 function handleRaportGodzinny(ss, p) {
   var sheet = getOrCreateSheet(ss, 'RaportGodzinny', ['timestamp', 'date', 'shift', 'hour', 'station', 'operator', 'qty', 'rework', 'rework_reasons_json', 'rework_other_desc', 'delay']);
   var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
-  var dateStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  // Data z apki (uzytkownik moze wybrac dowolny wczesniejszy dzien, zeby
+  // uzupelnic/poprawic zapomniany raport) — z fallbackiem na dzisiaj dla
+  // starszych wersji apki, ktore jeszcze nie wysylaja pola date.
+  var dateStr = p.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var row = [
     p.timestamp || '', dateStr, p.shift || '', p.hour || '', p.station || '', p.operator || '',
     Number(p.qty) || 0, Number(p.rework) || 0, p.rework_reasons_json || '', p.rework_other_desc || '', p.delay || '',
@@ -349,11 +376,13 @@ function handleRaportGodzinny(ss, p) {
   // samej godziny w edycji nie trafialaby w oryginalny wiersz i zamiast go
   // "przemianowac" tworzylaby nowy, zostawiajac stary bez zmian.
   var origHour = p.orig_hour || p.hour;
-  var data = sheet.getDataRange().getValues();
-  for (var i = data.length - 1; i >= 1; i--) {
-    var r = data[i];
+  var lastRow = sheet.getLastRow();
+  var tail = getTailRows_(sheet, 5000);
+  for (var i = tail.length - 1; i >= 0; i--) {
+    var r = tail[i];
     if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === origHour && r[4] === p.station) {
-      sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+      var sheetRow = (lastRow - tail.length) + i + 1;
+      sheet.getRange(sheetRow, 1, 1, row.length).setValues([row]);
       return jsonResponse({ status: 'ok', updated: true });
     }
   }
@@ -365,12 +394,14 @@ function handleDeleteRaportGodzinny(ss, p) {
   var sheet = ss.getSheetByName('RaportGodzinny');
   if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
   var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
-  var dateStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-  var data = sheet.getDataRange().getValues();
-  for (var i = data.length - 1; i >= 1; i--) {
-    var r = data[i];
+  var dateStr = p.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var lastRow = sheet.getLastRow();
+  var tail = getTailRows_(sheet, 5000);
+  for (var i = tail.length - 1; i >= 0; i--) {
+    var r = tail[i];
     if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === p.hour && r[4] === p.station) {
-      sheet.deleteRow(i + 1);
+      var sheetRow = (lastRow - tail.length) + i + 1;
+      sheet.deleteRow(sheetRow);
       return jsonResponse({ status: 'ok', deleted: true });
     }
   }
@@ -381,12 +412,15 @@ function handleHistoriaGodzinna(ss, p) {
   var sheet = ss.getSheetByName('RaportGodzinny');
   if (!sheet) return jsonResponse({ status: 'ok', historia: [], suma: 0, rework: 0 });
   var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
-  var today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-  var data = sheet.getDataRange().getValues();
+  // Data z apki — pozwala przegladac/uzupelniac historie dowolnego
+  // wczesniejszego dnia, nie tylko dzisiejszego. Fallback na dzisiaj dla
+  // starszych wersji apki bez pola date.
+  var targetDate = p.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var data = getTailRows_(sheet, 5000);
   var historia = [], suma = 0, rework = 0;
-  for (var i = 1; i < data.length; i++) {
+  for (var i = 0; i < data.length; i++) {
     var r = data[i];
-    if (normalizeDate_(r[1]) !== today) continue;
+    if (normalizeDate_(r[1]) !== targetDate) continue;
     if (p.stanowisko && r[4] !== p.stanowisko) continue;
     if (p.operator && r[5] !== p.operator) continue;
     if (p.shift && r[2] !== p.shift) continue;

@@ -125,6 +125,12 @@ tbody tr.grouphead td{padding-top:16px}
 .barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
 .barrow-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);white-space:nowrap}
 .barrow-pct b{font-family:var(--fh);font-size:12.5px;font-weight:800}
+.dailybarrow{margin-bottom:4px}
+.dailybarrow:last-child{margin-bottom:0}
+.worktimecorr{display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:4px 2px 0 0;font-size:9.5px;color:var(--faint)}
+.wtinput{width:52px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:12px;text-align:center;padding:4px 3px}
+.wtinput:focus{outline:none;border-color:var(--blue)}
+.wtinput::placeholder{color:var(--faint);font-weight:600}
 
 .note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
 .note b{color:var(--text)}
@@ -159,7 +165,7 @@ tbody tr.grouphead td{padding-top:16px}
 <script>
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
 
-var STATE = { monthDate: new Date(), rows: [], reworkRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {} };
+var STATE = { monthDate: new Date(), rows: [], reworkRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {} };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -200,6 +206,8 @@ function init() {
       } catch (e) {}
       try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
       try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
+      try { STATE.czasPracy = JSON.parse(u.cfm_premia_czas_pracy || '{}'); } catch (e) { STATE.czasPracy = {}; }
+      try { STATE.worktimeKorekty = JSON.parse(u.cfm_statystyki_worktime || '{}'); } catch (e) { STATE.worktimeKorekty = {}; }
     })
     .catch(function() {})
     .then(loadMonth);
@@ -508,6 +516,8 @@ function renderKpis(groups, days, periodLabel) {
       totalActual += r.qty; totalPlan += r.plan; totalOk += r.ok_count; totalNg += (r.scrap + r.rework);
     });
   });
+  var totalRecovered = STATE.reworkRows.filter(function(r) { return days.indexOf(r.date) >= 0; }).reduce(function(s, r) { return s + (Number(r.recovered) || 0); }, 0);
+  var totalOkWithRecovered = totalOk + totalRecovered;
   var completion = totalPlan > 0 ? Math.round((totalActual / totalPlan) * 100) : null;
   var passRate = totalActual > 0 ? ((totalOk / totalActual) * 100).toFixed(1) : null;
   var periodLbl = periodLabel === 'mies.' ? '(mies.)' : '(tydz.)';
@@ -515,7 +525,7 @@ function renderKpis(groups, days, periodLabel) {
   var kpis = [
     { lbl: 'Wykonanie planu ' + periodLbl + ' (GP12)', lblCn: '计划完成率' + periodLblCn + '（GP12）', val: completion === null ? '&#8212;' : completion + '%', sub: 'plan: ' + fmt(totalPlan) + ' szt. · 计划', bar: completion === null ? 0 : Math.min(completion, 100), color: completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)' },
     { lbl: 'Pass rate ' + periodLbl + ' (GP12)', lblCn: '合格率' + periodLblCn + '（GP12）', val: passRate === null ? '&#8212;' : passRate + '%', sub: totalNg + ' szt. braków · 件不合格', bar: passRate || 0, color: 'var(--blue)' },
-    { lbl: 'Wyprodukowano (GP12)', lblCn: '已生产（GP12）', val: fmt(totalActual), sub: 'zgodnych: ' + fmt(totalOk) + ' · 合格', bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
+    { lbl: 'Wyprodukowano (GP12)', lblCn: '已生产（GP12）', val: fmt(totalActual), sub: 'zgodnych: ' + fmt(totalOkWithRecovered) + (totalRecovered > 0 ? ' (w tym odzyskane: ' + fmt(totalRecovered) + ')' : '') + ' · 合格', bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
     { lbl: 'Wpisów w okresie', lblCn: '本期记录数', val: groups.reduce(function(s, g) { return s + Object.keys(g.byDate).length; }, 0), sub: groups.length + ' stanowisko/zmiana · 工位/班次', bar: 100, color: 'var(--faint)' }
   ];
   document.getElementById('kpis').innerHTML = kpis.map(function(k) {
@@ -581,6 +591,32 @@ function planEntryFor(station, shift, dateIso) {
   var e = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station] && STATE.monthlyPlan[mk][station][shift] && STATE.monthlyPlan[mk][station][shift][dateIso];
   return e ? Number(e) : null;
 }
+// Standardowy pelny czas pracy stanowiska w minutach (ta sama liczba co
+// "Czas pracy" w konfiguracji Premii) — punkt odniesienia dla korekty
+// dostepnego czasu ponizej.
+function getFullShiftMinutes(station) {
+  return Number(STATE.czasPracy[station]) || 450;
+}
+function worktimeKey(station, shift, dateIso) { return station + '||' + shift + '||' + dateIso; }
+// Reczna korekta na konkretny dzien/stanowisko/zmiane — ile faktycznie
+// minut mial dostepnych pracownik (np. czekal na piec) — null = brak
+// korekty, zaklada sie pelny czas.
+function getWorktimeKorekta(station, shift, dateIso) {
+  var v = STATE.worktimeKorekty[worktimeKey(station, shift, dateIso)];
+  return (v || v === 0) ? Number(v) : null;
+}
+// Plan skorygowany o dostepny czas pracy — laty resztkowa, nieprzewidziana
+// odchylke ktorej nie zlapal Plan (np. dzien przed lutowaniem, brak ramek,
+// oczekiwanie na piec) — NIE zastepuje poprawienia samego Planu, tylko
+// dodatkowa, opcjonalna korekta na pojedynczy dzien.
+function effectivePlanEntry(station, shift, dateIso) {
+  var base = planEntryFor(station, shift, dateIso);
+  if (base === null) return null;
+  var korekta = getWorktimeKorekta(station, shift, dateIso);
+  if (korekta === null) return base;
+  var full = getFullShiftMinutes(station);
+  return full > 0 ? Math.round(base * (korekta / full)) : base;
+}
 // Pelny zaplanowany wolumen dla stanowiska+zmiany w podanym zakresie dni
 // (nawet dni jeszcze bez raportu). Jesli w Planie miesiecznym jest
 // CHOCIAZ JEDEN jawny wpis dla tego stanowiska+zmiany w tym okresie,
@@ -593,7 +629,7 @@ function planEntryFor(station, shift, dateIso) {
 function getPeriodPlan(station, shift, days) {
   var hasAnyEntry = days.some(function(d) { return planEntryFor(station, shift, d) !== null; });
   if (hasAnyEntry) {
-    return days.reduce(function(sum, d) { return sum + (planEntryFor(station, shift, d) || 0); }, 0);
+    return days.reduce(function(sum, d) { return sum + (effectivePlanEntry(station, shift, d) || 0); }, 0);
   }
   var weekdays = days.filter(function(d) {
     var parts = d.split('-');
@@ -661,6 +697,32 @@ function renderWeeklyBalance() {
 // od przelacznika u gory strony) — dzien bez zadnego wpisu i bez planu
 // jest przez barsHtml/getPeriodPlan po prostu pomijany per stanowisko
 // (patrz komentarz w barsHtml), wiec dni calkowicie puste pokazuja "Brak danych."
+// Wiersze paskow dla POJEDYNCZEGO dnia, per stanowisko+zmiana (nie
+// zagregowane po stanowisku jak w barsHtml) — zeby kazdy wiersz mogl miec
+// wlasne pole korekty dostepnego czasu pracy. Pokazujemy tylko
+// stanowisko+zmiane ktore maja tego dnia dane LUB jawny wpis w Planie
+// (ten sam warunek co w barsHtml, zeby nie pokazywac nieuzywanych zmian).
+function dailyBarsHtml(groups, dateIso) {
+  var rows = groups.filter(function(g) {
+    var hasData = !!g.byDate[dateIso];
+    var hasPlan = planEntryFor(g.station, g.shift, dateIso) !== null;
+    return hasData || hasPlan;
+  });
+  if (!rows.length) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
+  return rows.map(function(g) {
+    var actual = g.byDate[dateIso] ? g.byDate[dateIso].qty : 0;
+    var plan = effectivePlanEntry(g.station, g.shift, dateIso) || 0;
+    var pct = plan > 0 ? Math.round((actual / plan) * 100) : 0;
+    var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
+    var full = getFullShiftMinutes(g.station);
+    var korekta = getWorktimeKorekta(g.station, g.shift, dateIso);
+    return '<div class="dailybarrow"><div class="barrow"><div class="barrow-lbl">' + g.station + ' ' + g.shift + '</div>' +
+      '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
+      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(actual) + '/' + fmt(plan) + '</div></div>' +
+      '<div class="worktimecorr">dostępny czas pracy (min) &#183; 可用工作时间<input type="number" class="wtinput" min="0" placeholder="' + full + '" value="' + (korekta === null ? '' : korekta) + '" data-station="' + g.station.replace(/"/g, '&quot;') + '" data-shift="' + g.shift + '" data-date="' + dateIso + '"></div></div>';
+  }).join('');
+}
+
 function renderDailyBalance(days) {
   var el = document.getElementById('dailyBalance');
   if (!days.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
@@ -670,8 +732,26 @@ function renderDailyBalance(days) {
     var parts = d.split('-');
     var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
     var label = DAY_LABELS[(wd + 6) % 7] + ' ' + parts[2] + '/' + parts[1] + (d === todayISO ? ' · dziś' : '');
-    return '<div class="weekblock"><div class="weekblock-head">' + label + '</div><div class="barsgrid">' + barsHtml(dayGroups, [d]) + '</div></div>';
+    return '<div class="weekblock"><div class="weekblock-head">' + label + '</div><div class="barsgrid">' + dailyBarsHtml(dayGroups, d) + '</div></div>';
   }).join('');
+  el.querySelectorAll('.wtinput').forEach(function(inp) {
+    inp.addEventListener('change', function() {
+      saveWorktimeKorekta(inp.dataset.station, inp.dataset.shift, inp.dataset.date, inp.value);
+    });
+  });
+}
+
+function saveWorktimeKorekta(station, shift, dateIso, value) {
+  var key = worktimeKey(station, shift, dateIso);
+  var n = value === '' ? NaN : Math.max(0, Math.round(Number(value)));
+  if (!isNaN(n)) STATE.worktimeKorekty[key] = n;
+  else delete STATE.worktimeKorekty[key];
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_statystyki_worktime', wartosc: JSON.stringify(STATE.worktimeKorekty) })
+  }).catch(function() {});
+  render();
 }
 
 // Bilans reworku per strefa — ile faktycznie trafilo do przetworzenia

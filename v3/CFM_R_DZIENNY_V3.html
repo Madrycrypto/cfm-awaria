@@ -46,8 +46,9 @@ button{cursor:pointer;font-family:var(--fh)}
 .div{height:1px;background:var(--border);margin:10px 0}
 .remembered{font-size:10px;color:var(--blue);margin-top:5px;display:flex;align-items:center;gap:4px}
 
-.shift-badge{background:var(--surface);border:1.5px solid var(--blue);border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.shift-val{font-family:var(--fh);font-size:28px;font-weight:900;color:var(--blue);letter-spacing:0.02em;line-height:1}
+.shift-badge{background:var(--surface);border:1.5px solid var(--blue);border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
+.shift-badge>div:first-child{flex-shrink:0}
+.shift-val{font-family:var(--fh);font-size:28px;font-weight:900;color:var(--blue);letter-spacing:0.02em;line-height:1;white-space:nowrap}
 .shift-sub{font-size:11px;color:var(--muted);text-align:right;line-height:1.6}
 .shift-selector{display:flex;gap:8px;margin-bottom:10px}
 .shift-btn{flex:1;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;color:var(--muted);font-family:var(--fh);font-size:16px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;padding:9px;text-align:center;transition:all 0.15s}
@@ -294,14 +295,27 @@ button{cursor:pointer;font-family:var(--fh)}
     </div>
   </div>
 
-  <div class="shift-badge" id="hourBadge" style="display:none;">
-    <div>
-      <div class="shift-val" id="hourVal">&#8211;</div>
+  <div id="hourBadgeWrap" style="display:none;margin-bottom:10px;">
+    <div class="shift-badge" id="hourBadge" style="margin-bottom:0;">
+      <div>
+        <div class="shift-val" id="hourVal">&#8211;</div>
+      </div>
+      <div class="shift-sub">
+        Raport za uko&#324;czon&#261; godzin&#281;<br>
+        <span class="cn">&#25253;&#21578;&#24050;&#32467;&#26463;&#30340;&#23567;&#26102;</span><br>
+        <a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);">Zmie&#324; r&#281;cznie &#183; &#25163;&#21160;</a><br>
+        <span id="godzDateDisplay" style="color:var(--text);"></span>
+        <a href="#" onclick="toggleGodzDate();return false;" style="color:var(--blue);">Zmie&#324; dzie&#324; &#183; &#20462;&#25913;&#26085;&#26399;</a>
+      </div>
     </div>
-    <div class="shift-sub">
-      Raport za uko&#324;czon&#261; godzin&#281; &#183; &#25253;&#21578;&#24050;&#32467;&#26463;&#30340;&#23567;&#26102;<br>
-      <a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);">Zmie&#324; r&#281;cznie &#183; &#25163;&#21160;</a>
+    <div id="godzDateBanner" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(217,119,6,0.16);border:1px solid rgba(240,160,48,0.35);border-radius:9px;font-size:11.5px;color:#f0a030;font-weight:700;text-align:center;">
+      &#9888; Wprowadzasz dane dla innego dnia! &#183; 正在为其他日期录入数据!
     </div>
+  </div>
+
+  <div id="godzDateManual" style="display:none;margin-bottom:10px;">
+    <div class="lbl">Dzie&#324; &#183; &#26085;&#26399;</div>
+    <input type="date" id="godzDateInput" onchange="setGodzDate()" style="width:100%;font-size:14px;padding:10px;margin-top:6px;">
   </div>
 
   <div id="hourBlock" style="display:none;">
@@ -818,7 +832,7 @@ function switchView(v) {
   document.getElementById('shiftBlock').style.display = (v === 'awaria' || v === 'rework') ? 'none' : 'block';
   document.getElementById('hourBlock').style.display = v === 'godzinny' ? 'block' : 'none';
   document.getElementById('shiftBadge').style.display = (v === 'awaria' || v === 'rework') ? 'none' : 'flex';
-  document.getElementById('hourBadge').style.display = v === 'godzinny' ? 'flex' : 'none';
+  document.getElementById('hourBadgeWrap').style.display = v === 'godzinny' ? 'block' : 'none';
   document.getElementById('stationField').style.display = v === 'rework' ? 'none' : 'block';
   document.getElementById('opStationGrid').style.gridTemplateColumns = v === 'rework' ? '1fr' : '1fr 1fr';
   if (v === 'godzinny') { updateHourDisplay(); odswiezHistorieGodzinnej(); }
@@ -830,9 +844,9 @@ function switchView(v) {
 var DZ = {
   liczba: 3,
   zmiany: [
-    { nr: 1, label: 'A', od: '07:00', do: '15:00' },
-    { nr: 2, label: 'B', od: '15:00', do: '23:00' },
-    { nr: 3, label: 'C', od: '23:00', do: '07:00' }
+    { nr: 1, label: 'A', od: '07:00', do: '15:00', przerwa: 30 },
+    { nr: 2, label: 'B', od: '15:00', do: '23:00', przerwa: 30 },
+    { nr: 3, label: 'C', od: '23:00', do: '07:00', przerwa: 30 }
   ]
 };
 function getShifts() { var s = localStorage.getItem('cfm_shifts'); return s ? JSON.parse(s) : DZ; }
@@ -2361,7 +2375,14 @@ function renderShiftsUI(z) {
   var html = '';
   for (var i = 0; i < z.liczba; i++) {
     var zm = z.zmiany[i];
-    html += '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:12px;color:var(--muted);width:70px;">Zmiana ' + labels[i] + '</span><input type="time" id="zmOd' + i + '" value="' + zm.od + '" style="flex:1;font-size:14px;padding:6px;"><span style="font-size:11px;color:var(--muted);">&rarr;</span><input type="time" id="zmDo' + i + '" value="' + zm.do + '" style="flex:1;font-size:14px;padding:6px;"></div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<span style="font-size:12px;color:var(--muted);width:70px;">Zmiana ' + labels[i] + '</span>' +
+      '<input type="time" id="zmOd' + i + '" value="' + zm.od + '" style="flex:1;font-size:14px;padding:6px;">' +
+      '<span style="font-size:11px;color:var(--muted);">&rarr;</span>' +
+      '<input type="time" id="zmDo' + i + '" value="' + zm.do + '" style="flex:1;font-size:14px;padding:6px;">' +
+      '<input type="number" min="0" id="zmPrzerwa' + i + '" value="' + (zm.przerwa || 0) + '" placeholder="0" title="Przerwa (min) &#183; 休息时间（分钟）" style="width:56px;font-size:14px;padding:6px;text-align:center;">' +
+      '<span style="font-size:10px;color:var(--faint);white-space:nowrap;">min przerwy<span class="cn" style="display:block;">休息</span></span>' +
+    '</div>';
   }
   grid.innerHTML = html;
   renderStationOvertimeList();
@@ -2403,6 +2424,11 @@ function toggleStationOvertimeRow(i) {
   dot.style.transform = checked ? 'translateX(20px)' : 'translateX(0)';
   dot.style.background = checked ? '#fff' : '#888';
 }
+// Zwraca DOSTEPNY czas pracy (godziny od-do MINUS przerwa) — nie sam surowy
+// czas zegarowy zmiany. Uzywane do Cel/godzine w Raporcie godzinnym oraz do
+// przeliczania nadgodzin — bez odjecia przerwy cel/h wychodzil zawyzony
+// (np. 700 szt / 8h = 87.5/h zamiast poprawnych 700 / 7.5h = 93.3/h przy
+// 30 min przerwy).
 function getShiftDurationHours(shiftLabel) {
   var shifts = getShifts();
   var labels = ['A', 'B', 'C'];
@@ -2414,15 +2440,17 @@ function getShiftDurationHours(shiftLabel) {
   var doH = parseInt(doParts[0]) + parseInt(doParts[1]) / 60;
   var dur = doH - od;
   if (dur <= 0) dur += 24;
-  return dur;
+  dur -= Number(zm.przerwa || 0) / 60;
+  return dur > 0 ? dur : 0.1;
 }
 
 function saveShifts() {
   var z = getShifts();
   for (var i = 0; i < z.liczba; i++) {
-    var od = document.getElementById('zmOd' + i), doEl = document.getElementById('zmDo' + i);
+    var od = document.getElementById('zmOd' + i), doEl = document.getElementById('zmDo' + i), przerwaEl = document.getElementById('zmPrzerwa' + i);
     if (od) z.zmiany[i].od = od.value;
     if (doEl) z.zmiany[i].do = doEl.value;
+    if (przerwaEl) z.zmiany[i].przerwa = Number(przerwaEl.value) || 0;
   }
   localStorage.setItem('cfm_shifts', JSON.stringify(z));
 
@@ -2656,8 +2684,31 @@ function mergeReasonMapFromServer(key, serverVal) {
 // liczony automatycznie z celu/zmiane (Panel Admina -> Cele), nie ma osobnej
 // konfiguracji celu jak w starej apce godzinnej.
 var manualHour = null;
+var currentGodzDate = null; // null = dzisiaj; ustawiane recznie zeby wprowadzic/poprawic zapomniany raport z wczesniejszego dnia
 var isEditingGodz = false;
 var editingGodzOriginalHour = null;
+function getGodzDate() { return currentGodzDate || localDateString(); }
+function formatDatePl(iso) { var p = (iso || '').split('-'); return p.length === 3 ? (p[2] + '.' + p[1] + '.' + p[0]) : iso; }
+function updateGodzDateDisplay() {
+  var isToday = !currentGodzDate;
+  var el = document.getElementById('godzDateDisplay');
+  if (el) el.textContent = formatDatePl(getGodzDate()) + (isToday ? ' (dziś)' : '');
+  var banner = document.getElementById('godzDateBanner');
+  if (banner) banner.style.display = isToday ? 'none' : 'block';
+}
+function toggleGodzDate() {
+  var el = document.getElementById('godzDateManual');
+  var open = el.style.display === 'block';
+  el.style.display = open ? 'none' : 'block';
+  if (!open) document.getElementById('godzDateInput').value = getGodzDate();
+}
+function setGodzDate() {
+  var v = document.getElementById('godzDateInput').value;
+  currentGodzDate = (v && v !== localDateString()) ? v : null;
+  updateGodzDateDisplay();
+  document.getElementById('godzDateManual').style.display = 'none';
+  odswiezHistorieGodzinnej();
+}
 var HOUR_LABELS = { 7: '7:00-8:00', 8: '8:00-9:00', 9: '9:00-10:00', 10: '10:00-11:00', 11: '11:00-12:00', 12: '12:00-13:00', 13: '13:00-14:00', 14: '14:00-15:00', 15: '15:00-16:00', 16: '16:00-17:00', 17: '17:00-18:00', 18: '18:00-19:00', 19: '19:00-20:00', 20: '20:00-21:00', 21: '21:00-22:00', 22: '22:00-23:00', 23: '23:00-0:00', 0: '0:00-1:00', 1: '1:00-2:00', 2: '2:00-3:00', 3: '3:00-4:00', 4: '4:00-5:00', 5: '5:00-6:00', 6: '6:00-7:00' };
 function getAutoHour() {
   var n = new Date(), h = n.getHours(), m = n.getMinutes();
@@ -2668,6 +2719,7 @@ function getSelectedHour() { return manualHour || getAutoHour(); }
 function updateHourDisplay() {
   var el = document.getElementById('hourVal');
   if (el) el.textContent = getSelectedHour();
+  updateGodzDateDisplay();
 }
 function toggleManualHour() { document.getElementById('hourManual').style.display = document.getElementById('hourManual').style.display === 'block' ? 'none' : 'block'; }
 function setManualHour() {
@@ -2735,6 +2787,7 @@ function doSubmitGodzinny() {
     var payload = {
       event_type: 'RAPORT_GODZINNY', operator: op, station: st, shift: currentShift, hour: hour,
       orig_hour: (isEditingGodz && editingGodzOriginalHour) ? editingGodzOriginalHour : hour,
+      date: getGodzDate(),
       qty: qty, rework: String(reworkN), rework_reasons_json: JSON.stringify(reworkEntries),
       rework_other_desc: otherDesc, delay: delay, timestamp: localIsoString(now)
     };
@@ -2761,7 +2814,7 @@ function odswiezHistorieGodzinnej() {
   var cel = getCelGodzine();
   if (!wh) { el.innerHTML = '<div class="reason-empty-hint">Brak połączenia (Panel Admina &#8594; Połączenie) &#183; 未连接（管理面板 &#8594; 连接）</div>'; return; }
   el.innerHTML = '<div class="reason-empty-hint">Ładowanie&#8230; &#183; 加载中...</div>';
-  fetch(wh + '?event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&shift=' + encodeURIComponent(currentShift))
+  fetch(wh + '?event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&shift=' + encodeURIComponent(currentShift) + '&date=' + encodeURIComponent(getGodzDate()))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { el.innerHTML = '<div class="reason-empty-hint">Błąd połączenia · 连接错误</div>'; return; }
@@ -2822,7 +2875,7 @@ function deleteGodzEntry(i) {
   if (!confirm('Usunąć wpis ' + r.godzina + ' (' + r.qty + ' szt)? · 删除该条记录？')) return;
   var wh = getWH();
   if (!wh) return;
-  var payload = { event_type: 'DELETE_RAPORT_GODZINNY', station: document.getElementById('stationSel').value, operator: document.getElementById('operatorSel').value, shift: currentShift, hour: r.godzina };
+  var payload = { event_type: 'DELETE_RAPORT_GODZINNY', station: document.getElementById('stationSel').value, operator: document.getElementById('operatorSel').value, shift: currentShift, hour: r.godzina, date: getGodzDate() };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
   showToast('Wpis usunięty · 记录已删除', 'ok');

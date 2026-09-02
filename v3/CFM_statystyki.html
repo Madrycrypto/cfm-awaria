@@ -114,17 +114,17 @@ tbody tr.grouphead td{padding-top:16px}
 .subrow td{padding-top:2px;padding-bottom:10px;color:var(--muted);font-size:11.5px;border-bottom:1px solid var(--border-soft)}
 .subrow .pr{font-variant-numeric:tabular-nums;font-weight:600}
 
-.barsgrid{display:flex;flex-direction:column;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px}
-.weekblock{margin-bottom:14px}
+.barsgrid{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.weekblock{margin-bottom:10px}
 .weekblock:last-child{margin-bottom:0}
-.weekblock-head{font-family:var(--fh);font-weight:700;font-size:13px;color:var(--muted);margin-bottom:8px;padding-left:2px}
-.weekblock .barsgrid{padding:16px 18px;gap:12px}
-.barrow{display:grid;grid-template-columns:170px 1fr 130px;align-items:center;gap:16px}
-.barrow-lbl{font-family:var(--fh);font-weight:700;font-size:14px}
-.bartrack{position:relative;height:22px;background:var(--border-soft);border-radius:6px;overflow:hidden}
-.barfill{position:absolute;left:0;top:0;height:100%;border-radius:6px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
-.barrow-pct{text-align:right;font-variant-numeric:tabular-nums}
-.barrow-pct b{font-family:var(--fh);font-size:17px;font-weight:800}
+.weekblock-head{font-family:var(--fh);font-weight:700;font-size:12px;color:var(--muted);margin-bottom:6px;padding-left:2px}
+.weekblock .barsgrid{padding:10px 12px;gap:6px}
+.barrow{display:grid;grid-template-columns:64px 1fr 84px;align-items:center;gap:8px}
+.barrow-lbl{font-family:var(--fh);font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bartrack{position:relative;height:11px;background:var(--border-soft);border-radius:5px;overflow:hidden}
+.barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
+.barrow-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);white-space:nowrap}
+.barrow-pct b{font-family:var(--fh);font-size:12.5px;font-weight:800}
 
 .note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
 .note b{color:var(--text)}
@@ -135,7 +135,7 @@ tbody tr.grouphead td{padding-top:16px}
 @media (max-width:760px){
   .kpis{grid-template-columns:repeat(2,1fr)}
   h1{font-size:24px}
-  .barrow{grid-template-columns:120px 1fr 90px;gap:10px}
+  .barrow{grid-template-columns:52px 1fr 70px;gap:6px}
 }
 </style>
 </head>
@@ -159,7 +159,7 @@ tbody tr.grouphead td{padding-top:16px}
 <script>
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
 
-var STATE = { monthDate: new Date(), rows: [], reworkRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'] };
+var STATE = { monthDate: new Date(), rows: [], reworkRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {} };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -198,6 +198,8 @@ function init() {
         var shifts = JSON.parse(u.cfm_shifts || 'null');
         if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
       } catch (e) {}
+      try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
+      try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
     })
     .catch(function() {})
     .then(loadMonth);
@@ -565,18 +567,70 @@ function renderPivot(groups, days, periodLabel) {
   table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
 }
 
+// Plan na DANY dzien dla stanowiska+zmiany — z Planu miesiecznego jesli
+// jest jawny wpis, inaczej z Cele (ale TYLKO dla dni roboczych pon-pt;
+// sobota/niedziela bez jawnego wpisu w Planie = nie planujemy tam
+// produkcji, wiec nie doliczamy do niej domyslnego celu). Uzywane do
+// liczenia PELNEGO zaplanowanego wolumenu okresu (miesiac/tydzien) —
+// wlacznie z dniami, ktore jeszcze nie mialy raportu — a nie tylko sumy
+// planu z dni juz faktycznie zaraportowanych.
+function planEntryFor(station, shift, dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var e = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station] && STATE.monthlyPlan[mk][station][shift] && STATE.monthlyPlan[mk][station][shift][dateIso];
+  return e ? Number(e) : null;
+}
+// Pelny zaplanowany wolumen dla stanowiska+zmiany w podanym zakresie dni
+// (nawet dni jeszcze bez raportu). Jesli w Planie miesiecznym jest
+// CHOCIAZ JEDEN jawny wpis dla tego stanowiska+zmiany w tym okresie,
+// uzywamy WYLACZNIE jawnych wpisow (dni bez wpisu = 0) — to poprawnie
+// obsluguje stanowiska nieregularne (np. OP40, pracuje co ktorys dzien),
+// ktore NIE powinny dostawac domyslnego celu na kazdy dzien roboczy.
+// Dopiero gdy dla calego okresu nie ma ANI JEDNEGO wpisu w Planie (nikt
+// jeszcze nie ustawil planu dzien-po-dzien dla tego stanowiska), spadamy
+// na szacunek: stale Cele x liczba dni roboczych (pon-pt) w okresie.
+function getPeriodPlan(station, shift, days) {
+  var hasAnyEntry = days.some(function(d) { return planEntryFor(station, shift, d) !== null; });
+  if (hasAnyEntry) {
+    return days.reduce(function(sum, d) { return sum + (planEntryFor(station, shift, d) || 0); }, 0);
+  }
+  var weekdays = days.filter(function(d) {
+    var parts = d.split('-');
+    var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
+    return wd !== 0 && wd !== 6;
+  }).length;
+  return weekdays * (Number(STATE.stationTargets[station]) || 0);
+}
+
 // Wspolna logika pask-per-stanowisko, uzywana zarowno dla bilansu
 // miesiecznego jak i kazdego tygodnia z osobna (renderWeeklyBalance) —
 // ZAWSZE per stanowisko, nigdy nie sumuje roznych stanowisk razem (rozne
 // skale — np. OP30 ~70000/dzien vs GP12 ~630/dzien — zsumowane razem
 // dawaloby bezsensowna, zdominowana przez najwieksze stanowisko liczbe).
-function barsHtml(groups) {
+// Plan = suma zaplanowanego wolumenu na WSZYSTKIE dni okresu (nawet te
+// jeszcze bez raportu) — nie tylko z dni juz zaraportowanych — zeby np.
+// "586/630" na 2. dzien miesiaca faktycznie pokazywalo "586 z ~13 800
+// zaplanowanych na caly miesiac", a nie tylko z jednego dnia ktory akurat
+// mial raport.
+function barsHtml(groups, days) {
   if (!groups.length) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
   var byStation = {};
   var order = [];
   groups.forEach(function(g) {
     if (!byStation[g.station]) { byStation[g.station] = { actual: 0, plan: 0 }; order.push(g.station); }
-    Object.keys(g.byDate).forEach(function(d) { byStation[g.station].actual += g.byDate[d].qty; byStation[g.station].plan += g.byDate[d].plan; });
+    Object.keys(g.byDate).forEach(function(d) { byStation[g.station].actual += g.byDate[d].qty; });
+    // Doliczamy plan (wlacznie z fallbackiem Cele x dni robocze) TYLKO
+    // jesli ta zmiana ma jakikolwiek slad — raport w tym okresie LUB
+    // jawny wpis w Planie. Bez tego zmiany, ktore dla danego stanowiska
+    // w ogole nie sa uzywane (np. globalnie skonfigurowane sa 3 zmiany,
+    // ale to stanowisko realnie dziala tylko na jednej), dostawalyby
+    // fabrykowany cel z Cele mimo ze nikt na nich nigdy nie pracuje —
+    // stacja i tak zostaje na liscie (rejestracja wyzej jest bezwarunkowa),
+    // po prostu bez zawyzonego planu z nieuzywanej zmiany.
+    var hasData = Object.keys(g.byDate).length > 0;
+    var hasPlanEntries = (days || []).some(function(d) { return planEntryFor(g.station, g.shift, d) !== null; });
+    if (hasData || hasPlanEntries) {
+      byStation[g.station].plan += getPeriodPlan(g.station, g.shift, days || []);
+    }
   });
   return order.map(function(name) {
     var s = byStation[name];
@@ -588,7 +642,7 @@ function barsHtml(groups) {
   }).join('');
 }
 function renderBars(groups) {
-  document.getElementById('bars').innerHTML = barsHtml(groups);
+  document.getElementById('bars').innerHTML = barsHtml(groups, monthDays(STATE.monthDate));
 }
 
 function renderWeeklyBalance() {
@@ -596,7 +650,7 @@ function renderWeeklyBalance() {
   if (!STATE.weeks.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
   el.innerHTML = STATE.weeks.map(function(w) {
     var weekGroups = buildGroups(STATE.rows.filter(function(r) { return r.date >= w.start && r.date <= w.end; }));
-    return '<div class="weekblock"><div class="weekblock-head">' + fmtWeekRange(w) + '</div><div class="barsgrid">' + barsHtml(weekGroups) + '</div></div>';
+    return '<div class="weekblock"><div class="weekblock-head">' + fmtWeekRange(w) + '</div><div class="barsgrid">' + barsHtml(weekGroups, w.days) + '</div></div>';
   }).join('');
 }
 

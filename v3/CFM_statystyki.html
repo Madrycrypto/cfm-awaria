@@ -480,9 +480,18 @@ function renderWeekPicker() {
   });
 }
 
+// KPI-e na gorze maja pokazywac PRAWDZIWY wynik fabryki (ile sztuk
+// faktycznie gotowych do sprzedania), a NIE sume ze wszystkich stanowisk
+// naraz — jedna fizyczna sztuka przechodzi przez OP30->OP33->OP40->...->GP12
+// i liczylaby sie za kazdym razem, wielokrotnie zawyzajac wynik. GP12 to
+// ostatnie stanowisko (kontrola jakosci koncowej) — kazda sztuka stamtad
+// to sztuka gotowa do sprzedania, wiec TYLKO GP12 liczy sie do tych 3
+// gornych KPI. Tabela ponizej (per stanowisko) nadal poprawnie pokazuje
+// KAZDE stanowisko osobno — to inny, celowo pelny widok.
 function renderKpis(groups, days, periodLabel) {
+  var gp12Groups = groups.filter(function(g) { return g.station === 'GP12'; });
   var totalActual = 0, totalPlan = 0, totalOk = 0, totalNg = 0;
-  groups.forEach(function(g) {
+  gp12Groups.forEach(function(g) {
     days.forEach(function(d) {
       var r = g.byDate[d];
       if (!r) return;
@@ -494,9 +503,9 @@ function renderKpis(groups, days, periodLabel) {
   var periodLbl = periodLabel === 'mies.' ? '(mies.)' : '(tydz.)';
   var periodLblCn = periodLabel === 'mies.' ? '（本月）' : '（本周）';
   var kpis = [
-    { lbl: 'Wykonanie planu ' + periodLbl, lblCn: '计划完成率' + periodLblCn, val: completion === null ? '&#8212;' : completion + '%', sub: 'plan: ' + fmt(totalPlan) + ' szt. · 计划', bar: completion === null ? 0 : Math.min(completion, 100), color: completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)' },
-    { lbl: 'Pass rate ' + periodLbl, lblCn: '合格率' + periodLblCn, val: passRate === null ? '&#8212;' : passRate + '%', sub: totalNg + ' szt. braków · 件不合格', bar: passRate || 0, color: 'var(--blue)' },
-    { lbl: 'Wyprodukowano', lblCn: '已生产', val: fmt(totalActual), sub: 'zgodnych: ' + fmt(totalOk) + ' · 合格', bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
+    { lbl: 'Wykonanie planu ' + periodLbl + ' (GP12)', lblCn: '计划完成率' + periodLblCn + '（GP12）', val: completion === null ? '&#8212;' : completion + '%', sub: 'plan: ' + fmt(totalPlan) + ' szt. · 计划', bar: completion === null ? 0 : Math.min(completion, 100), color: completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)' },
+    { lbl: 'Pass rate ' + periodLbl + ' (GP12)', lblCn: '合格率' + periodLblCn + '（GP12）', val: passRate === null ? '&#8212;' : passRate + '%', sub: totalNg + ' szt. braków · 件不合格', bar: passRate || 0, color: 'var(--blue)' },
+    { lbl: 'Wyprodukowano (GP12)', lblCn: '已生产（GP12）', val: fmt(totalActual), sub: 'zgodnych: ' + fmt(totalOk) + ' · 合格', bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
     { lbl: 'Wpisów w okresie', lblCn: '本期记录数', val: groups.reduce(function(s, g) { return s + Object.keys(g.byDate).length; }, 0), sub: groups.length + ' stanowisko/zmiana · 工位/班次', bar: 100, color: 'var(--faint)' }
   ];
   document.getElementById('kpis').innerHTML = kpis.map(function(k) {

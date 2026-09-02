@@ -289,10 +289,19 @@ button{cursor:pointer;font-family:var(--fh)}
       <div class="shift-val" id="shiftDisplay">Zmiana A</div>
     </div>
     <div class="shift-sub">
-      <span id="dateDisplay"></span><br>
       Raport po zako&#324;czeniu zmiany<br>
-      <span class="cn">&#29677;&#27425;&#32467;&#26463;&#21518;&#25253;&#21578;</span>
+      <span class="cn">&#29677;&#27425;&#32467;&#26463;&#21518;&#25253;&#21578;</span><br>
+      <span id="dateDisplay" style="color:var(--text);"></span>
+      <a href="#" onclick="toggleRaportDate();return false;" style="color:var(--blue);">Zmie&#324; dzie&#324; &#183; &#20462;&#25913;&#26085;&#26399;</a>
     </div>
+  </div>
+
+  <div id="raportDateManual" style="display:none;margin-bottom:10px;">
+    <div class="lbl">Dzie&#324; &#183; &#26085;&#26399;</div>
+    <input type="date" id="raportDateInput" onchange="setRaportDate()" style="width:100%;font-size:14px;padding:10px;margin-top:6px;">
+  </div>
+  <div id="raportDateBanner" style="display:none;margin-bottom:10px;padding:8px 12px;background:rgba(217,119,6,0.16);border:1px solid rgba(240,160,48,0.35);border-radius:9px;font-size:11.5px;color:#f0a030;font-weight:700;text-align:center;">
+    &#9888; Wprowadzasz dane dla innego dnia! &#183; 正在为其他日期录入数据!
   </div>
 
   <div id="hourBadgeWrap" style="display:none;margin-bottom:10px;">
@@ -812,11 +821,29 @@ setInterval(updateClock, 30000);
 setInterval(function() { if (document.getElementById('viewGodzinny').classList.contains('active')) updateHourDisplay(); }, 60000);
 updateClock();
 
+var currentRaportDate = null; // null = dzisiaj; ustawiane recznie zeby wprowadzic/poprawic zapomniany Raport zmiany z wczesniejszego dnia
+function getRaportDate() { return currentRaportDate || localDateString(); }
 function updateDateDisplay() {
-  var n = new Date();
-  var d = String(n.getDate()).padStart(2, '0') + '.' + String(n.getMonth() + 1).padStart(2, '0') + '.' + n.getFullYear();
+  var isToday = !currentRaportDate;
+  var d = formatDatePl(getRaportDate());
   var el = document.getElementById('dateDisplay');
-  if (el) el.textContent = d;
+  if (el) el.textContent = d + (isToday ? ' (dziś)' : '');
+  var banner = document.getElementById('raportDateBanner');
+  if (banner) banner.style.display = isToday ? 'none' : 'block';
+}
+function toggleRaportDate() {
+  var el = document.getElementById('raportDateManual');
+  var open = el.style.display === 'block';
+  el.style.display = open ? 'none' : 'block';
+  if (!open) document.getElementById('raportDateInput').value = getRaportDate();
+}
+function setRaportDate() {
+  var v = document.getElementById('raportDateInput').value;
+  currentRaportDate = (v && v !== localDateString()) ? v : null;
+  updateDateDisplay();
+  document.getElementById('raportDateManual').style.display = 'none';
+  odswiezDzisiajWpisy();
+  loadShiftComparison();
 }
 updateDateDisplay();
 
@@ -1641,7 +1668,7 @@ function proceedSubmitForm() {
     operator: op,
     station: st,
     shift: currentShift,
-    date: localDateString(now),
+    date: getRaportDate(),
     qty: qty,
     scrap: String(scrapN),
     rework: String(reworkN),
@@ -1732,7 +1759,7 @@ function odswiezDzisiajWpisy(andMaybePreload) {
   var wh = getWH();
   if (!wh) { el.innerHTML = '<div class="hist-loading">Brak po&#322;&#261;czenia &#183; &#26410;&#36830;&#25509;</div>'; if (andMaybePreload && !document.getElementById('qtyInput').value) preloadFromGodzinny(); return; }
   el.innerHTML = '<div class="hist-loading">&#321;adowanie&#8230; &#183; &#21152;&#36733;&#20013;...</div>';
-  fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station))
+  fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station) + '&date=' + encodeURIComponent(getRaportDate()))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia &#183; &#36830;&#25509;&#38169;&#35823;</div>'; return; }
@@ -1752,7 +1779,7 @@ function loadShiftComparison() {
   var station = document.getElementById('stationSel').value;
   var wh = getWH();
   if (!station || !wh) { card.style.display = 'none'; return; }
-  fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station))
+  fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station) + '&date=' + encodeURIComponent(getRaportDate()))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { card.style.display = 'none'; return; }
@@ -1787,6 +1814,7 @@ function renderShiftComparison(totals) {
 // kliknieciu "Edytuj" na tym wpisie, zeby nie wygladalo na nowa/niewyslana
 // wartosc gotowa do przypadkowego ponownego wyslania.
 function maybePreloadIfNotSubmitted() {
+  if (currentRaportDate) return; // wypelnianie z Godzinnego ma sens tylko dla dzisiaj — Godzinny zawsze pyta o DZIS
   if (document.getElementById('qtyInput').value) return;
   var station = document.getElementById('stationSel').value;
   var already = dzisiajWpisyCache.some(function(r) { return r.station === station; });

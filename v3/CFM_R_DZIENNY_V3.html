@@ -2975,6 +2975,12 @@ function preloadFromGodzinny() {
     renderReworkReasonsTable();
     renderAwariaTypeGrid();
     updateSummary();
+    // Plan miesieczny (cfm_monthly_plan) moze przyjsc z serwera SWIEZY dopiero
+    // tutaj, ale Cel/h w Raporcie Godzinnym zostal juz policzony wczesniej ze
+    // STAREGO lokalnego planu (switchView('godzinny') odpala sie przed tym
+    // fetchem) — bez tego odswiezenia operator widzialby bledna norme/h az do
+    // recznej zmiany stanowiska/zakladki.
+    if (document.getElementById('viewGodzinny').classList.contains('active')) odswiezHistorieGodzinnej();
   });
 })();
 </script>

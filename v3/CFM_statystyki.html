@@ -598,12 +598,20 @@ function renderPivot(groups, days, periodLabel) {
     shifts.forEach(function(g, si) {
       var periodActual = 0, periodPlan = 0, periodOk = 0, periodQty = 0;
       var periodRows = [];
+      // Plan pokazywany tu to ZAWSZE aktualny Plan miesieczny/korekta czasu
+      // pracy (ten sam co w Bilansie), NIGDY wartosc r.plan zapisana w
+      // wierszu w momencie wysylki raportu — ta jest tylko migawka z tamtej
+      // chwili i moze byc juz nieaktualna (np. plan poprawiony pozniej), co
+      // dawalo sprzeczne liczby miedzy ta tabela a Bilansem dla tego samego
+      // dnia/stanowiska/zmiany.
       var cells = days.map(function(d) {
         var r = g.byDate[d];
+        var planForDay = effectivePlanEntry(stName, g.shift, d);
+        if (planForDay === null) planForDay = Number(STATE.stationTargets[stName]) || 0;
         if (!r) return '<td><span class="pct off">&#8212;</span></td>';
-        periodActual += r.qty; periodPlan += r.plan; periodOk += r.ok_count; periodQty += r.qty;
+        periodActual += r.qty; periodPlan += planForDay; periodOk += r.ok_count; periodQty += r.qty;
         periodRows.push(r);
-        return '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.qty) + '</span><span class="cell-plan">/' + fmt(r.plan) + '</span></div></td>';
+        return '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.qty) + '</span><span class="cell-plan">/' + fmt(planForDay) + '</span></div></td>';
       }).join('');
       var periodPct = periodPlan > 0 ? Math.round((periodActual / periodPlan) * 100) : null;
       var passRate = periodQty > 0 ? ((periodOk / periodQty) * 100).toFixed(1) : '&#8212;';

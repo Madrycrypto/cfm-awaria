@@ -2000,13 +2000,21 @@ function awariaSelectType(btn) {
   document.querySelectorAll('.awaria-type-btn').forEach(function(b) { b.classList.remove('sel'); });
   btn.classList.add('sel');
   awariaCurrentType = btn.dataset.val;
+}
+
+// Opis przyczyny NIE jest juz warunkiem STARTU — w praktyce operator
+// zglaszajacy awarie czesto jeszcze nie wie co dokladnie sie stalo (dopiero
+// technik to ustali). Wymagamy opisu dopiero przy KONCU (patrz
+// awariaSubmitEnd), a pole opisu pokazuje sie tylko W TRAKCIE trwania
+// awarii — patrz awariaShowActiveBanner/awariaSubmitEnd.
+function updateAwariaDescBoxForActive() {
   var box = document.getElementById('awariaDescBox'), lbl = document.getElementById('awariaDescLbl'), inp = document.getElementById('awariaDescInput');
-  if (AWARIA_NO_DESC_TYPES.indexOf(awariaCurrentType) >= 0) {
+  if (!awariaActiveBreakdown || AWARIA_NO_DESC_TYPES.indexOf(awariaActiveBreakdown.type) >= 0) {
     box.classList.remove('vis'); inp.value = '';
     return;
   }
-  var o = AWARIA_OPISY[awariaCurrentType];
-  if (o) { lbl.textContent = o.label; inp.placeholder = o.ph; box.classList.add('vis'); inp.value = ''; }
+  var o = AWARIA_OPISY[awariaActiveBreakdown.type];
+  if (o) { lbl.textContent = o.label; inp.placeholder = o.ph; box.classList.add('vis'); }
   else { box.classList.remove('vis'); inp.value = ''; }
 }
 
@@ -2014,13 +2022,7 @@ function awariaSubmitStart() {
   var station = document.getElementById('stationSel').value;
   if (!station) { showToast('Wybierz stanowisko! · 请选择工位!', 'err'); return; }
   if (awariaActiveBreakdown) { showToast('Zamknij obecną awarię! · 请先结束当前故障!', 'err'); return; }
-  var desc = document.getElementById('awariaDescInput').value.trim();
-  if (AWARIA_NO_DESC_TYPES.indexOf(awariaCurrentType) < 0 && !desc) {
-    showToast('Opisz przyczynę! · 请描述原因!', 'err');
-    document.getElementById('awariaDescInput').focus();
-    return;
-  }
-  var typFull = AWARIA_NO_DESC_TYPES.indexOf(awariaCurrentType) >= 0 ? awariaCurrentType : awariaCurrentType + ': ' + desc;
+  var typFull = awariaCurrentType;
   awariaPendingStart = { station: station, typFull: typFull };
 
   var feishu = getFeishuConfig();
@@ -2113,17 +2115,24 @@ function awariaDoStart(station, typFull) {
 
 function awariaSubmitEnd() {
   if (!awariaActiveBreakdown) return;
+  var desc = document.getElementById('awariaDescInput').value.trim();
+  if (AWARIA_NO_DESC_TYPES.indexOf(awariaActiveBreakdown.type) < 0 && !desc) {
+    showToast('Opisz przyczynę przed zamknięciem! · 结束前请描述原因!', 'err');
+    document.getElementById('awariaDescInput').focus();
+    return;
+  }
+  var typFull = desc ? awariaActiveBreakdown.type + ': ' + desc : awariaActiveBreakdown.type;
   var now = new Date(), startDate = new Date(awariaActiveBreakdown.startTs), dm = Math.round((now - startDate) / 6000) / 10;
-  var record = { station: awariaActiveBreakdown.station, type: awariaActiveBreakdown.type, startTs: awariaActiveBreakdown.startFormatted, endTs: awariaFormatTs(now), durationMin: dm };
+  var record = { station: awariaActiveBreakdown.station, type: typFull, startTs: awariaActiveBreakdown.startFormatted, endTs: awariaFormatTs(now), durationMin: dm };
 
   var wh = getWH();
-  if (wh) { new Image().src = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaActiveBreakdown.station) + '&operator=' + encodeURIComponent(awariaActiveBreakdown.operator || '') + '&typ=' + encodeURIComponent(awariaActiveBreakdown.type) + '&start_timestamp=' + encodeURIComponent(awariaActiveBreakdown.startTs) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm; }
+  if (wh) { new Image().src = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaActiveBreakdown.station) + '&operator=' + encodeURIComponent(awariaActiveBreakdown.operator || '') + '&typ=' + encodeURIComponent(typFull) + '&start_timestamp=' + encodeURIComponent(awariaActiveBreakdown.startTs) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm; }
 
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {
     fetch(feishu.proxy.replace(/\/$/, '') + '/api/awaria', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaActiveBreakdown.station, operator: awariaActiveBreakdown.operator || '', type: awariaActiveBreakdown.type, start_timestamp: awariaActiveBreakdown.startTs, koniec_timestamp: localIsoString(now), czas_min: dm, status: 'ZAMKNIETA' })
+      body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaActiveBreakdown.station, operator: awariaActiveBreakdown.operator || '', type: typFull, start_timestamp: awariaActiveBreakdown.startTs, koniec_timestamp: localIsoString(now), czas_min: dm, status: 'ZAMKNIETA' })
     }).catch(function() {});
   }
 
@@ -2136,6 +2145,7 @@ function awariaSubmitEnd() {
   clearInterval(awariaTimerInterval);
   document.getElementById('awariaActiveBanner').classList.remove('visible');
   document.getElementById('btnAwariaEnd').disabled = true;
+  updateAwariaDescBoxForActive();
 
   awariaRenderHistory();
   showToast('Czas awarii: ' + dm + ' min · 故障时长: ' + dm + ' 分钟', 'ok');
@@ -2264,6 +2274,7 @@ function awariaShowActiveBanner() {
   b.classList.add('visible');
   document.getElementById('awariaActiveStation').textContent = awariaActiveBreakdown.station + ' · ' + awariaActiveBreakdown.type;
   awariaStartTimer();
+  updateAwariaDescBoxForActive();
 }
 function awariaStartTimer() {
   clearInterval(awariaTimerInterval);

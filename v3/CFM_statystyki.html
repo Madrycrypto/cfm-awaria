@@ -566,12 +566,13 @@ function renderShiftComparison(groups, days) {
     return { shift: s, pct: avg(byShift[s].pcts), passRate: avg(byShift[s].passRates), n: byShift[s].pcts.length };
   });
   rows.sort(function(a, b) { return b.pct - a.pct; });
-  el.innerHTML = rows.map(function(r, i) {
+  var hint = '<div class="wthint">% &#8212; śr. wykonanie planu na stanowiskach tej zmiany &#183; 该班次各工位平均计划完成率</div>';
+  el.innerHTML = hint + rows.map(function(r, i) {
     var color = r.pct >= 95 ? 'var(--green)' : r.pct >= 80 ? 'var(--orange)' : 'var(--red)';
     var crown = i === 0 && rows.length > 1 ? ' &#9733;' : '';
     return '<div class="barrow"><div class="barrow-lbl" style="color:' + shiftColor(r.shift) + '">Zmiana ' + r.shift + crown + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + Math.min(r.pct, 100) + '%;background:' + color + '"></div></div>' +
-      '<div class="barrow-pct"><b style="color:' + color + '">' + r.pct + '%</b> &nbsp;śr. wykonania' + (r.passRate !== null ? ' &#183; pass ' + r.passRate + '%' : '') + '</div></div>';
+      '<div class="barrow-pct"><b style="color:' + color + '">' + r.pct + '%</b>' + (r.passRate !== null ? ' &nbsp;pass ' + r.passRate + '%' : '') + '</div></div>';
   }).join('');
 }
 

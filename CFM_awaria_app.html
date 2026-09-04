@@ -666,33 +666,37 @@ function selectType(btn) {
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   state.type = btn.dataset.val;
-  // Pokaż pole opisu dla "Inne" i "Brak materiału"
+}
+
+// Opis przyczyny NIE jest juz warunkiem STARTU — operator zglaszajacy
+// awarie czesto jeszcze nie wie co dokladnie sie stalo (dopiero technik to
+// ustali po naprawie). Pole opisu pokazuje sie i jest wymagane dopiero W
+// TRAKCIE trwania awarii, przed KONCEM — patrz updateDescBoxForActive()
+// wywolywane z showActiveBanner() (dziala zarowno po START jak i po
+// przywroceniu aktywnej awarii przy wczytaniu strony).
+var opisy = {
+  'Awaria maszyny':        { label: 'Co się zepsuło? · 什么损坏了？',             ph: 'Np. silnik, pasek, czujnik...\n例如：电机、皮带、传感器...' },
+  'Oczekiwanie na lidera': { label: 'Powód oczekiwania · 等待班长原因',           ph: 'Np. problem jakościowy, decyzja...\n例如：质量问题、等待决定...' },
+  'Brak materiału':        { label: 'Jakiego materiału brakuje? · 缺少什么物料？', ph: 'Podaj nazwę / numer materiału...\n请输入物料名称/编号...' },
+  'Szkolenie':             { label: 'Temat szkolenia · 培训主题',                 ph: 'Np. nowy produkt, BHP, instrukcja...\n例如：新产品、安全、操作规程...' },
+  'Inne':                  { label: 'Opis przyczyny · 其他原因说明',               ph: 'Opisz przyczynę awarii...\n请描述故障原因...' }
+};
+
+function updateDescBoxForActive() {
   var inneBox = document.getElementById('inneBox');
   var inneLabel = document.getElementById('inneLabel');
   var inneOpis = document.getElementById('inneOpis');
-
-  // Typy bez opisu
-  if (NO_DESC_TYPES.indexOf(state.type) >= 0) {
+  var typ = state.activeBreakdown && state.activeBreakdown.type;
+  if (!typ || NO_DESC_TYPES.indexOf(typ) >= 0) {
     inneBox.classList.remove('visible');
     inneOpis.value = '';
     return;
   }
-
-  var opisy = {
-    'Awaria maszyny':        { label: 'Co się zepsuło? · 什么损坏了？',             ph: 'Np. silnik, pasek, czujnik...\n例如：电机、皮带、传感器...' },
-    'Oczekiwanie na lidera': { label: 'Powód oczekiwania · 等待班长原因',           ph: 'Np. problem jakościowy, decyzja...\n例如：质量问题、等待决定...' },
-    'Brak materiału':        { label: 'Jakiego materiału brakuje? · 缺少什么物料？', ph: 'Podaj nazwę / numer materiału...\n请输入物料名称/编号...' },
-    'Szkolenie':             { label: 'Temat szkolenia · 培训主题',                 ph: 'Np. nowy produkt, BHP, instrukcja...\n例如：新产品、安全、操作规程...' },
-    'Inne':                  { label: 'Opis przyczyny · 其他原因说明',               ph: 'Opisz przyczynę awarii...\n请描述故障原因...' }
-  };
-
-  var opis = opisy[state.type];
+  var opis = opisy[typ];
   if (opis) {
     inneLabel.innerHTML = opis.label + ' <span style="color:var(--red)">*</span>';
     inneOpis.placeholder = opis.ph;
     inneBox.classList.add('visible');
-    inneOpis.value = '';
-    setTimeout(function(){ inneOpis.focus(); }, 100);
   } else {
     inneBox.classList.remove('visible');
     inneOpis.value = '';
@@ -710,14 +714,7 @@ function submitStart() {
   if (!state.station) { showToast('⚠ Wybierz stanowisko!', 'error'); return; }
   if (state.activeBreakdown) { showToast('⚠ Zamknij obecną awarię!', 'error'); return; }
 
-  // Walidacja opisu (przed sprawdzeniem sheets)
-  var inneOpis = document.getElementById('inneOpis').value.trim();
-  if (NO_DESC_TYPES.indexOf(state.type) < 0 && !inneOpis) {
-    showToast('⚠ Opisz przyczynę · 请填写原因', 'error');
-    document.getElementById('inneOpis').focus();
-    return;
-  }
-  var typFull = NO_DESC_TYPES.indexOf(state.type) >= 0 ? state.type : state.type + ': ' + inneOpis;
+  var typFull = state.type;
 
   // Zapisz dane oczekującego startu
   _pendingStart = { typFull: typFull };
@@ -821,13 +818,21 @@ function wykonajStart(typFull) {
 function submitEnd() {
   if (!state.activeBreakdown) return;
 
+  var inneOpis = document.getElementById('inneOpis').value.trim();
+  if (NO_DESC_TYPES.indexOf(state.activeBreakdown.type) < 0 && !inneOpis) {
+    showToast('⚠ Opisz przyczynę przed zamknięciem · 结束前请描述原因', 'error');
+    document.getElementById('inneOpis').focus();
+    return;
+  }
+  var typFull = inneOpis ? state.activeBreakdown.type + ': ' + inneOpis : state.activeBreakdown.type;
+
   var now = new Date();
   var startDate = new Date(state.activeBreakdown.startTs);
   var diffMin = Math.round((now - startDate) / 60000);
 
   var record = {
     station: state.activeBreakdown.station,
-    type: state.activeBreakdown.type,
+    type: typFull,
     startTs: state.activeBreakdown.startFormatted,
     endTs: formatTs(now),
     durationMin: diffMin
@@ -835,7 +840,7 @@ function submitEnd() {
 
   sendToSheets('KONIEC', {
     stanowisko: state.activeBreakdown.station,
-    typ: state.activeBreakdown.type,
+    typ: typFull,
     start_timestamp: state.activeBreakdown.startTs,
     koniec_timestamp: now.toISOString(),
     czas_min: diffMin
@@ -853,6 +858,7 @@ function submitEnd() {
   clearInterval(timerInterval);
   document.getElementById('activeBanner').classList.remove('visible');
   document.getElementById('btnEnd').classList.add('btn-disabled');
+  updateDescBoxForActive();
 
   renderHistory();
   showToast('✓ Czas awarii: ' + diffMin + ' min · 故障时长：' + diffMin + '分钟', 'success');
@@ -865,6 +871,7 @@ function showActiveBanner() {
   document.getElementById('activeStation').textContent =
     state.activeBreakdown.station + ' · ' + state.activeBreakdown.type;
   startTimer();
+  updateDescBoxForActive();
 }
 
 function startTimer() {

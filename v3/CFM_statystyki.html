@@ -126,6 +126,8 @@ tbody tr.grouphead td{padding-top:16px}
 .barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
 .barrow-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);white-space:nowrap}
 .barrow-pct b{font-family:var(--fh);font-size:12.5px;font-weight:800}
+.scline{display:block;line-height:1.5}
+#shiftComparison .barrow{padding:3px 0}
 .dailybarrow{display:grid;grid-template-columns:74px 1fr 90px 46px;align-items:center;gap:6px}
 .wtinput{width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:10.5px;text-align:center;padding:5px 1px}
 .wtinput:focus{outline:none;border-color:var(--blue)}
@@ -558,24 +560,28 @@ function renderShiftComparison(groups, days) {
     var actual = 0, ok = 0;
     Object.keys(g.byDate).forEach(function(d) { actual += g.byDate[d].qty; ok += g.byDate[d].ok_count; });
     var plan = getPeriodPlan(g.station, g.shift, days);
-    if (!byShift[g.shift]) byShift[g.shift] = { pcts: [], passRates: [] };
+    if (!byShift[g.shift]) byShift[g.shift] = { pcts: [], passRates: [], sumActual: 0, sumPlan: 0 };
     if (plan > 0) byShift[g.shift].pcts.push((actual / plan) * 100);
     if (actual > 0) byShift[g.shift].passRates.push((ok / actual) * 100);
+    byShift[g.shift].sumActual += actual;
+    byShift[g.shift].sumPlan += plan;
   });
   var shiftsOrder = STATE.shiftLabels.filter(function(s) { return byShift[s] && byShift[s].pcts.length; });
   if (!shiftsOrder.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
   var avg = function(arr) { return arr.length ? Math.round(arr.reduce(function(a, x) { return a + x; }, 0) / arr.length) : null; };
   var rows = shiftsOrder.map(function(s) {
-    return { shift: s, pct: avg(byShift[s].pcts), passRate: avg(byShift[s].passRates), n: byShift[s].pcts.length };
+    return { shift: s, pct: avg(byShift[s].pcts), passRate: avg(byShift[s].passRates), n: byShift[s].pcts.length, sumActual: byShift[s].sumActual, sumPlan: byShift[s].sumPlan };
   });
   rows.sort(function(a, b) { return b.pct - a.pct; });
-  var hint = '<div class="wthint">% &#8212; śr. wykonanie planu na stanowiskach tej zmiany &#183; 该班次各工位平均计划完成率</div>';
+  var hint = '<div class="wthint">% &#8212; śr. wykonanie planu na stanowiskach tej zmiany, suma = wszystkie stanowiska razem &#183; 该班次各工位平均计划完成率，总数为各工位合计</div>';
   el.innerHTML = hint + rows.map(function(r, i) {
     var color = r.pct >= 95 ? 'var(--green)' : r.pct >= 80 ? 'var(--orange)' : 'var(--red)';
     var crown = i === 0 && rows.length > 1 ? ' &#9733;' : '';
     return '<div class="barrow"><div class="barrow-lbl" style="color:' + shiftColor(r.shift) + '">Zmiana ' + r.shift + crown + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + Math.min(r.pct, 100) + '%;background:' + color + '"></div></div>' +
-      '<div class="barrow-pct"><b style="color:' + color + '">' + r.pct + '%</b>' + (r.passRate !== null ? ' &nbsp;pass ' + r.passRate + '%' : '') + '</div></div>';
+      '<div class="barrow-pct"><span class="scline"><b style="color:' + color + '">' + r.pct + '%</b></span>' +
+      '<span class="scline">' + fmt(r.sumActual) + '/' + fmt(r.sumPlan) + '</span>' +
+      (r.passRate !== null ? '<span class="scline">pass ' + r.passRate + '%</span>' : '') + '</div></div>';
   }).join('');
 }
 

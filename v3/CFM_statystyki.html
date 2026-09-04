@@ -372,10 +372,12 @@ function getAwarieForDay(station, shift, dateIso) {
     return a.date === dateIso && a.station === station && a.shift === shift;
   });
 }
-function awarieChipsHtml(entries) {
+function awarieChipsHtml(entries, showDate) {
   if (!entries.length) return '<span class="reason-chip off">brak szczegółów &#183; 无详情</span>';
   return entries.map(function(a) {
-    return '<span class="reason-chip awaria"><b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>';
+    var dateLbl = '';
+    if (showDate && a.date) { var dd = a.date.split('-'); dateLbl = dd[2] + '/' + dd[1] + ' &#183; '; }
+    return '<span class="reason-chip awaria">' + dateLbl + '<b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>';
   }).join('');
 }
 
@@ -650,7 +652,7 @@ function renderPivot(groups, days, periodLabel) {
         '<tr class="subrow"><td colspan="' + days.length + '">wykonanie · 完成率: <span class="pct ' + pctClass(periodPct) + '" style="margin-left:4px">' + (periodPct === null ? '&#8212;' : periodPct + '%') + '</span>' +
         '<button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">Powody braków &#9662; <span class="cn">原因</span></button>' +
         '<div class="reasonbox">' + reasonsHtml(reasons) + '</div>' +
-        (periodAwarieMin > 0 ? '<button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">auto z Awarii: ' + periodAwarieMin + ' min &#9662; <span class="cn">故障</span></button><div class="reasonbox">' + awarieChipsHtml(periodAwarie) + '</div>' : '') +
+        (periodAwarieMin > 0 ? '<button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">auto z Awarii: ' + periodAwarieMin + ' min &#9662; <span class="cn">故障</span></button><div class="reasonbox">' + awarieChipsHtml(periodAwarie, true) + '</div>' : '') +
         '</td><td class="pr">pass · 合格率 ' + passRate + '%</td></tr>';
     });
   });

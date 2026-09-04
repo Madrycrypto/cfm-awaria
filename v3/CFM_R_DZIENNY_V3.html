@@ -549,6 +549,33 @@ button{cursor:pointer;font-family:var(--fh)}
       </div>
       <div id="awariaHistoryList"><div class="hist-loading">Brak historii &#183; &#26242;&#26080;&#35760;&#24405;</div></div>
     </div>
+
+    <button type="button" class="reason-toggle-btn" id="awariaBackfillToggleBtn" style="margin-top:14px;" onclick="toggleAwariaBackfill()">
+      <span class="icon">&#128337;</span>Dodaj przestój z innego dnia<span class="cn cn-sub">&#34917;&#24405;&#20197;&#21069;&#30340;&#25925;&#38556;</span><span class="chevron" id="awariaBackfillChevron">&#9662;</span>
+    </button>
+    <div class="reason-panel-body" id="awariaBackfillBody">
+      <div class="field">
+        <div class="lbl">Data &#183; &#26085;&#26399; <span class="req">*</span></div>
+        <input type="date" id="awariaBackfillDate">
+      </div>
+      <div class="field">
+        <div class="lbl">Zmiana &#183; &#29677;&#27425; <span class="req">*</span></div>
+        <div class="shift-selector" id="awariaBackfillShiftRow"></div>
+      </div>
+      <div class="lbl">Typ zdarzenia &#183; &#20107;&#20214;&#31867;&#22411;</div>
+      <div class="awaria-type-grid" id="awariaBackfillTypeGrid"></div>
+      <div class="awaria-desc-box" id="awariaBackfillDescBox">
+        <span class="awaria-desc-lbl" id="awariaBackfillDescLbl">Opis &#183; &#25551;&#36848; *</span>
+        <textarea class="awaria-desc-input" id="awariaBackfillDescInput" rows="2" autocomplete="off"></textarea>
+      </div>
+      <div class="field">
+        <div class="lbl">Czas trwania (min) &#183; &#25345;&#32493;&#26102;&#38388;&#65288;&#20998;&#38047;&#65289; <span class="req">*</span></div>
+        <input type="number" id="awariaBackfillMin" min="1" placeholder="np. 45">
+      </div>
+      <button type="button" class="btn-awaria-start" style="width:100%;" onclick="awariaSubmitBackfill()">
+        Zapisz przestój<span class="awaria-btn-cn">&#20445;&#23384;&#25925;&#38556;</span>
+      </button>
+    </div>
   </div>
 
   <!-- ============ WIDOK: RAPORT GODZINNY ============ -->
@@ -2112,6 +2139,99 @@ function awariaSubmitEnd() {
 
   awariaRenderHistory();
   showToast('Czas awarii: ' + dm + ' min · 故障时长: ' + dm + ' 分钟', 'ok');
+}
+
+// === WSTECZNY WPIS AWARII (przestój zauwazony/zgloszony po fakcie, np. na
+// papierowym raporcie, ktorego operator nie zdazyl/nie pomyslal zarejestrowac
+// na zywo) — zapisuje sie tym samym event_type=KONIEC co normalne zamkniecie,
+// ale backend (handleAwariaEnd) ma juz fallback na brak pasujacego otwartego
+// wiersza: po prostu dopisuje kompletny, zamkniety wiersz. Dzieki temu wpis
+// trafia do TEGO SAMEGO arkusza "Awarie" i automatycznie zasila i Statystyki,
+// i "auto z Awarii" w Premiach — bez zadnego osobnego, rownoleglego bytu.
+var awariaBackfillType = null;
+var awariaBackfillShift = null;
+function toggleAwariaBackfill() {
+  var body = document.getElementById('awariaBackfillBody');
+  var btn = document.getElementById('awariaBackfillToggleBtn');
+  var chevron = document.getElementById('awariaBackfillChevron');
+  var isOpen = body.classList.toggle('open');
+  btn.classList.toggle('open', isOpen);
+  if (isOpen) {
+    if (!document.getElementById('awariaBackfillDate').value) document.getElementById('awariaBackfillDate').value = localDateString();
+    renderAwariaBackfillShiftRow();
+    renderAwariaBackfillTypeGrid();
+  }
+}
+function renderAwariaBackfillShiftRow() {
+  if (!awariaBackfillShift) awariaBackfillShift = currentShift;
+  var z = getShifts();
+  var labels = ['A', 'B', 'C'];
+  var row = document.getElementById('awariaBackfillShiftRow');
+  var html = '';
+  for (var i = 0; i < z.liczba; i++) {
+    var l = labels[i];
+    html += '<button type="button" class="shift-btn' + (awariaBackfillShift === l ? ' sel' : '') + '" data-shift="' + l + '" onclick="awariaBackfillSelectShift(\'' + l + '\')">' + l + ' 班</button>';
+  }
+  row.innerHTML = html;
+}
+function awariaBackfillSelectShift(s) {
+  awariaBackfillShift = s;
+  document.querySelectorAll('#awariaBackfillShiftRow .shift-btn').forEach(function(b) { b.classList.toggle('sel', b.dataset.shift === s); });
+}
+function renderAwariaBackfillTypeGrid() {
+  var types = getAwariaTypes();
+  if (!types.length) return;
+  if (!awariaBackfillType || !types.some(function(t) { return t.pl === awariaBackfillType; })) awariaBackfillType = types[0].pl;
+  var grid = document.getElementById('awariaBackfillTypeGrid');
+  grid.innerHTML = types.map(function(t) {
+    var sel = t.pl === awariaBackfillType ? ' sel' : '';
+    return '<button type="button" class="awaria-type-btn' + sel + '" data-val="' + t.pl + '" onclick="awariaBackfillSelectType(this)">' + t.pl + '<span class="cn">' + t.cn + '</span></button>';
+  }).join('');
+  awariaBackfillUpdateDescBox();
+}
+function awariaBackfillSelectType(btn) {
+  document.querySelectorAll('#awariaBackfillTypeGrid .awaria-type-btn').forEach(function(b) { b.classList.remove('sel'); });
+  btn.classList.add('sel');
+  awariaBackfillType = btn.dataset.val;
+  awariaBackfillUpdateDescBox();
+}
+function awariaBackfillUpdateDescBox() {
+  var box = document.getElementById('awariaBackfillDescBox'), lbl = document.getElementById('awariaBackfillDescLbl'), inp = document.getElementById('awariaBackfillDescInput');
+  if (AWARIA_NO_DESC_TYPES.indexOf(awariaBackfillType) >= 0) { box.classList.remove('vis'); inp.value = ''; return; }
+  var o = AWARIA_OPISY[awariaBackfillType];
+  if (o) { lbl.textContent = o.label; inp.placeholder = o.ph; box.classList.add('vis'); }
+}
+function awariaSubmitBackfill() {
+  var station = document.getElementById('stationSel').value;
+  if (!station) { showToast('Wybierz stanowisko! · 请选择工位!', 'err'); return; }
+  var dateVal = document.getElementById('awariaBackfillDate').value;
+  if (!dateVal) { showToast('Wybierz datę! · 请选择日期!', 'err'); return; }
+  if (!awariaBackfillShift) { showToast('Wybierz zmianę! · 请选择班次!', 'err'); return; }
+  var minVal = parseFloat(document.getElementById('awariaBackfillMin').value);
+  if (!minVal || minVal <= 0) { showToast('Podaj czas trwania! · 请输入持续时间!', 'err'); return; }
+  var desc = document.getElementById('awariaBackfillDescInput').value.trim();
+  if (AWARIA_NO_DESC_TYPES.indexOf(awariaBackfillType) < 0 && !desc) {
+    showToast('Opisz przyczynę! · 请描述原因!', 'err');
+    document.getElementById('awariaBackfillDescInput').focus();
+    return;
+  }
+  var typFull = AWARIA_NO_DESC_TYPES.indexOf(awariaBackfillType) >= 0 ? awariaBackfillType : awariaBackfillType + ': ' + desc;
+  var operator = document.getElementById('operatorSel').value || '';
+  var startD = new Date(dateVal + 'T12:00:00');
+  var endD = new Date(startD.getTime() + minVal * 60000);
+
+  var wh = getWH();
+  if (wh) {
+    var qs = 'event_type=KONIEC&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) +
+      '&typ=' + encodeURIComponent(typFull) + '&start_timestamp=' + encodeURIComponent(localIsoString(startD)) +
+      '&koniec_timestamp=' + encodeURIComponent(localIsoString(endD)) + '&czas_min=' + minVal + '&shift=' + encodeURIComponent(awariaBackfillShift);
+    new Image().src = wh + '?' + qs;
+  }
+
+  document.getElementById('awariaBackfillMin').value = '';
+  document.getElementById('awariaBackfillDescInput').value = '';
+  showToast('Przestój z ' + formatDatePl(dateVal) + ' zapisany: ' + minVal + ' min · 停机已录入', 'ok');
+  setTimeout(awariaRenderHistory, 800);
 }
 
 // === PRZYPOMNIENIE O OTWARTEJ AWARII ===

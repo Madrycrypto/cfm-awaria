@@ -591,10 +591,11 @@ function pobierzUstawieniaZArkusza() {
         if (workers.length > 0) localStorage.setItem('cfm_workers', JSON.stringify(workers));
       }
 
-      // Stanowiska — pomijamy nadpisanie z arkusza, jesli ktos juz
-      // recznie edytowal liste na tym urzadzeniu (Ustawienia -> Stanowiska),
-      // zeby reczna edycja nie znikala przy kazdym wczytaniu strony.
-      if (u.lista_stanowisk && u.lista_stanowisk.length > 2 && !localStorage.getItem('cfm_stations_local_edit')) {
+      // Stanowiska — zawsze synchronizowane z arkusza (event_type=USTAWIENIA
+      // faktycznie zapisuje lista_stanowisk z powrotem do arkusza, patrz
+      // saveStations(), wiec to jest prawdziwa dwukierunkowa synchronizacja,
+      // nie tylko jednorazowy lokalny override).
+      if (u.lista_stanowisk && u.lista_stanowisk.length > 2) {
         var stations = u.lista_stanowisk.split('|').filter(Boolean);
         if (stations.length > 0) localStorage.setItem('cfm_stations', JSON.stringify(stations));
       }
@@ -1074,10 +1075,10 @@ function renderTypeBtns() {
 
 // ── STANOWISKA – EDYTOR ─────────────────────────────────────
 // Ten sam wzor co edytor Typow awarii powyzej, ale dla plaskiej listy
-// nazw (bez pary pl/cn). "cfm_stations_local_edit" oznacza ze na tym
-// urzadzeniu ktos recznie edytowal liste — bez tego pobierzUstawieniaZArkusza
-// nadpisywalaby recznie wpisane nazwy z powrotem tym co jest w arkuszu
-// przy kazdym wczytaniu strony.
+// nazw (bez pary pl/cn) — z tym ze Zapisz TEZ wysyla do arkusza
+// (event_type=USTAWIENIA, ktory backend juz obsluguje i zapisuje
+// lista_stanowisk z powrotem do zakladki USTAWIENIA), wiec inne
+// urzadzenia dostana zmiane przy nastepnym wczytaniu strony.
 var DEFAULT_STATIONS = ['OP50-1','OP50-2','OP52','OP53','OP60','OP61',
   'OP70/71','OP72','OP73','OP74/80','GP12','OP30',
   'OP33A','OP33B','OP40-1','OP40-2','OP40-3'];
@@ -1135,9 +1136,17 @@ function saveStations() {
     return v || s;
   }).filter(Boolean);
   localStorage.setItem('cfm_stations', JSON.stringify(saved));
-  localStorage.setItem('cfm_stations_local_edit', '1');
   renderStationSelect();
   renderStationEditor();
+
+  // Wyslij do arkusza, zeby inne urzadzenia tez to dostaly (backend juz
+  // obsluguje event_type=USTAWIENIA i zapisuje lista_stanowisk).
+  var wh = state.webhookUrl;
+  if (wh) {
+    var url = wh + '?event_type=USTAWIENIA&lista_stanowisk=' + encodeURIComponent(saved.join('|'));
+    new Image().src = url;
+  }
+
   showToast('✓ Stanowiska zapisane · 工位已保存', 'success');
 }
 

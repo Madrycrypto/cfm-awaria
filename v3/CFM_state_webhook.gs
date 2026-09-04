@@ -298,14 +298,31 @@ function handleStatystyki(ss, p) {
 // Surowe sumy dla wyliczenia premii (CFM_premie.html robi juz samo
 // wyliczenie wg progow — tu tylko agregujemy dane zrodlowe):
 //   - RaportDzienny: suma qty/ok_count i liczba wpisow, per stanowisko+zmiana,
-//     w podanym zakresie dat.
-//   - Awarie: laczny czas przestoju (min) per STANOWISKO w tym samym
-//     zakresie — BEZ podzialu na zmiane, bo wpis awarii nie zapisuje do
-//     ktorej grupy (A/B/C) nalezal operator w danym momencie (a zmiana to
-//     tozsamosc grupy, nie stala pora dnia, wiec nie da sie tego wywnioskowac
-//     z samej godziny). CFM_premie.html rozklada to rowno na zmiany danego
-//     stanowiska — patrz komentarz tam.
+//     w podanym zakresie dat. Plan liczony z ZYWEGO cfm_monthly_plan (patrz
+//     planForDate_), NIE z kolumny 'plan' zapisanej w wierszu — ta jest
+//     tylko migawka z momentu wyslania raportu i moze byc juz nieaktualna
+//     (np. plan poprawiony pozniej w CFM_plan.html), co dawalo sprzeczne
+//     liczby miedzy Premiami a Statystykami dla tego samego stanowiska/
+//     zmiany/okresu (ten sam blad juz raz naprawiony w handleStatystyki).
+//   - Awarie: laczny czas przestoju (min) per stanowisko+ZMIANA (kolumna
+//     'shift', zapisywana przy START) w tym samym zakresie dat.
+function planForDate_(monthlyPlan, targets, station, shift, dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var e = monthlyPlan[mk] && monthlyPlan[mk][station] && monthlyPlan[mk][station][shift] && monthlyPlan[mk][station][shift][dateIso];
+  if (e) return Number(e) || 0;
+  return Number(targets[station]) || 0;
+}
 function handlePremia(ss, p) {
+  var monthlyPlan = {}, stationTargets = {};
+  var ustSheet = ss.getSheetByName('Ustawienia');
+  if (ustSheet) {
+    var udata = ustSheet.getDataRange().getValues();
+    for (var u = 1; u < udata.length; u++) {
+      if (udata[u][0] === 'cfm_monthly_plan') { try { monthlyPlan = JSON.parse(udata[u][1] || '{}'); } catch (e) {} }
+      if (udata[u][0] === 'cfm_station_targets') { try { stationTargets = JSON.parse(udata[u][1] || '{}'); } catch (e) {} }
+    }
+  }
+
   var byKey = {};
   var sheet = ss.getSheetByName('RaportDzienny');
   if (sheet) {
@@ -319,7 +336,7 @@ function handlePremia(ss, p) {
       if (!byKey[key]) byKey[key] = { station: r[3], shift: r[2], sumQty: 0, sumOk: 0, sumPlan: 0, count: 0 };
       byKey[key].sumQty += Number(r[5]) || 0;
       byKey[key].sumOk += Number(r[9]) || 0;
-      byKey[key].sumPlan += Number(r[13]) || 0;
+      byKey[key].sumPlan += planForDate_(monthlyPlan, stationTargets, r[3], r[2], d);
       byKey[key].count += 1;
     }
   }

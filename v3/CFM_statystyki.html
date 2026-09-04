@@ -169,7 +169,7 @@ tbody tr.grouphead td{padding-top:16px}
 <script>
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
 
-var STATE = { monthDate: new Date(), rows: [], reworkRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {} };
+var STATE = { monthDate: new Date(), rows: [], reworkRows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {} };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -247,6 +247,7 @@ function loadMonth(opts) {
       document.getElementById('lastUpdate').textContent = 'odświeżono: ' + new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) + ' · 已更新';
       STATE.rows = data.historia || [];
       STATE.reworkRows = data.rework_historia || [];
+      STATE.awarieRows = data.awarie_historia || [];
       computeWeeks(opts.keepSelection);
       render();
     })
@@ -387,7 +388,8 @@ function render() {
     '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Bilans tygodniowy<span class="cn">每周计划平衡</span></h2></div><div id="weeklyBalance"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Bilans dzienny<span class="cn">每日计划平衡</span></h2></div><div id="dailyBalance"></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>';
+    '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>' +
+    '<div class="section"><div class="section-head"><h2>Awarie &#183; przestoje w okresie<span class="cn">故障 &#183; 本期停机</span></h2></div><div class="barsgrid" id="awarieSummary"></div></div>';
 
   wireMonthNav();
   renderWeekPicker();
@@ -400,6 +402,7 @@ function render() {
   renderWeeklyBalance();
   renderDailyBalance(days);
   renderReworkBalance(days);
+  renderAwarieSummary(days);
 }
 
 function fmtWeekRange(week) {
@@ -836,6 +839,40 @@ function renderReworkBalance(days) {
     return '<div class="barrow"><div class="barrow-lbl">' + z.label + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
       '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;odzysk ' + fmt(z.recovered) + '/' + fmt(z.processed) + ' &#183; złom ' + fmt(z.finalScrap) + '</div></div>';
+  }).join('');
+}
+
+// Podsumowanie przestoju z Awarii w ogladanym okresie, per stanowisko —
+// suma minut i liczba zdarzen. Pasek to wizualne porownanie wobec
+// NAJGORSZEGO stanowiska w liscie (nie ma tu "planu" do ktorego sie
+// odnosic, w przeciwienstwie do bilansow powyzej), zeby od razu bylo
+// widac ktore stanowisko mialo najwiecej przestoju w tym okresie.
+function plAwarie(n) {
+  if (n === 1) return 'awaria';
+  var m10 = n % 10, m100 = n % 100;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'awarie';
+  return 'awarii';
+}
+function renderAwarieSummary(days) {
+  var el = document.getElementById('awarieSummary');
+  var rows = STATE.awarieRows.filter(function(r) { return days.indexOf(r.date) >= 0; });
+  if (!rows.length) { el.innerHTML = '<div class="empty">Brak awarii w tym okresie. <span class="cn">本期无故障记录。</span></div>'; return; }
+  var byStation = {};
+  var order = [];
+  rows.forEach(function(r) {
+    if (!byStation[r.station]) { byStation[r.station] = { min: 0, count: 0 }; order.push(r.station); }
+    byStation[r.station].min += Number(r.czas_min) || 0;
+    byStation[r.station].count += 1;
+  });
+  var list = order.map(function(st) { return { station: st, min: byStation[st].min, count: byStation[st].count }; });
+  list.sort(function(a, b) { return b.min - a.min; });
+  var maxMin = Math.max.apply(null, list.map(function(x) { return x.min; }));
+  el.innerHTML = list.map(function(x) {
+    var pct = maxMin > 0 ? Math.round((x.min / maxMin) * 100) : 0;
+    var color = x.min >= 120 ? 'var(--red)' : x.min >= 60 ? 'var(--orange)' : 'var(--green)';
+    return '<div class="barrow"><div class="barrow-lbl">' + x.station + '</div>' +
+      '<div class="bartrack"><div class="barfill" style="width:' + Math.max(pct, 3) + '%;background:' + color + '"></div></div>' +
+      '<div class="barrow-pct"><b style="color:' + color + '">' + fmt(x.min) + ' min</b> &nbsp;' + x.count + ' ' + plAwarie(x.count) + '</div></div>';
   }).join('');
 }
 

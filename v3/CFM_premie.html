@@ -334,8 +334,10 @@ function computeRows() {
         techApplied = true;
       }
 
+      // Pass rate jest wazny informacyjnie (widoczny w tabeli), ale NIE
+      // warunkuje premii — premia jest wylacznie za wykonanie planu.
       var premia = null;
-      if (crewList.length > 0 && passRate !== null && Math.round(passRate) >= group.passRate && finalPct !== null) {
+      if (crewList.length > 0 && finalPct !== null) {
         if (finalPct >= group.progWyzszy) premia = group.premiaWyzsza;
         else if (finalPct >= group.progNizszy) premia = group.premiaNizsza;
       }
@@ -360,7 +362,7 @@ function render() {
   app.innerHTML =
     '<div class="pagehead"><div><h1>Premie <span class="cn">奖金</span></h1><div class="sub">Wyliczone automatycznie z planu produkcji, raportów i przestojów &#8212; miesiąc narastająco.<span class="cn"> 根据生产计划、报告和停机时间自动计算 &#8212; 月度累计。</span></div></div>' +
     '<div class="headactions">' + monthNavHtml() + '<button class="btn-mini cfg" id="btnCfgToggle">Konfiguracja ' + (STATE.configOpen ? '&#9652;' : '&#9662;') + '<span class="cn">配置</span></button><button class="btn-mini" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
-    '<div class="note"><div class="ic">i</div><div><b>Wykonanie planu ≥ próg niższy + pass rate ≥ wymagany = premia.</b> <span class="cn">计划完成率≥下限门槛 + 合格率≥要求 = 奖金。</span><br>Przestój z Awarii dolicza się zawsze (automatycznie + Twoja ręczna korekta). Dodatkowa rezerwa 60 min/dzień na prace techniczne dolicza się TYLKO wtedy, gdy bez niej wykonanie planu wyszłoby poniżej progu niższego — w tabeli oznaczone znaczkiem "+60min".<br><span class="cn">故障停机始终计入（自动+手动修正）。每天60分钟的技术维护余量仅在不加它就达不到下限门槛时才会计入 —— 表中标记为"+60分钟"。</span></div></div>' +
+    '<div class="note"><div class="ic">i</div><div><b>Wykonanie planu ≥ próg niższy = premia.</b> <span class="cn">计划完成率≥下限门槛 = 奖金。</span><br>Pass rate jest pokazywany informacyjnie, ale NIE warunkuje wypłaty premii — liczy się wyłącznie wykonanie planu. Przestój z Awarii dolicza się zawsze (automatycznie + Twoja ręczna korekta). Dodatkowa rezerwa 60 min/dzień na prace techniczne dolicza się TYLKO wtedy, gdy bez niej wykonanie planu wyszłoby poniżej progu niższego — w tabeli oznaczone znaczkiem "+60min".<br><span class="cn">合格率仅作参考显示，不作为发放奖金的条件 —— 只看计划完成率。故障停机始终计入（自动+手动修正）。每天60分钟的技术维护余量仅在不加它就达不到下限门槛时才会计入 —— 表中标记为"+60分钟"。</span></div></div>' +
     '<div id="cfgpanel"></div>' +
     '<div class="tablewrap"><div class="tablescroll"><table class="results" id="resultsTable"></table></div></div>';
 

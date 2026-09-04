@@ -101,6 +101,25 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
 .automirror{background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
 .automirror b{color:var(--text)}
+
+.gridwrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:18px}
+.gridtable{border-collapse:collapse;font-size:10.5px}
+.gridtable thead th{position:sticky;top:0;background:var(--surface-2);color:var(--muted);font-family:var(--fh);font-weight:700;padding:5px 3px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border-soft);min-width:26px}
+.gridtable thead th.lbl{position:sticky;left:0;z-index:2;background:var(--surface-2);min-width:100px;text-align:left;padding-left:8px}
+.gridtable thead th.we{color:var(--faint)}
+.gridtable thead th.sum{min-width:56px}
+.gridtable tbody td{padding:4px 2px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border-soft);font-variant-numeric:tabular-nums;color:var(--text)}
+.gridtable tbody td.lbl{position:sticky;left:0;background:var(--surface);text-align:left;padding-left:8px;font-family:var(--fh);font-weight:700;white-space:nowrap;border-right:1px solid var(--border-soft)}
+.gridtable tbody td.lbl .sh{display:inline-flex;align-items:center;gap:4px;font-size:10.5px}
+.gridtable tbody td.lbl .sh i{width:6px;height:6px;border-radius:50%;display:inline-block}
+.gridtable tbody td.we{background:rgba(255,255,255,0.02)}
+.gridtable tbody td.empty{color:var(--faint)}
+.gridtable tbody td.sum{font-weight:800;background:var(--surface-2)}
+.gridtable tbody td.anom{background:rgba(217,43,43,0.22);box-shadow:inset 0 0 0 1px var(--red);color:#fff;font-weight:800}
+.gridtable tbody tr:last-child td{border-bottom:none}
+.gridtable tbody tr.stgap td{border-bottom:6px solid var(--bg)}
+.gridlegend{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:8px}
+.gridlegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 </style>
 </head>
 <body>
@@ -239,6 +258,8 @@ function render() {
     '<div class="pagehead"><h1>Plan produkcji <span class="cn">生产计划</span></h1><div class="sub">Dla stanowisk pracujących codziennie: wpisz jedną liczbę i kliknij "Kopiuj pon–pt". Dla nieregularnych (np. lutowanie w piecu): rozwiń "Dni" i wypełnij ręcznie tylko potrzebne dni.<br><span class="cn">对于每天生产的工位：输入一个数字并点击"复制周一至周五"。对于不规律的工位（如炉内钎焊）：展开"天数"，只需手动填写需要的日期。</span></div></div>' +
     '<div class="monthnav"><button id="prevMonth">&#8249;</button><div class="mlabel">' + MONTH_NAMES[m] + ' ' + y + '<span class="cn">' + MONTH_NAMES_CN[m] + '</span></div><button id="nextMonth">&#8250;</button></div>' +
     '<div class="legend"><span><i style="background:var(--sunday-bg);border:1px solid var(--border)"></i>Niedziela · <span class="cn">周日</span></span><span>"Kopiuj pon–pt" nigdy nie rusza soboty — wpisz ją ręcznie w rozwiniętych dniach, jeśli akurat pracujecie &#183; <span class="cn">"复制"不会填写周六 — 如有加班请在展开的天数中手动填写</span></span></div>' +
+    '<div class="gridlegend"><span><i style="background:rgba(217,43,43,0.4);box-shadow:inset 0 0 0 1px var(--red)"></i>wartość odstająca od reszty wiersza &#183; <span class="cn">与该行其他数值不同</span></span></div>' +
+    '<div class="gridwrap"><table class="gridtable" id="planGrid"></table></div>' +
     '<div id="planlist"></div>' +
     '<div class="actions"><div class="wrap">' +
       '<button class="btn btn-copy" id="btnCopy">Skopiuj z poprz. mies.<small>从上月复制</small></button>' +
@@ -286,7 +307,7 @@ function render() {
   });
   document.getElementById('planlist').innerHTML = html || '<div class="empty">Brak stanowisk. <span class="cn">无工位。</span></div>';
   document.getElementById('planlist').addEventListener('input', function(e) {
-    if (e.target && e.target.matches('.daystrip input')) markDirty();
+    if (e.target && e.target.matches('.daystrip input')) { markDirty(); refreshPlanGrid(); }
   });
   applySaveButtonState(); // odtworz wizualny stan przycisku po re-renderze (np. po kopiowaniu)
 
@@ -300,6 +321,91 @@ function render() {
   document.getElementById('nextMonth').onclick = function() { STATE.plan[monthKey(STATE.viewMonth)] = collectPlanFromInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() + 1, 1); render(); };
   document.getElementById('btnCopy').onclick = copyFromPrevMonth;
   document.getElementById('btnSave').onclick = savePlan;
+
+  renderPlanGrid(y, m, nDays, entry);
+}
+
+// Siatka dzien-po-dzien na jednym ekranie (podglad, bez edycji — edycja
+// zostaje w kartach ponizej) — zeby powtarzalnosc i ewentualne bledy (np.
+// pojedynczy dzien z inna wartoscia niz reszta miesiaca) rzucaly sie w
+// oczy tak jak w arkuszu kalkulacyjnym, zamiast trzeba bylo przewijac
+// karty stanowisko-po-stanowisku i pamietac poprzednie wartosci.
+var WD_SHORT = ['P', 'W', 'Ś', 'C', 'P', 'S', 'N'];
+function detectRowAnomalies(vals) {
+  // vals: tablica liczb (tylko wypelnione dni, bez null). Odstajaca
+  // wartosc = mniejszosc wyraznie odstajaca od dominujacej wiekszosci —
+  // NIE oznaczamy niczego przy prawdziwie nieregularnym harmonogramie
+  // (np. na przemian 255/370), gdzie nie ma jednej dominujacej wartosci.
+  if (vals.length < 4) return {};
+  var counts = {};
+  vals.forEach(function(v) { counts[v] = (counts[v] || 0) + 1; });
+  var mode = null, modeCount = 0;
+  Object.keys(counts).forEach(function(k) { if (counts[k] > modeCount) { modeCount = counts[k]; mode = k; } });
+  if (modeCount / vals.length < 0.6) return {};
+  var anomSet = {};
+  Object.keys(counts).forEach(function(k) { if (k !== mode) anomSet[k] = true; });
+  return anomSet;
+}
+function renderPlanGrid(y, m, nDays, entry) {
+  var table = document.getElementById('planGrid');
+  if (!table) return;
+  var rows = [];
+  STATE.stations.forEach(function(st) {
+    if (st === 'OP40 OUT') return;
+    var stEntry = entry[st] || {};
+    STATE.shiftLabels.forEach(function(sh) {
+      var shEntry = stEntry[sh] || {};
+      var vals = [];
+      for (var d = 1; d <= nDays; d++) {
+        var iso = dateISO(y, m, d);
+        var v = shEntry[iso];
+        vals.push(v !== undefined ? Number(v) : null);
+      }
+      rows.push({ station: st, shift: sh, vals: vals });
+    });
+  });
+  if (!rows.length) { table.innerHTML = ''; return; }
+
+  var thead = '<thead><tr><th class="lbl">Stanowisko<span class="cn">工位</span></th>';
+  for (var d = 1; d <= nDays; d++) {
+    var wd = new Date(y, m, d).getDay();
+    var wi = (wd + 6) % 7;
+    thead += '<th class="' + (wd === 0 || wd === 6 ? 'we' : '') + '">' + d + '<br>' + WD_SHORT[wi] + '</th>';
+  }
+  thead += '<th class="sum">Suma<span class="cn">总数</span></th></tr></thead>';
+
+  var byStation = {};
+  var order = [];
+  rows.forEach(function(r) { if (!byStation[r.station]) { byStation[r.station] = []; order.push(r.station); } byStation[r.station].push(r); });
+
+  var body = '<tbody>';
+  order.forEach(function(st, si) {
+    var list = byStation[st];
+    list.forEach(function(r, ri) {
+      var filledVals = r.vals.filter(function(v) { return v !== null && v > 0; });
+      var anomSet = detectRowAnomalies(filledVals);
+      var isLastOfStation = ri === list.length - 1;
+      body += '<tr' + (isLastOfStation && si < order.length - 1 ? ' class="stgap"' : '') + '>';
+      body += '<td class="lbl">' + (ri === 0 ? '<b>' + st + '</b> ' : '') + '<span class="sh"><i style="background:' + shiftColor(r.shift) + '"></i>' + r.shift + '</span></td>';
+      var sum = 0;
+      r.vals.forEach(function(v, i) {
+        var wd = new Date(y, m, i + 1).getDay();
+        var we = wd === 0 || wd === 6;
+        if (v === null || v <= 0) { body += '<td class="' + (we ? 'we ' : '') + 'empty">&#183;</td>'; return; }
+        sum += v;
+        var anom = anomSet[String(v)];
+        body += '<td class="' + (we ? 'we ' : '') + (anom ? 'anom' : '') + '">' + v + '</td>';
+      });
+      body += '<td class="sum">' + sum.toLocaleString('pl-PL') + '</td>';
+      body += '</tr>';
+    });
+  });
+  body += '</tbody>';
+  table.innerHTML = thead + body;
+}
+function refreshPlanGrid() {
+  var y = STATE.viewMonth.getFullYear(), m = STATE.viewMonth.getMonth();
+  renderPlanGrid(y, m, daysInMonth(STATE.viewMonth), collectPlanFromInputs());
 }
 
 function setDaysOpen(card, open) {
@@ -329,6 +435,7 @@ function quickCopy(btn) {
   });
   setDaysOpen(card, true);
   markDirty();
+  refreshPlanGrid();
   showToast('Skopiowano na pon–pt — pamiętaj kliknąć "Zapisz plan"! · 已复制 — 别忘了点击"保存计划"!', 'ok');
 }
 
@@ -345,6 +452,7 @@ function clearShiftDays(btn) {
   card.querySelectorAll('.daystrip input').forEach(function(el) { el.value = ''; });
   card.querySelector('.quickval').value = '';
   markDirty();
+  refreshPlanGrid();
   showToast('Wyczyszczono — pamiętaj kliknąć "Zapisz plan"! · 已清空 — 别忘了点击"保存计划"!', 'ok');
 }
 

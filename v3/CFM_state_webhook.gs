@@ -454,7 +454,11 @@ function handleHistoriaGodzinna(ss, p) {
 // (shift dopisany NA KONCU — zmiana to tozsamosc grupy A/B/C operatora w
 // momencie zgloszenia awarii, potrzebna do poprawnego przypisania
 // przestoju do wlasciwej grupy w wyliczeniu premii; zapisywana tylko przy
-// START, KONIEC jej nie nadpisuje)
+// START, KONIEC jej nie nadpisuje. Type NATOMIAST jest teraz nadpisywany
+// przy KONCU — opis przyczyny przenosi sie z app-side ze startu na koniec
+// (operator startujacy awarie czesto jeszcze nie wie co dokladnie sie
+// stalo; dopiero KONIEC niesie ostateczny typ+opis), START zapisuje na razie
+// tylko sama kategorie bez opisu.)
 var AWARIE_HEADERS = ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator', 'shift'];
 function handleAwariaStart(ss, p) {
   var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
@@ -470,7 +474,7 @@ function handleAwariaEnd(ss, p) {
   for (var i = data.length - 1; i >= 1; i--) {
     var row = data[i];
     if (row[0] === p.start_timestamp && row[1] === p.stanowisko && row[5] === 'OTWARTA') {
-      sheet.getRange(i + 1, 4, 1, 3).setValues([[p.koniec_timestamp || '', Number(p.czas_min) || 0, 'ZAMKNIETA']]);
+      sheet.getRange(i + 1, 3, 1, 4).setValues([[p.typ || row[2], p.koniec_timestamp || '', Number(p.czas_min) || 0, 'ZAMKNIETA']]);
       return jsonResponse({ status: 'ok' });
     }
   }

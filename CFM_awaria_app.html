@@ -434,7 +434,10 @@ html, body {
 
   <!-- HISTORY -->
   <div class="history-section">
-    <div class="section-label" style="margin-bottom:12px;">Historia · 记录 <span id="histCount"></span></div>
+    <div class="section-label" style="margin-bottom:12px;display:flex;align-items:center;">
+      <span>Historia · 记录 <span id="histCount"></span></span>
+      <button onclick="clearHistory()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:var(--font-body);font-size:10.5px;font-weight:600;padding:4px 8px;cursor:pointer;text-transform:none;letter-spacing:0;">Wyczyść · 清空</button>
+    </div>
     <div id="historyList"></div>
   </div>
 
@@ -926,6 +929,19 @@ function renderHistory() {
       '</div>' +
     '</div>';
   }).join('');
+}
+
+// Historia jest TYLKO lokalnym zapisem na tym urzadzeniu (localStorage,
+// max 20 wpisow) — nigdy nie jest pobierana na zywo z arkusza, wiec
+// czyszczenie wierszy w arkuszu KONIEC_AWARII nie ma na nia wplywu i
+// odwrotnie. To pole sluzy do recznego skasowania tej lokalnej listy.
+function clearHistory() {
+  if (!state.history.length) return;
+  if (!confirm('Wyczyścić lokalną historię na tym urządzeniu (' + state.history.length + ' wpisów)? Nie usuwa nic z arkusza.\n清空本设备的本地记录？不会删除表格中的数据。')) return;
+  state.history = [];
+  localStorage.removeItem('cfm_history');
+  renderHistory();
+  showToast('✓ Historia wyczyszczona · 记录已清空', 'success');
 }
 
 // ── TOAST ────────────────────────────────────────────────────

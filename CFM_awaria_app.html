@@ -390,6 +390,15 @@ html, body {
 
   <div class="divider"></div>
 
+  <!-- OPERATOR -->
+  <div class="section-label">Kto zgłasza · 报告人 <span style="color:var(--red)">*</span></div>
+  <select class="station-select" id="operatorSelect" onchange="onOperatorChange()" style="font-size:20px;"></select>
+  <div class="remembered-badge" id="rememberedOperatorBadge" style="display:none;">
+    Zapamiętano · 已记住此人
+  </div>
+
+  <div class="divider"></div>
+
   <!-- TYPE -->
   <div class="section-label">Typ zdarzenia · 事件类型 <span>(tylko dla startu)</span></div>
   <div class="type-grid" id="typeGrid">
@@ -445,6 +454,7 @@ html, body {
       <button class="config-tab active" onclick="switchTab('webhook')">Połączenie</button>
       <button class="config-tab" onclick="switchTab('types')">Typy awarii</button>
       <button class="config-tab" onclick="switchTab('stations')">Stanowiska</button>
+      <button class="config-tab" onclick="switchTab('workers')">Pracownicy</button>
     </div>
 
     <!-- TAB: WEBHOOK -->
@@ -499,6 +509,18 @@ html, body {
         Zapisz stanowiska · 保存工位
       </button>
     </div>
+
+    <!-- TAB: PRACOWNICY -->
+    <div class="config-section" id="tab-workers">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">
+        Edytuj listę pracowników · 编辑员工名单
+      </div>
+      <div id="workerEditList"></div>
+      <button class="type-add-btn" onclick="addWorkerRow()">+ Dodaj pracownika · 添加员工</button>
+      <button class="config-save" style="margin-top:12px;width:100%;background:var(--blue);color:#fff;border-radius:8px;padding:10px;" onclick="saveWorkers()">
+        Zapisz pracowników · 保存员工
+      </button>
+    </div>
   </div>
 
 </div>
@@ -544,6 +566,7 @@ html, body {
 // ── STATE ────────────────────────────────────────────────────
 var state = {
   station: localStorage.getItem('cfm_station') || '',
+  operator: localStorage.getItem('cfm_operator') || '',
   type: 'Awaria mechaniczna',
   activeBreakdown: JSON.parse(localStorage.getItem('cfm_active') || 'null'),
   history: JSON.parse(localStorage.getItem('cfm_history') || '[]'),
@@ -604,6 +627,7 @@ function pobierzUstawieniaZArkusza() {
       }
 
       renderStationSelect();
+      renderOperatorSelect();
       console.log('Awaria app: ustawienia pobrane z arkusza', u.data_zapisu || '');
     })
     .catch(function(e) { console.log('Awaria app: brak ustawień z arkusza', e); });
@@ -617,6 +641,11 @@ window.onload = function() {
   if (state.station) {
     document.getElementById('stationSelect').value = state.station;
     showRememberedBadge();
+  }
+  renderOperatorSelect();
+  if (state.operator) {
+    document.getElementById('operatorSelect').value = state.operator;
+    showRememberedOperatorBadge();
   }
 
   // Restore webhook – jeśli brak, ustaw domyślny
@@ -659,6 +688,19 @@ function onStationChange() {
 function showRememberedBadge() {
   var b = document.getElementById('rememberedBadge');
   b.style.display = state.station ? 'inline-flex' : 'none';
+}
+
+// ── OPERATOR ─────────────────────────────────────────────────
+function onOperatorChange() {
+  var sel = document.getElementById('operatorSelect').value;
+  state.operator = sel;
+  localStorage.setItem('cfm_operator', sel);
+  showRememberedOperatorBadge();
+}
+
+function showRememberedOperatorBadge() {
+  var b = document.getElementById('rememberedOperatorBadge');
+  b.style.display = state.operator ? 'inline-flex' : 'none';
 }
 
 // ── TYPE ─────────────────────────────────────────────────────
@@ -712,6 +754,7 @@ var _openAwaria = null;
 
 function submitStart() {
   if (!state.station) { showToast('⚠ Wybierz stanowisko!', 'error'); return; }
+  if (!state.operator) { showToast('⚠ Wybierz kto zgłasza!', 'error'); return; }
   if (state.activeBreakdown) { showToast('⚠ Zamknij obecną awarię!', 'error'); return; }
 
   var typFull = state.type;
@@ -797,6 +840,7 @@ function wykonajStart(typFull) {
   var now = new Date();
   state.activeBreakdown = {
     station: state.station,
+    operator: state.operator,
     type: typFull,
     startTs: now.toISOString(),
     startFormatted: formatTs(now)
@@ -805,6 +849,7 @@ function wykonajStart(typFull) {
 
   sendToSheets('START', {
     stanowisko: state.station,
+    operator: state.operator,
     typ: typFull,
     timestamp: now.toISOString()
   });
@@ -869,7 +914,8 @@ function showActiveBanner() {
   var banner = document.getElementById('activeBanner');
   banner.classList.add('visible');
   document.getElementById('activeStation').textContent =
-    state.activeBreakdown.station + ' · ' + state.activeBreakdown.type;
+    state.activeBreakdown.station + ' · ' + state.activeBreakdown.type +
+    (state.activeBreakdown.operator ? ' · ' + state.activeBreakdown.operator : '');
   startTimer();
   updateDescBoxForActive();
 }
@@ -934,7 +980,7 @@ function renderHistoryItems(list) {
     return '<div class="history-item">' +
       '<div class="history-left">' +
         '<div class="history-op">' + r.station + '</div>' +
-        '<div class="history-type">' + r.type + '</div>' +
+        '<div class="history-type">' + r.type + (r.operator ? ' · ' + r.operator : '') + '</div>' +
       '</div>' +
       '<div class="history-right">' +
         '<div class="history-time done">' + r.durationMin + ' min</div>' +
@@ -987,16 +1033,18 @@ function toggleConfig() {
   document.querySelector('.gear-btn').classList.add('active');
   renderTypeEditor();
   renderStationEditor();
+  renderWorkerEditor();
   updateWebhookStatus();
 }
 
 function switchTab(tab) {
-  document.querySelectorAll('.config-tab').forEach(function(t,i) {
-    t.classList.toggle('active', (i===0 && tab==='webhook') || (i===1 && tab==='types') || (i===2 && tab==='stations'));
+  var order = ['webhook', 'types', 'stations', 'workers'];
+  document.querySelectorAll('.config-tab').forEach(function(t, i) {
+    t.classList.toggle('active', order[i] === tab);
   });
-  document.getElementById('tab-webhook').classList.toggle('active', tab==='webhook');
-  document.getElementById('tab-types').classList.toggle('active', tab==='types');
-  document.getElementById('tab-stations').classList.toggle('active', tab==='stations');
+  order.forEach(function(t) {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  });
 }
 
 function updateWebhookStatus() {
@@ -1171,6 +1219,74 @@ function saveStations() {
   }
 
   showToast('✓ Stanowiska zapisane · 工位已保存', 'success');
+}
+
+// ── PRACOWNICY – EDYTOR ──────────────────────────────────────
+// Ten sam wzor co Stanowiska powyzej. Lista sluzy do wyboru "Kto zgłasza"
+// na glownym ekranie — operator jest wysylany razem ze STARTem awarii
+// (patrz wykonajStart), zeby bylo wiadomo kto zglosil.
+var DEFAULT_WORKERS = [];
+
+function getWorkers() {
+  var stored = localStorage.getItem('cfm_workers');
+  return stored ? JSON.parse(stored) : DEFAULT_WORKERS.slice();
+}
+
+function renderOperatorSelect() {
+  var workers = getWorkers();
+  var sel = document.getElementById('operatorSelect');
+  var prevVal = sel.value;
+  sel.innerHTML = '<option value="">— wybierz / 请选择 —</option>';
+  workers.forEach(function(w) {
+    var opt = document.createElement('option');
+    opt.value = opt.textContent = w;
+    sel.appendChild(opt);
+  });
+  if (prevVal) sel.value = prevVal;
+}
+
+function renderWorkerEditor() {
+  var workers = getWorkers();
+  var list = document.getElementById('workerEditList');
+  list.innerHTML = workers.map(function(w, i) {
+    return '<div class="type-edit-row">' +
+      '<input class="type-edit-input" id="worker-' + i + '" value="' + w.replace(/"/g, '&quot;') + '" placeholder="Imię i nazwisko">' +
+      '<button class="type-edit-del" onclick="delWorkerRow(' + i + ')">×</button>' +
+    '</div>';
+  }).join('');
+}
+
+function addWorkerRow() {
+  var workers = getWorkers();
+  workers.push('Nowy pracownik');
+  localStorage.setItem('cfm_workers', JSON.stringify(workers));
+  renderWorkerEditor();
+}
+
+function delWorkerRow(i) {
+  var workers = getWorkers();
+  workers.splice(i, 1);
+  localStorage.setItem('cfm_workers', JSON.stringify(workers));
+  renderWorkerEditor();
+}
+
+function saveWorkers() {
+  var workers = getWorkers();
+  var saved = workers.map(function(w, i) {
+    var v = document.getElementById('worker-' + i).value.trim();
+    return v || w;
+  }).filter(Boolean);
+  localStorage.setItem('cfm_workers', JSON.stringify(saved));
+  renderOperatorSelect();
+  renderWorkerEditor();
+
+  var wh = state.webhookUrl;
+  if (wh) {
+    var url = wh + '?event_type=USTAWIENIA&lista_pracownikow=' + encodeURIComponent(saved.join('|'));
+    new Image().src = url;
+  }
+
+  showToast('✓ Pracownicy zapisani · 员工已保存', 'success');
 }
 
 // ── UTILS ────────────────────────────────────────────────────

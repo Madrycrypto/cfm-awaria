@@ -273,7 +273,25 @@ function handleStatystyki(ss, p) {
       });
     }
   }
-  return jsonResponse({ status: 'ok', historia: historia, rework_historia: reworkHistoria });
+  // Rowniez Awarie z tego samego zakresu dat — zeby strona statystyk mogla
+  // pokazac ile bylo przestoju (i ile razy) per stanowisko/zmiana w
+  // ogladanym okresie, nie tylko posrednio przez wplyw na Premie. Tylko
+  // ZAMKNIETE awarie (otwarta = jeszcze trwa, nieznany finalny czas);
+  // starsze wpisy sprzed dodania kolumny "shift" po prostu maja ja puste.
+  var awarieHistoria = [];
+  var awSheet = ss.getSheetByName('Awarie');
+  if (awSheet) {
+    var adata = awSheet.getDataRange().getValues();
+    for (var k = 1; k < adata.length; k++) {
+      var ar = adata[k];
+      if (ar[5] !== 'ZAMKNIETA') continue;
+      var ad = normalizeDate_(ar[0]).slice(0, 10);
+      if (p.start && ad < p.start) continue;
+      if (p.end && ad > p.end) continue;
+      awarieHistoria.push({ date: ad, station: ar[1], type: ar[2], shift: ar[7] || '', czas_min: Number(ar[4]) || 0 });
+    }
+  }
+  return jsonResponse({ status: 'ok', historia: historia, rework_historia: reworkHistoria, awarie_historia: awarieHistoria });
 }
 
 // ── PREMIE ───────────────────────────────────────────────────────────

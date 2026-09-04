@@ -70,6 +70,7 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .reason-chip.scrap b{color:#ff7070}
 .reason-chip.rework b{color:#f0a030}
 .reason-chip.off{color:var(--faint)}
+.reason-chip.awaria b{color:var(--red)}
 
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
@@ -360,6 +361,21 @@ function reasonsHtml(reasons) {
   return reasons.map(function(rs) {
     var lbl = rs.category === 'scrap' ? 'scrap' : 'rework';
     return '<span class="reason-chip ' + rs.category + '"><b>' + rs.qty + '&#215;</b>' + rs.reason + ' <span class="cn">(' + lbl + ')</span></span>';
+  }).join('');
+}
+
+// Awarie dla konkretnego dnia/stanowiska/zmiany — czysto informacyjne w
+// Bilansie dziennym (patrz dailyBarsHtml), NIE wplywa na wykonanie planu
+// tutaj (w przeciwienstwie do Premii, ktore doliczaja je jako odzysk).
+function getAwarieForDay(station, shift, dateIso) {
+  return STATE.awarieRows.filter(function(a) {
+    return a.date === dateIso && a.station === station && a.shift === shift;
+  });
+}
+function awarieChipsHtml(entries) {
+  if (!entries.length) return '<span class="reason-chip off">brak szczegółów &#183; 无详情</span>';
+  return entries.map(function(a) {
+    return '<span class="reason-chip awaria"><b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>';
   }).join('');
 }
 
@@ -780,10 +796,15 @@ function dailyBarsHtml(groups, dateIso) {
       var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
       var full = getFullShiftMinutes(g.station);
       var korekta = getWorktimeKorekta(g.station, g.shift, dateIso);
+      var awarie = getAwarieForDay(g.station, g.shift, dateIso);
+      var awarieMin = awarie.reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
+      var awarieInfo = awarieMin > 0 ?
+        '<div class="awarieinfo"><button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">auto z Awarii: ' + awarieMin + ' min &#9662; <span class="cn">故障</span></button><div class="reasonbox">' + awarieChipsHtml(awarie) + '</div></div>' : '';
       return '<div class="dailybarrow"><div class="barrow-lbl">' + g.station + '</div>' +
         '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
         '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(actual) + '/' + fmt(plan) + '</div>' +
-        '<input type="number" class="wtinput" min="0" placeholder="' + full + '" title="Dostępny czas pracy (min) &#183; 可用工作时间" value="' + (korekta === null ? '' : korekta) + '" data-station="' + g.station.replace(/"/g, '&quot;') + '" data-shift="' + g.shift + '" data-date="' + dateIso + '"></div>';
+        '<input type="number" class="wtinput" min="0" placeholder="' + full + '" title="Dostępny czas pracy (min) &#183; 可用工作时间" value="' + (korekta === null ? '' : korekta) + '" data-station="' + g.station.replace(/"/g, '&quot;') + '" data-shift="' + g.shift + '" data-date="' + dateIso + '"></div>' +
+        awarieInfo;
     }).join('');
     return head + rowsHtml;
   }).join('');

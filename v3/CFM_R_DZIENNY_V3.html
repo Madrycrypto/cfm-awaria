@@ -1197,12 +1197,6 @@ function sumPieceQty(entries) {
 // wlasny, osobny mechanizm opisu (np. Raport Godzinny — zachowany bez zmian,
 // zeby nie zdublowac pola i nie zerwac zgodnosci z juz zapisanymi danymi).
 function isOtherReason(r) { return /inne|其他/i.test(r || ''); }
-function reasonOtherToggle(input) {
-  var row = input.closest('.reason-row');
-  var box = row && row.nextElementSibling;
-  if (!box || !box.classList.contains('reason-other-desc')) return;
-  box.style.display = (parseFloat(input.value) || 0) > 0 ? 'block' : 'none';
-}
 function renderReasonTable(containerId, reasons, onInputCallback, skipOtherDesc) {
   var container = document.getElementById(containerId);
   if (!container) return;
@@ -1218,11 +1212,11 @@ function renderReasonTable(containerId, reasons, onInputCallback, skipOtherDesc)
       '<span class="reason-row-label">' + r + '</span>' +
       '<div class="reason-row-controls">' +
         '<button type="button" class="reason-row-btn" onclick="adjustReasonRow(this,' + (weight ? '-0.1' : '-1') + ')">&#8722;</button>' +
-        '<input type="number" class="reason-row-input" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' placeholder="0" inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="' + cb + '();reasonOtherToggle(this)">' +
+        '<input type="number" class="reason-row-input" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' placeholder="0" inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="' + cb + '()">' +
         '<button type="button" class="reason-row-btn" onclick="adjustReasonRow(this,' + (weight ? '0.1' : '1') + ')">+</button>' +
       '</div>' +
     '</div>' +
-    (other ? '<div class="reason-other-desc" style="display:none;"><input type="text" class="reason-other-input" placeholder="Opisz przyczynę... &#183; 请描述原因..." autocomplete="off"></div>' : '');
+    (other ? '<div class="reason-other-desc"><input type="text" class="reason-other-input" placeholder="Opisz przyczynę... &#183; 请描述原因..." autocomplete="off"></div>' : '');
   }).join('');
 }
 function adjustReasonRow(btn, delta) {
@@ -1916,7 +1910,6 @@ function populateReasonTable(containerId, entries) {
     if (box && box.classList.contains('reason-other-desc')) {
       var descInput = box.querySelector('.reason-other-input');
       if (descInput) descInput.value = (match && match.desc) || '';
-      box.style.display = match && match.qty > 0 ? 'block' : 'none';
     }
   });
 }

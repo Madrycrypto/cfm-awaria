@@ -347,7 +347,7 @@ html, body {
 }
 .gear-btn.active { color: var(--text); }
 .config-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
-.config-tab { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--font-head); font-size: 13px; font-weight: 700; padding: 7px; cursor: pointer; text-align: center; letter-spacing: 0.04em; }
+.config-tab { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--font-head); font-size: 11px; font-weight: 700; padding: 7px 4px; cursor: pointer; text-align: center; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .config-tab.active { background: var(--border); color: var(--text); border-color: #444; }
 .config-section { display: none; }
 .config-section.active { display: block; }
@@ -444,6 +444,7 @@ html, body {
     <div class="config-tabs">
       <button class="config-tab active" onclick="switchTab('webhook')">Połączenie</button>
       <button class="config-tab" onclick="switchTab('types')">Typy awarii</button>
+      <button class="config-tab" onclick="switchTab('stations')">Stanowiska</button>
     </div>
 
     <!-- TAB: WEBHOOK -->
@@ -484,6 +485,18 @@ html, body {
       <button class="type-add-btn" onclick="addTypeRow()">+ Dodaj typ · 添加类型</button>
       <button class="config-save" style="margin-top:12px;width:100%;background:var(--blue);color:#fff;border-radius:8px;padding:10px;" onclick="saveTypes()">
         Zapisz typy · 保存类型
+      </button>
+    </div>
+
+    <!-- TAB: STANOWISKA -->
+    <div class="config-section" id="tab-stations">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">
+        Edytuj nazwy stanowisk · 编辑工位名称
+      </div>
+      <div id="stationEditList"></div>
+      <button class="type-add-btn" onclick="addStationRow()">+ Dodaj stanowisko · 添加工位</button>
+      <button class="config-save" style="margin-top:12px;width:100%;background:var(--blue);color:#fff;border-radius:8px;padding:10px;" onclick="saveStations()">
+        Zapisz stanowiska · 保存工位
       </button>
     </div>
   </div>
@@ -578,7 +591,10 @@ function pobierzUstawieniaZArkusza() {
         if (workers.length > 0) localStorage.setItem('cfm_workers', JSON.stringify(workers));
       }
 
-      // Stanowiska
+      // Stanowiska — zawsze synchronizowane z arkusza (event_type=USTAWIENIA
+      // faktycznie zapisuje lista_stanowisk z powrotem do arkusza, patrz
+      // saveStations(), wiec to jest prawdziwa dwukierunkowa synchronizacja,
+      // nie tylko jednorazowy lokalny override).
       if (u.lista_stanowisk && u.lista_stanowisk.length > 2) {
         var stations = u.lista_stanowisk.split('|').filter(Boolean);
         if (stations.length > 0) localStorage.setItem('cfm_stations', JSON.stringify(stations));
@@ -587,33 +603,19 @@ function pobierzUstawieniaZArkusza() {
         try { localStorage.setItem('cfm_station_status', JSON.stringify(JSON.parse(u.status_stanowisk))); } catch(e){}
       }
 
+      renderStationSelect();
       console.log('Awaria app: ustawienia pobrane z arkusza', u.data_zapisu || '');
     })
     .catch(function(e) { console.log('Awaria app: brak ustawień z arkusza', e); });
 }
 
 window.onload = function() {
-  // Restore station
+  // Zbuduj liste stanowisk (zawsze, nie tylko gdy jest juz zapamietane —
+  // inaczej na swiezym urzadzeniu bez wczesniej wybranego stanowiska
+  // rozwijana lista zostawala pusta).
+  renderStationSelect();
   if (state.station) {
-    // Zbuduj listę stanowisk z localStorage (tylko aktywne)
-  (function buildStations() {
-    var DEFAULT = ['OP50-1','OP50-2','OP52','OP53','OP60','OP61',
-      'OP70/71','OP72','OP73','OP74/80','GP12','OP30',
-      'OP33A','OP33B','OP40-1','OP40-2','OP40-3'];
-    var stored   = localStorage.getItem('cfm_stations');
-    var stations = stored ? JSON.parse(stored) : DEFAULT;
-    var statusRaw = localStorage.getItem('cfm_station_status');
-    var stStatus  = statusRaw ? JSON.parse(statusRaw) : {};
-    var sel = document.getElementById('stationSelect');
-    sel.innerHTML = '<option value="">— wybierz / 请选择 —</option>';
-    stations.forEach(function(s) {
-      if (stStatus[s] === false) return;
-      var opt = document.createElement('option');
-      opt.value = opt.textContent = s;
-      sel.appendChild(opt);
-    });
-  })();
-  document.getElementById('stationSelect').value = state.station;
+    document.getElementById('stationSelect').value = state.station;
     showRememberedBadge();
   }
 
@@ -664,33 +666,37 @@ function selectType(btn) {
   document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   state.type = btn.dataset.val;
-  // Pokaż pole opisu dla "Inne" i "Brak materiału"
+}
+
+// Opis przyczyny NIE jest juz warunkiem STARTU — operator zglaszajacy
+// awarie czesto jeszcze nie wie co dokladnie sie stalo (dopiero technik to
+// ustali po naprawie). Pole opisu pokazuje sie i jest wymagane dopiero W
+// TRAKCIE trwania awarii, przed KONCEM — patrz updateDescBoxForActive()
+// wywolywane z showActiveBanner() (dziala zarowno po START jak i po
+// przywroceniu aktywnej awarii przy wczytaniu strony).
+var opisy = {
+  'Awaria maszyny':        { label: 'Co się zepsuło? · 什么损坏了？',             ph: 'Np. silnik, pasek, czujnik...\n例如：电机、皮带、传感器...' },
+  'Oczekiwanie na lidera': { label: 'Powód oczekiwania · 等待班长原因',           ph: 'Np. problem jakościowy, decyzja...\n例如：质量问题、等待决定...' },
+  'Brak materiału':        { label: 'Jakiego materiału brakuje? · 缺少什么物料？', ph: 'Podaj nazwę / numer materiału...\n请输入物料名称/编号...' },
+  'Szkolenie':             { label: 'Temat szkolenia · 培训主题',                 ph: 'Np. nowy produkt, BHP, instrukcja...\n例如：新产品、安全、操作规程...' },
+  'Inne':                  { label: 'Opis przyczyny · 其他原因说明',               ph: 'Opisz przyczynę awarii...\n请描述故障原因...' }
+};
+
+function updateDescBoxForActive() {
   var inneBox = document.getElementById('inneBox');
   var inneLabel = document.getElementById('inneLabel');
   var inneOpis = document.getElementById('inneOpis');
-
-  // Typy bez opisu
-  if (NO_DESC_TYPES.indexOf(state.type) >= 0) {
+  var typ = state.activeBreakdown && state.activeBreakdown.type;
+  if (!typ || NO_DESC_TYPES.indexOf(typ) >= 0) {
     inneBox.classList.remove('visible');
     inneOpis.value = '';
     return;
   }
-
-  var opisy = {
-    'Awaria maszyny':        { label: 'Co się zepsuło? · 什么损坏了？',             ph: 'Np. silnik, pasek, czujnik...\n例如：电机、皮带、传感器...' },
-    'Oczekiwanie na lidera': { label: 'Powód oczekiwania · 等待班长原因',           ph: 'Np. problem jakościowy, decyzja...\n例如：质量问题、等待决定...' },
-    'Brak materiału':        { label: 'Jakiego materiału brakuje? · 缺少什么物料？', ph: 'Podaj nazwę / numer materiału...\n请输入物料名称/编号...' },
-    'Szkolenie':             { label: 'Temat szkolenia · 培训主题',                 ph: 'Np. nowy produkt, BHP, instrukcja...\n例如：新产品、安全、操作规程...' },
-    'Inne':                  { label: 'Opis przyczyny · 其他原因说明',               ph: 'Opisz przyczynę awarii...\n请描述故障原因...' }
-  };
-
-  var opis = opisy[state.type];
+  var opis = opisy[typ];
   if (opis) {
     inneLabel.innerHTML = opis.label + ' <span style="color:var(--red)">*</span>';
     inneOpis.placeholder = opis.ph;
     inneBox.classList.add('visible');
-    inneOpis.value = '';
-    setTimeout(function(){ inneOpis.focus(); }, 100);
   } else {
     inneBox.classList.remove('visible');
     inneOpis.value = '';
@@ -708,14 +714,7 @@ function submitStart() {
   if (!state.station) { showToast('⚠ Wybierz stanowisko!', 'error'); return; }
   if (state.activeBreakdown) { showToast('⚠ Zamknij obecną awarię!', 'error'); return; }
 
-  // Walidacja opisu (przed sprawdzeniem sheets)
-  var inneOpis = document.getElementById('inneOpis').value.trim();
-  if (NO_DESC_TYPES.indexOf(state.type) < 0 && !inneOpis) {
-    showToast('⚠ Opisz przyczynę · 请填写原因', 'error');
-    document.getElementById('inneOpis').focus();
-    return;
-  }
-  var typFull = NO_DESC_TYPES.indexOf(state.type) >= 0 ? state.type : state.type + ': ' + inneOpis;
+  var typFull = state.type;
 
   // Zapisz dane oczekującego startu
   _pendingStart = { typFull: typFull };
@@ -819,13 +818,21 @@ function wykonajStart(typFull) {
 function submitEnd() {
   if (!state.activeBreakdown) return;
 
+  var inneOpis = document.getElementById('inneOpis').value.trim();
+  if (NO_DESC_TYPES.indexOf(state.activeBreakdown.type) < 0 && !inneOpis) {
+    showToast('⚠ Opisz przyczynę przed zamknięciem · 结束前请描述原因', 'error');
+    document.getElementById('inneOpis').focus();
+    return;
+  }
+  var typFull = inneOpis ? state.activeBreakdown.type + ': ' + inneOpis : state.activeBreakdown.type;
+
   var now = new Date();
   var startDate = new Date(state.activeBreakdown.startTs);
   var diffMin = Math.round((now - startDate) / 60000);
 
   var record = {
     station: state.activeBreakdown.station,
-    type: state.activeBreakdown.type,
+    type: typFull,
     startTs: state.activeBreakdown.startFormatted,
     endTs: formatTs(now),
     durationMin: diffMin
@@ -833,7 +840,7 @@ function submitEnd() {
 
   sendToSheets('KONIEC', {
     stanowisko: state.activeBreakdown.station,
-    typ: state.activeBreakdown.type,
+    typ: typFull,
     start_timestamp: state.activeBreakdown.startTs,
     koniec_timestamp: now.toISOString(),
     czas_min: diffMin
@@ -851,6 +858,7 @@ function submitEnd() {
   clearInterval(timerInterval);
   document.getElementById('activeBanner').classList.remove('visible');
   document.getElementById('btnEnd').classList.add('btn-disabled');
+  updateDescBoxForActive();
 
   renderHistory();
   showToast('✓ Czas awarii: ' + diffMin + ' min · 故障时长：' + diffMin + '分钟', 'success');
@@ -863,6 +871,7 @@ function showActiveBanner() {
   document.getElementById('activeStation').textContent =
     state.activeBreakdown.station + ' · ' + state.activeBreakdown.type;
   startTimer();
+  updateDescBoxForActive();
 }
 
 function startTimer() {
@@ -961,15 +970,17 @@ function toggleConfig() {
   panel.classList.add('open');
   document.querySelector('.gear-btn').classList.add('active');
   renderTypeEditor();
+  renderStationEditor();
   updateWebhookStatus();
 }
 
 function switchTab(tab) {
   document.querySelectorAll('.config-tab').forEach(function(t,i) {
-    t.classList.toggle('active', (i===0 && tab==='webhook') || (i===1 && tab==='types'));
+    t.classList.toggle('active', (i===0 && tab==='webhook') || (i===1 && tab==='types') || (i===2 && tab==='stations'));
   });
   document.getElementById('tab-webhook').classList.toggle('active', tab==='webhook');
   document.getElementById('tab-types').classList.toggle('active', tab==='types');
+  document.getElementById('tab-stations').classList.toggle('active', tab==='stations');
 }
 
 function updateWebhookStatus() {
@@ -1067,6 +1078,83 @@ function renderTypeBtns() {
     return '<button class="type-btn' + sel + '" data-val="' + t.pl + '" onclick="selectType(this)">' +
       t.pl + '<span class="cn">' + t.cn + '</span></button>';
   }).join('');
+}
+
+// ── STANOWISKA – EDYTOR ─────────────────────────────────────
+// Ten sam wzor co edytor Typow awarii powyzej, ale dla plaskiej listy
+// nazw (bez pary pl/cn) — z tym ze Zapisz TEZ wysyla do arkusza
+// (event_type=USTAWIENIA, ktory backend juz obsluguje i zapisuje
+// lista_stanowisk z powrotem do zakladki USTAWIENIA), wiec inne
+// urzadzenia dostana zmiane przy nastepnym wczytaniu strony.
+var DEFAULT_STATIONS = ['OP50-1','OP50-2','OP52','OP53','OP60','OP61',
+  'OP70/71','OP72','OP73','OP74/80','GP12','OP30',
+  'OP33A','OP33B','OP40-1','OP40-2','OP40-3'];
+
+function getStations() {
+  var stored = localStorage.getItem('cfm_stations');
+  return stored ? JSON.parse(stored) : DEFAULT_STATIONS.slice();
+}
+
+function renderStationSelect() {
+  var stations = getStations();
+  var statusRaw = localStorage.getItem('cfm_station_status');
+  var stStatus = statusRaw ? JSON.parse(statusRaw) : {};
+  var sel = document.getElementById('stationSelect');
+  var prevVal = sel.value;
+  sel.innerHTML = '<option value="">— wybierz / 请选择 —</option>';
+  stations.forEach(function(s) {
+    if (stStatus[s] === false) return;
+    var opt = document.createElement('option');
+    opt.value = opt.textContent = s;
+    sel.appendChild(opt);
+  });
+  if (prevVal) sel.value = prevVal;
+}
+
+function renderStationEditor() {
+  var stations = getStations();
+  var list = document.getElementById('stationEditList');
+  list.innerHTML = stations.map(function(s, i) {
+    return '<div class="type-edit-row">' +
+      '<input class="type-edit-input" id="station-' + i + '" value="' + s.replace(/"/g, '&quot;') + '" placeholder="Nazwa stanowiska">' +
+      '<button class="type-edit-del" onclick="delStationRow(' + i + ')">×</button>' +
+    '</div>';
+  }).join('');
+}
+
+function addStationRow() {
+  var stations = getStations();
+  stations.push('Nowe stanowisko');
+  localStorage.setItem('cfm_stations', JSON.stringify(stations));
+  renderStationEditor();
+}
+
+function delStationRow(i) {
+  var stations = getStations();
+  stations.splice(i, 1);
+  localStorage.setItem('cfm_stations', JSON.stringify(stations));
+  renderStationEditor();
+}
+
+function saveStations() {
+  var stations = getStations();
+  var saved = stations.map(function(s, i) {
+    var v = document.getElementById('station-' + i).value.trim();
+    return v || s;
+  }).filter(Boolean);
+  localStorage.setItem('cfm_stations', JSON.stringify(saved));
+  renderStationSelect();
+  renderStationEditor();
+
+  // Wyslij do arkusza, zeby inne urzadzenia tez to dostaly (backend juz
+  // obsluguje event_type=USTAWIENIA i zapisuje lista_stanowisk).
+  var wh = state.webhookUrl;
+  if (wh) {
+    var url = wh + '?event_type=USTAWIENIA&lista_stanowisk=' + encodeURIComponent(saved.join('|'));
+    new Image().src = url;
+  }
+
+  showToast('✓ Stanowiska zapisane · 工位已保存', 'success');
 }
 
 // ── UTILS ────────────────────────────────────────────────────

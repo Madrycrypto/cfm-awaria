@@ -640,6 +640,9 @@ function renderPivot(groups, days, periodLabel) {
       var periodPct = periodPlan > 0 ? Math.round((periodActual / periodPlan) * 100) : null;
       var passRate = periodQty > 0 ? ((periodOk / periodQty) * 100).toFixed(1) : '&#8212;';
       var reasons = aggregateReasons(periodRows);
+      var periodAwarie = [];
+      days.forEach(function(d) { periodAwarie = periodAwarie.concat(getAwarieForDay(stName, g.shift, d)); });
+      var periodAwarieMin = periodAwarie.reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
       rows += '<tr class="' + (si === 0 ? 'grouphead' : '') + '">' +
         (si === 0 ? '<td rowspan="' + shifts.length * 2 + '"><div class="stationname">' + stName + '</div></td>' : '') +
         '<td><span class="shiftpill"><i style="background:' + shiftColor(g.shift) + '"></i>Zmiana ' + g.shift + '</span></td>' +
@@ -647,6 +650,7 @@ function renderPivot(groups, days, periodLabel) {
         '<tr class="subrow"><td colspan="' + days.length + '">wykonanie · 完成率: <span class="pct ' + pctClass(periodPct) + '" style="margin-left:4px">' + (periodPct === null ? '&#8212;' : periodPct + '%') + '</span>' +
         '<button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">Powody braków &#9662; <span class="cn">原因</span></button>' +
         '<div class="reasonbox">' + reasonsHtml(reasons) + '</div>' +
+        (periodAwarieMin > 0 ? '<button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">auto z Awarii: ' + periodAwarieMin + ' min &#9662; <span class="cn">故障</span></button><div class="reasonbox">' + awarieChipsHtml(periodAwarie) + '</div>' : '') +
         '</td><td class="pr">pass · 合格率 ' + passRate + '%</td></tr>';
     });
   });

@@ -128,6 +128,9 @@ button{cursor:pointer;font-family:var(--fh)}
 .reason-row-btn:active{background:#222;transform:scale(0.92)}
 .reason-row-input{width:44px;flex-shrink:0;text-align:center;font-family:var(--fh);font-weight:700;font-size:16px;padding:8px 2px;background:var(--surface);color:var(--text);-webkit-appearance:none;-moz-appearance:textfield;appearance:none}
 .reason-row-input::-webkit-outer-spin-button,.reason-row-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.reason-other-desc{margin:-2px 0 6px 0}
+.reason-other-input{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:9px 10px}
+.reason-other-input:focus{outline:none;border-color:var(--blue)}
 .reason-row-input[type=number]{-moz-appearance:textfield}
 .reason-total{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding-top:8px;border-top:0.5px solid var(--border)}
 .reason-total strong{color:var(--text);font-family:var(--fh);font-size:14px}
@@ -1187,7 +1190,20 @@ function sumPieceQty(entries) {
   return entries.filter(function(e) { return !isWeightReason(e.reason); }).reduce(function(s, e) { return s + e.qty; }, 0);
 }
 
-function renderReasonTable(containerId, reasons, onInputCallback) {
+// "Inne" (Other) — wykrywana po tekscie przyczyny, niezaleznie od
+// stanowiska/zakladki — zeby kazda lista przyczyn scrap/rework automatycznie
+// dostawala pole do opisania co to za blad, bez recznego dopisywania w
+// kazdym miejscu z osobna. skipOtherDesc=true dla tabel ktore maja juz
+// wlasny, osobny mechanizm opisu (np. Raport Godzinny — zachowany bez zmian,
+// zeby nie zdublowac pola i nie zerwac zgodnosci z juz zapisanymi danymi).
+function isOtherReason(r) { return /inne|其他/i.test(r || ''); }
+function reasonOtherToggle(input) {
+  var row = input.closest('.reason-row');
+  var box = row && row.nextElementSibling;
+  if (!box || !box.classList.contains('reason-other-desc')) return;
+  box.style.display = (parseFloat(input.value) || 0) > 0 ? 'block' : 'none';
+}
+function renderReasonTable(containerId, reasons, onInputCallback, skipOtherDesc) {
   var container = document.getElementById(containerId);
   if (!container) return;
   if (!reasons.length) {
@@ -1197,14 +1213,16 @@ function renderReasonTable(containerId, reasons, onInputCallback) {
   var cb = onInputCallback || 'updateSummary';
   container.innerHTML = reasons.map(function(r) {
     var weight = isWeightReason(r);
+    var other = !skipOtherDesc && isOtherReason(r);
     return '<div class="reason-row" data-reason="' + r.replace(/"/g, '&quot;') + '">' +
       '<span class="reason-row-label">' + r + '</span>' +
       '<div class="reason-row-controls">' +
         '<button type="button" class="reason-row-btn" onclick="adjustReasonRow(this,' + (weight ? '-0.1' : '-1') + ')">&#8722;</button>' +
-        '<input type="number" class="reason-row-input" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' placeholder="0" inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="' + cb + '()">' +
+        '<input type="number" class="reason-row-input" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' placeholder="0" inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="' + cb + '();reasonOtherToggle(this)">' +
         '<button type="button" class="reason-row-btn" onclick="adjustReasonRow(this,' + (weight ? '0.1' : '1') + ')">+</button>' +
       '</div>' +
-    '</div>';
+    '</div>' +
+    (other ? '<div class="reason-other-desc" style="display:none;"><input type="text" class="reason-other-input" placeholder="Opisz przyczynę... &#183; 请描述原因..." autocomplete="off"></div>' : '');
   }).join('');
 }
 function adjustReasonRow(btn, delta) {
@@ -1242,7 +1260,15 @@ function collectReasonTableEntries(containerId) {
     var reason = row.getAttribute('data-reason');
     var input = row.querySelector('.reason-row-input');
     var v = input ? (parseInt(input.value) || 0) : 0;
-    if (v > 0) entries.push({ reason: reason, qty: v });
+    if (v > 0) {
+      var entry = { reason: reason, qty: v };
+      var box = row.nextElementSibling;
+      if (box && box.classList.contains('reason-other-desc')) {
+        var descInput = box.querySelector('.reason-other-input');
+        if (descInput && descInput.value) entry.desc = descInput.value;
+      }
+      entries.push(entry);
+    }
   });
   return entries;
 }
@@ -1761,29 +1787,51 @@ function odswiezDzisiajWpisy(andMaybePreload) {
     .catch(function() { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia &#183; &#36830;&#25509;&#38169;&#35823;</div>'; if (andMaybePreload) maybePreloadIfNotSubmitted(); });
 }
 
+// OP33A i OP33B to dwa fizyczne stanowiska, ale ZAWSZE obsluguje je jedna
+// wspolna ekipa (potwierdzone przez uzytkownika) — bez tego przelaczenie
+// stanowiska z OP33A na OP33B w tym samym raporcie mylaco zmienialoby
+// "wynik zmiany" ponizej, mimo ze to ta sama ekipa. Statystyki i Premie
+// NIE potrzebuja tego samego laczenia (licza kazde stanowisko osobno, tak
+// jak powinny) — to dotyczy WYLACZNIE tej motywacyjnej karty.
+var STATION_CREW_GROUPS = { 'OP33A': ['OP33A', 'OP33B'], 'OP33B': ['OP33A', 'OP33B'] };
+function getCrewGroupStations(station) { return STATION_CREW_GROUPS[station] || [station]; }
+
 // Porownanie zmian A/B/C na dzisiaj (motywacyjne — kazda zmiana widzi ile
-// zrobily pozostale na tym samym stanowisku). Osobne zapytanie filtrowane
-// po stanowisku (nie po operatorze), zeby objac wszystkich operatorow/zmiany.
+// zrobily pozostale na tych samych stanowiskach). Osobne zapytanie
+// filtrowane po stanowisku (nie po operatorze), zeby objac wszystkich
+// operatorow/zmiany; dla stanowisk z jedna wspolna ekipa (patrz
+// STATION_CREW_GROUPS) sumujemy wyniki wszystkich stanowisk tej ekipy.
 function loadShiftComparison() {
   var card = document.getElementById('shiftComparisonCard');
   if (!card) return;
   var station = document.getElementById('stationSel').value;
   var wh = getWH();
   if (!station || !wh) { card.style.display = 'none'; return; }
-  fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station) + '&date=' + encodeURIComponent(getRaportDate()))
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.status !== 'ok') { card.style.display = 'none'; return; }
-      var totals = { A: 0, B: 0, C: 0 };
-      (data.historia || []).forEach(function(r) { if (totals.hasOwnProperty(r.shift)) totals[r.shift] += Number(r.qty) || 0; });
-      renderShiftComparison(totals);
-    })
-    .catch(function() { card.style.display = 'none'; });
+  var groupStations = getCrewGroupStations(station);
+  var date = getRaportDate();
+  Promise.all(groupStations.map(function(st) {
+    return fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(st) + '&date=' + encodeURIComponent(date))
+      .then(function(r) { return r.json(); })
+      .then(function(data) { return data.status === 'ok' ? (data.historia || []) : null; })
+      .catch(function() { return null; });
+  })).then(function(results) {
+    if (results.indexOf(null) >= 0 && results.every(function(r) { return r === null; })) { card.style.display = 'none'; return; }
+    var totals = { A: 0, B: 0, C: 0 };
+    results.forEach(function(historia) {
+      (historia || []).forEach(function(r) { if (totals.hasOwnProperty(r.shift)) totals[r.shift] += Number(r.qty) || 0; });
+    });
+    renderShiftComparison(totals, groupStations);
+  });
 }
-function renderShiftComparison(totals) {
+function renderShiftComparison(totals, groupStations) {
   var card = document.getElementById('shiftComparisonCard');
   var el = document.getElementById('shiftComparisonContent');
   card.style.display = 'block';
+  var titleEl = card.querySelector('.historia-title');
+  if (titleEl) {
+    titleEl.innerHTML = 'Dzisiaj wg zmian &#183; &#21508;&#29677;&#27425;&#20170;&#26085;&#20135;&#37327;' +
+      (groupStations && groupStations.length > 1 ? '<br><span style="font-size:10px;font-weight:600;color:var(--muted);text-transform:none;">suma ' + groupStations.join(' + ') + ' &#8212; jedna ekipa</span>' : '');
+  }
   var shifts = [
     { key: 'A', color: 'var(--shift-a)', bg: 'rgba(90,169,255,0.12)' },
     { key: 'B', color: 'var(--shift-b)', bg: 'rgba(26,110,216,0.12)' },
@@ -1864,6 +1912,12 @@ function populateReasonTable(containerId, entries) {
     var input = row.querySelector('.reason-row-input');
     var match = entries.filter(function(e) { return e.reason === reason; })[0];
     if (input) input.value = match ? match.qty : '';
+    var box = row.nextElementSibling;
+    if (box && box.classList.contains('reason-other-desc')) {
+      var descInput = box.querySelector('.reason-other-input');
+      if (descInput) descInput.value = (match && match.desc) || '';
+      box.style.display = match && match.qty > 0 ? 'block' : 'none';
+    }
   });
 }
 
@@ -2766,7 +2820,7 @@ function getCelGodzine() {
 
 function renderGodzReworkReasonsTable() {
   var station = document.getElementById('stationSel').value;
-  renderReasonTable('godzReworkReasonsTable', station ? getReworkReasonsForStation(station) : [], 'checkGodzReworkOther');
+  renderReasonTable('godzReworkReasonsTable', station ? getReworkReasonsForStation(station) : [], 'checkGodzReworkOther', true);
   checkGodzReworkOther();
 }
 function checkGodzReworkOther() {

@@ -16,7 +16,7 @@
   --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
   --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
   --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
-  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;--calm:#8A9BB0;
+  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;
   --good-bg:rgba(26,158,80,0.14);--warn-bg:rgba(217,119,6,0.16);--crit-bg:rgba(217,43,43,0.16);
   --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
 }
@@ -356,12 +356,9 @@ function buildGroups(rows) {
 
 function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
 function pctClass(p) { if (p === null) return 'off'; if (p >= 95) return 'good'; if (p >= 80) return 'warn'; return 'crit'; }
-// 4 progi (zamiast standardowych 3) — jaskrawa zielen TYLKO przy wyraznym
-// przekroczeniu planu (>=110%), stonowany niebiesko-szary dla "w okolicy
-// planu" (95-109%) — uzywane wszedzie tam, gdzie pasek ma marker 100%
-// (Bilans dzienny/tygodniowy/miesieczny), zeby ten sam wzor koloru byl
-// spojny w calej sekcji Bilansow.
-function pctColor4(p) { return p === null ? 'var(--faint)' : p >= 110 ? 'var(--green)' : p >= 95 ? 'var(--calm)' : p >= 80 ? 'var(--orange)' : 'var(--red)'; }
+// Standardowe 3 progi (jak wszedzie indziej w apce) — bez osobnego
+// odcienia dla ">=110%", zeby nie mnozyc kolorow bez potrzeby.
+function pctColor4(p) { return p === null ? 'var(--faint)' : p >= 95 ? 'var(--green)' : p >= 80 ? 'var(--orange)' : 'var(--red)'; }
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
 
 function monthDays(monthDate) {

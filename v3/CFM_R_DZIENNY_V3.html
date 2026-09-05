@@ -909,7 +909,7 @@ function switchView(v) {
   document.getElementById('opStationGrid').style.gridTemplateColumns = v === 'rework' ? '1fr' : '1fr 1fr';
   if (v === 'godzinny') { updateHourDisplay(); odswiezHistorieGodzinnej(); }
   if (v === 'raport') { odswiezDzisiajWpisy(true); loadShiftComparison(); }
-  if (v === 'awaria') { awariaRenderHistory(); }
+  if (v === 'awaria') { awariaRenderHistory(); awariaSyncActiveForStation(); }
   if (v === 'rework' && currentReworkZone) { loadReworkBuffer(); loadReworkHistory(); }
 }
 
@@ -1650,6 +1650,7 @@ function saveStation() {
   if (document.getElementById('viewGodzinny').classList.contains('active')) odswiezHistorieGodzinnej();
   if (document.getElementById('viewRaport').classList.contains('active')) { odswiezDzisiajWpisy(true); loadShiftComparison(); }
   if (document.getElementById('viewAwaria').classList.contains('active')) awariaRenderHistory();
+  awariaSyncActiveForStation();
 }
 
 function submitForm() {
@@ -1981,7 +1982,41 @@ function showToast(msg, type) {
 // samej Bazie Feishu, nie w aplikacji).
 
 // === AWARIA (ported from CFM_awaria_app.html) ===
-var awariaActiveBreakdown = JSON.parse(localStorage.getItem('cfm_awaria_active') || 'null');
+// Awarie aktywne NA WIELU stanowiskach naraz — trzymane w mapie
+// stanowisko->awaria (nie jeden globalny obiekt jak wczesniej), zeby
+// rozpoczecie awarii na jednym stanowisku NIE blokowalo zglaszania na
+// innym w tym samym czasie. `awariaActiveBreakdown` zostaje jako
+// "podglad" tej mapy dla AKTUALNIE WYBRANEGO stanowiska (stationSel) —
+// caly reszta kodu (banery, blokady, timer) odwoluje sie do niego bez
+// zmian, tylko trzeba go trzymac zsynchronizowanego, patrz
+// awariaSyncActiveForStation().
+var awariaActiveByStation = (function() {
+  var migrated = JSON.parse(localStorage.getItem('cfm_awaria_active') || 'null');
+  var map = JSON.parse(localStorage.getItem('cfm_awaria_active_map') || 'null') || {};
+  if (migrated && migrated.station && !map[migrated.station]) {
+    map[migrated.station] = migrated;
+    localStorage.setItem('cfm_awaria_active_map', JSON.stringify(map));
+    localStorage.removeItem('cfm_awaria_active');
+  }
+  return map;
+})();
+function awariaSaveActiveMap() { localStorage.setItem('cfm_awaria_active_map', JSON.stringify(awariaActiveByStation)); }
+var awariaActiveBreakdown = null;
+// Wola sie przy kazdej zmianie stanowiska (saveStation) i przy wejsciu na
+// zakladke Awaria — pokazuje/chowa baner w zaleznosci od tego, czy TO
+// KONKRETNE stanowisko (nie "jakiekolwiek") ma cos otwartego.
+function awariaSyncActiveForStation() {
+  var station = document.getElementById('stationSel').value;
+  awariaActiveBreakdown = station ? (awariaActiveByStation[station] || null) : null;
+  if (awariaActiveBreakdown) {
+    awariaShowActiveBanner();
+    document.getElementById('btnAwariaEnd').disabled = false;
+  } else {
+    document.getElementById('awariaActiveBanner').classList.remove('visible');
+    document.getElementById('btnAwariaEnd').disabled = true;
+    clearInterval(awariaTimerInterval);
+  }
+}
 var awariaLocalHistory = JSON.parse(localStorage.getItem('cfm_awaria_history') || '[]');
 var awariaTimerInterval = null;
 var awariaCurrentType = null;
@@ -2132,8 +2167,9 @@ function awariaWarnAnuluj() {
 function awariaDoStart(station, typFull) {
   var now = new Date();
   var operator = document.getElementById('operatorSel').value || '';
-  awariaActiveBreakdown = { station: station, type: typFull, operator: operator, startTs: localIsoString(now), startFormatted: awariaFormatTs(now) };
-  localStorage.setItem('cfm_awaria_active', JSON.stringify(awariaActiveBreakdown));
+  awariaActiveByStation[station] = { station: station, type: typFull, operator: operator, startTs: localIsoString(now), startFormatted: awariaFormatTs(now) };
+  awariaSaveActiveMap();
+  awariaActiveBreakdown = awariaActiveByStation[station];
 
   var wh = getWH();
   if (wh) { new Image().src = wh + '?event_type=START&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) + '&typ=' + encodeURIComponent(typFull) + '&timestamp=' + encodeURIComponent(localIsoString(now)) + '&shift=' + encodeURIComponent(currentShift); }
@@ -2178,15 +2214,29 @@ function awariaSubmitEnd() {
   if (awariaLocalHistory.length > 20) awariaLocalHistory.pop();
   localStorage.setItem('cfm_awaria_history', JSON.stringify(awariaLocalHistory));
 
+  delete awariaActiveByStation[awariaActiveBreakdown.station];
+  awariaSaveActiveMap();
   awariaActiveBreakdown = null;
-  localStorage.removeItem('cfm_awaria_active');
   clearInterval(awariaTimerInterval);
   document.getElementById('awariaActiveBanner').classList.remove('visible');
   document.getElementById('btnAwariaEnd').disabled = true;
   updateAwariaDescBoxForActive();
 
   awariaRenderHistory();
-  showToast('Czas awarii: ' + dm + ' min · 故障时长: ' + dm + ' 分钟', 'ok');
+  // Jesli po zamknieciu TEJ awarii wisi jeszcze cos na innych stanowiskach,
+  // przypomnij o tym od razu — zeby nie trzeba bylo klikac po kolei
+  // kazdego stanowiska, zeby sie dowiedziec.
+  var stillOpen = Object.keys(awariaActiveByStation);
+  if (stillOpen.length) {
+    var lista = stillOpen.map(function(st) {
+      var a = awariaActiveByStation[st];
+      var min = Math.round((now - new Date(a.startTs)) / 60000);
+      return st + ' (' + min + ' min)';
+    }).join(', ');
+    showToast('Czas awarii: ' + dm + ' min. Nadal otwarte: ' + lista + ' · 故障时长: ' + dm + ' 分钟。仍开启: ' + lista, 'ok');
+  } else {
+    showToast('Czas awarii: ' + dm + ' min · 故障时长: ' + dm + ' 分钟', 'ok');
+  }
 }
 
 // === WSTECZNY WPIS AWARII (przestój zauwazony/zgloszony po fakcie, np. na
@@ -3186,10 +3236,7 @@ function preloadFromGodzinny() {
   renderReworkZoneGrid();
   renderAwariaTypeGrid();
   odswiezDzisiajWpisy();
-  if (awariaActiveBreakdown) {
-    awariaShowActiveBanner();
-    document.getElementById('btnAwariaEnd').disabled = false;
-  }
+  awariaSyncActiveForStation();
   awariaRenderHistory();
   switchView('godzinny'); // domyslna zakladka na starcie apki — Raport godzinny, nie Raport zmiany
 

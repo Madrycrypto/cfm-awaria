@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0d0d0d">
+<title>CFM · Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
+  --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
+  --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
+  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;
+  --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
+body{padding-bottom:40px}
+.wrap{max-width:1400px;margin:0 auto;padding:0 20px}
+.cn{font-family:var(--fc);color:var(--faint);font-weight:400}
+::selection{background:var(--blue);color:#fff}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar-inner{max-width:1400px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
+.navlinks{display:flex;gap:4px;flex-wrap:wrap}
+.navlinks a{font-family:var(--fh);font-weight:700;font-size:12.5px;letter-spacing:0.02em;color:var(--muted);text-decoration:none;padding:7px 12px;border-radius:7px;white-space:nowrap}
+.navlinks a:hover{color:var(--text);background:var(--surface-2)}
+.navlinks a.on{color:#fff;background:var(--blue)}
+.topbar-right{margin-left:auto;font-size:12px;color:var(--faint);text-align:right;line-height:1.4;flex-shrink:0}
+.topbar-right .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:600}
+.topbar-right .live.off{color:var(--red)}
+.live-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
+
+.pagehead{padding:24px 0 18px}
+h1{font-family:var(--fh);font-weight:800;font-size:28px;letter-spacing:0.2px}
+h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
+.sub{color:var(--muted);font-size:13.5px;margin-top:4px}
+
+.awariebanner{border-radius:14px;padding:16px 20px;margin-bottom:22px;display:flex;flex-direction:column;gap:10px}
+.awariebanner.ok{background:rgba(26,158,80,0.12);border:1px solid rgba(26,158,80,0.4)}
+.awariebanner.alert{background:rgba(217,43,43,0.1);border:1px solid var(--red)}
+.awariebanner-head{display:flex;align-items:center;gap:10px;font-family:var(--fh);font-weight:800;font-size:15px;letter-spacing:0.02em;text-transform:uppercase}
+.awariebanner.ok .awariebanner-head{color:#3fd17a}
+.awariebanner.alert .awariebanner-head{color:#ff7070}
+.awariebanner-dot{width:10px;height:10px;border-radius:50%;background:currentColor;animation:pulse 1.4s ease-in-out infinite}
+.awarie-active-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:rgba(0,0,0,0.2);border-radius:10px;padding:12px 16px}
+.awarie-active-info{flex:1;min-width:200px}
+.awarie-active-station{font-family:var(--fh);font-weight:800;font-size:19px}
+.awarie-active-meta{font-size:12.5px;color:var(--muted);margin-top:2px}
+.awarie-active-clock{font-family:var(--fh);font-weight:800;font-size:34px;font-variant-numeric:tabular-nums;letter-spacing:0.02em}
+.awarie-active-clock.warn{color:#f0a030}
+.awarie-active-clock.crit{color:#ff7070}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.kpi-lbl{font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:700;margin-bottom:8px}
+.kpi-lbl .cn{display:block;text-transform:none;font-size:11px;margin-top:2px}
+.kpi-val{font-family:var(--fh);font-weight:800;font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.kpi-sub{font-size:12.5px;margin-top:8px;font-weight:600;color:var(--faint)}
+.kpi-bar{height:5px;border-radius:3px;background:var(--border-soft);margin-top:12px;overflow:hidden}
+.kpi-bar i{display:block;height:100%;border-radius:3px}
+
+.chartsgrid{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;margin-bottom:22px}
+.chartsgrid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+.dailybar-row{display:grid;grid-template-columns:56px 1fr 44px;align-items:center;gap:8px;margin-bottom:8px}
+.dailybar-row:last-child{margin-bottom:0}
+.dailybar-lbl{font-family:var(--fh);font-weight:700;font-size:12px;color:var(--muted)}
+.dailybar-track{height:12px;border-radius:4px;background:var(--border-soft);overflow:hidden}
+.dailybar-fill{height:100%;border-radius:4px}
+.dailybar-val{text-align:right;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.coverage-hero{text-align:center;padding:8px 0 4px}
+.coverage-hero .n{font-family:var(--fh);font-weight:800;font-size:40px;display:block}
+.coverage-hero .l{font-size:12px;color:var(--muted);margin-top:2px}
+.coverage-detail{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.6;margin-top:8px}
+.coverage-detail b{color:var(--text)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.card h2{font-family:var(--fh);font-weight:700;font-size:17px;margin-bottom:14px}
+.card h2 .cn{font-family:var(--fc);font-size:12.5px;font-weight:500;margin-left:6px;color:var(--faint)}
+
+.donutwrap{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center}
+.donutcenter{font-family:var(--fh)}
+.donutcenter .n{font-weight:800;font-size:26px;display:block;text-align:center}
+.donutcenter .l{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;text-align:center;margin-top:1px}
+.donutlegend{display:flex;flex-direction:column;gap:9px}
+.donutlegend .row{display:flex;align-items:center;gap:8px;font-size:13px}
+.donutlegend .sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.donutlegend b{font-family:var(--fh);font-size:14px;margin-left:auto;padding-left:14px;font-variant-numeric:tabular-nums}
+
+.hbar-row{display:grid;grid-template-columns:84px 1fr 90px;align-items:center;gap:10px;margin-bottom:10px}
+.hbar-row:last-child{margin-bottom:0}
+.hbar-lbl{font-family:var(--fh);font-weight:700;font-size:13px}
+.hbar-track{height:14px;border-radius:4px;background:var(--border-soft);overflow:hidden}
+.hbar-fill{height:100%;border-radius:4px;background:var(--red)}
+.hbar-val{font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+
+.section{margin-bottom:22px}
+.barsgrid{display:flex;flex-direction:column;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.barrow{display:grid;grid-template-columns:80px 1fr 90px;align-items:center;gap:10px}
+.barrow-lbl{font-family:var(--fh);font-weight:700;font-size:13px}
+.bartrack{position:relative;height:13px;background:var(--border-soft);border-radius:5px;overflow:hidden}
+.barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px}
+.barrow-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:13px;font-weight:800;font-family:var(--fh)}
+
+.empty{text-align:center;padding:40px 20px;color:var(--muted);line-height:1.8}
+
+@media (max-width:900px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .chartsgrid{grid-template-columns:1fr}
+  .chartsgrid2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="dot"></span>CFM</div>
+    <div class="navlinks">
+      <a href="CFM_R_DZIENNY_V3.html">Raport dzienny</a>
+      <a href="CFM_dashboard.html" class="on">Dashboard</a>
+      <a href="CFM_statystyki.html">Statystyki</a>
+      <a href="CFM_oee.html">OEE</a>
+      <a href="CFM_premie.html">Premie</a>
+      <a href="CFM_plan.html">Plan</a>
+      <a href="CFM_obsada.html">Obsada</a>
+      <a href="CFM_inwentarz.html">Inwentarz</a>
+    </div>
+    <div class="topbar-right">
+      <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
+      <div id="lastUpdate"></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+  <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
+</div>
+
+<script>
+var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
+
+var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, activeAwarie: undefined };
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function mondayOf(d) { var x = new Date(d); var day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return x; }
+function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
+var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
+
+function init() {
+  var wh = getWH();
+  fetch(wh + '?event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var u = (data && data.ustawienia) || {};
+      try { STATE.stations = JSON.parse(u.cfm_stations || '[]'); } catch (e) { STATE.stations = []; }
+      try {
+        var shifts = JSON.parse(u.cfm_shifts || 'null');
+        if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
+      } catch (e) {}
+      try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
+      try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
+      try { STATE.czasPracy = JSON.parse(u.cfm_premia_czas_pracy || '{}'); } catch (e) { STATE.czasPracy = {}; }
+      try { STATE.worktimeKorekty = JSON.parse(u.cfm_statystyki_worktime || '{}'); } catch (e) { STATE.worktimeKorekty = {}; }
+      try { STATE.inventoryCounts = JSON.parse(u.cfm_inventory_counts || '{}'); } catch (e) { STATE.inventoryCounts = {}; }
+      try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
+      try { STATE.shippingPlan = JSON.parse(u.cfm_shipping_plan || '{}'); } catch (e) { STATE.shippingPlan = {}; }
+    })
+    .catch(function() {})
+    .then(loadData);
+
+  setInterval(function() { loadData(true); }, 45000);
+  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadData(true); loadActiveAwarie(); } });
+
+  // Aktywne awarie — pytamy serwer czesciej niz reszte danych (co 15s, nie
+  // co 45s), bo "czy cos jest TERAZ zepsute" jest bardziej pilne niz reszta
+  // dashboardu. Zegar sam tyka co sekunde w przegladarce (bez pytania
+  // serwera) — tickActiveClocks tylko przelicza roznice czasu na podstawie
+  // start_timestamp juz pobranego z serwera.
+  loadActiveAwarie();
+  setInterval(loadActiveAwarie, 15000);
+  setInterval(tickActiveClocks, 1000);
+}
+
+function currentWeekDays() {
+  var mon = mondayOf(new Date());
+  var days = [];
+  for (var i = 0; i < 7; i++) days.push(toISO(addDays(mon, i)));
+  return days;
+}
+
+function loadData(silent) {
+  var wh = getWH();
+  var days = currentWeekDays();
+  var liveEl = document.getElementById('liveStatus');
+  fetch(wh + '?event_type=STATYSTYKI&start=' + days[0] + '&end=' + days[6])
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { showConnError(); return; }
+      liveEl.className = 'live';
+      liveEl.innerHTML = '<span class="live-pulse"></span>na żywo <span class="cn">实时</span>';
+      document.getElementById('lastUpdate').textContent = 'odświeżono: ' + new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+      STATE.rows = data.historia || [];
+      STATE.reworkRows = data.rework_historia || [];
+      STATE.awarieRows = data.awarie_historia || [];
+      render(days);
+    })
+    .catch(function() { if (!silent) showConnError(); });
+}
+function showConnError() {
+  var liveEl = document.getElementById('liveStatus');
+  liveEl.className = 'live off';
+  liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
+  document.getElementById('app').innerHTML = '<div class="empty">Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span></div>';
+}
+
+function groupByStationShift(rows) {
+  var map = {};
+  rows.forEach(function(r) {
+    var key = r.station + '||' + r.shift;
+    if (!map[key]) map[key] = { station: r.station, shift: r.shift, byDate: {} };
+    map[key].byDate[r.date] = r;
+  });
+  return Object.keys(map).map(function(k) { return map[k]; });
+}
+function buildGroups(rows) {
+  var discovered = groupByStationShift(rows);
+  if (!STATE.stations.length) return discovered;
+  var byKey = {};
+  discovered.forEach(function(g) { byKey[g.station + '||' + g.shift] = g; });
+  var list = [];
+  STATE.stations.forEach(function(st) {
+    if (st === 'OP40 OUT') return;
+    STATE.shiftLabels.forEach(function(sh) {
+      var key = st + '||' + sh;
+      list.push(byKey[key] || { station: st, shift: sh, byDate: {} });
+    });
+  });
+  return list;
+}
+function planEntryFor(station, shift, dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var e = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station] && STATE.monthlyPlan[mk][station][shift] && STATE.monthlyPlan[mk][station][shift][dateIso];
+  return e ? Number(e) : null;
+}
+function getFullShiftMinutes(station) { return Number(STATE.czasPracy[station]) || 450; }
+function worktimeKey(station, shift, dateIso) { return station + '||' + shift + '||' + dateIso; }
+function getWorktimeKorekta(station, shift, dateIso) {
+  var v = STATE.worktimeKorekty[worktimeKey(station, shift, dateIso)];
+  return (v || v === 0) ? Number(v) : null;
+}
+function effectivePlanEntry(station, shift, dateIso) {
+  var base = planEntryFor(station, shift, dateIso);
+  if (base === null) return null;
+  var korekta = getWorktimeKorekta(station, shift, dateIso);
+  if (korekta === null) return base;
+  var full = getFullShiftMinutes(station);
+  return full > 0 ? Math.round(base * (korekta / full)) : base;
+}
+function getPeriodPlan(station, shift, days) {
+  var hasAnyEntry = days.some(function(d) { return planEntryFor(station, shift, d) !== null; });
+  if (hasAnyEntry) return days.reduce(function(s, d) { return s + (effectivePlanEntry(station, shift, d) || 0); }, 0);
+  var weekdays = days.filter(function(d) { var p = d.split('-'); var wd = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay(); return wd !== 0 && wd !== 6; }).length;
+  return weekdays * (Number(STATE.stationTargets[station]) || 0);
+}
+function getAwarieForDay(station, shift, dateIso) {
+  return STATE.awarieRows.filter(function(a) { return a.date === dateIso && a.station === station && a.shift === shift; });
+}
+function operatingInfo(station, shift, dateIso) {
+  var planned = getWorktimeKorekta(station, shift, dateIso);
+  if (planned === null) planned = getFullShiftMinutes(station);
+  var awarieMin = getAwarieForDay(station, shift, dateIso).reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
+  return { planned: planned, operating: Math.max(0, planned - awarieMin) };
+}
+function computeOee(g, days) {
+  var full = getFullShiftMinutes(g.station);
+  var sumPlanned = 0, sumOperating = 0, sumActual = 0, sumOk = 0, sumIdeal = 0, n = 0;
+  days.forEach(function(d) {
+    var r = g.byDate[d];
+    var hasPlan = planEntryFor(g.station, g.shift, d) !== null;
+    if (!r && !hasPlan) return;
+    var planForDay = effectivePlanEntry(g.station, g.shift, d);
+    if (planForDay === null) planForDay = Number(STATE.stationTargets[g.station]) || 0;
+    var op = operatingInfo(g.station, g.shift, d);
+    sumPlanned += op.planned; sumOperating += op.operating;
+    sumIdeal += (full > 0 ? planForDay / full : 0) * op.operating;
+    if (r) { sumActual += r.qty; sumOk += r.ok_count; }
+    n++;
+  });
+  if (!n) return null;
+  var availability = sumPlanned > 0 ? sumOperating / sumPlanned : null;
+  var performance = sumIdeal > 0 ? sumActual / sumIdeal : null;
+  var quality = sumActual > 0 ? sumOk / sumActual : null;
+  var oee = (availability !== null && performance !== null && quality !== null) ? availability * performance * quality : null;
+  return { oee: oee };
+}
+
+function render(days) {
+  var app = document.getElementById('app');
+  var groups = buildGroups(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
+  var gp12 = groups.filter(function(g) { return g.station === 'GP12'; });
+
+  // KPI: wykonanie planu + pass rate + zgodnych, wszystko z GP12 (jak w Statystykach)
+  var actual = 0, plan = 0, ok = 0, scrap = 0, rework = 0;
+  gp12.forEach(function(g) {
+    var hasData = Object.keys(g.byDate).length > 0;
+    var hasPlanEntries = days.some(function(d) { return planEntryFor(g.station, g.shift, d) !== null; });
+    if (!hasData && !hasPlanEntries) return;
+    plan += getPeriodPlan(g.station, g.shift, days);
+    days.forEach(function(d) {
+      var r = g.byDate[d];
+      if (!r) return;
+      actual += r.qty; ok += r.ok_count; scrap += r.scrap; rework += r.rework;
+    });
+  });
+  var recovered = STATE.reworkRows.filter(function(r) { return days.indexOf(r.date) >= 0; }).reduce(function(s, r) { return s + (Number(r.recovered) || 0); }, 0);
+  var completion = plan > 0 ? Math.round((actual / plan) * 100) : null;
+  var passRate = actual > 0 ? ((ok / actual) * 100).toFixed(1) : null;
+
+  // OEE calej linii, srednia rowna ze wszystkich stanowisk (jak w Statystykach/OEE)
+  var oeeResults = groups.map(function(g) { return computeOee(g, days); }).filter(function(r) { return r && r.oee !== null; });
+  var oeeAvg = oeeResults.length ? Math.round((oeeResults.reduce(function(s, r) { return s + r.oee; }, 0) / oeeResults.length) * 100) : null;
+
+  // Stan magazynowy (jak w Inwentarz/Statystyki) — na dzisiaj
+  var countDates = Object.keys(STATE.inventoryCounts).sort();
+  var stockHtml = renderStockKpi(countDates, days);
+
+  document.getElementById('lastUpdate').textContent += ' · Tydz. ' + isoWeekNumber(days[0]);
+
+  app.innerHTML =
+    '<div class="pagehead"><h1>Dashboard produkcji <span class="cn">生产仪表盘</span></h1><div class="sub">Ten tydzień (' + fmtRange(days) + ') &#183; GP12 = ostatnie stanowisko, liczy się do wykonania planu/jakości &#183; <span class="cn">本周 &#183; GP12=末端工位</span></div></div>' +
+    '<div id="awarieBanner"></div>' +
+    '<div class="kpis">' +
+      kpiTile('Wykonanie planu (GP12)', '计划完成率', completion === null ? '&#8212;' : completion + '%', 'plan: ' + fmt(plan) + ' szt.', completion, completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)') +
+      kpiTile('Pass rate (GP12)', '合格率', passRate === null ? '&#8212;' : passRate + '%', (scrap + rework) + ' szt. braków', passRate || 0, 'var(--blue)') +
+      kpiTile('OEE (cała linia)', 'OEE 全线', oeeAvg === null ? '&#8212;' : oeeAvg + '%', 'śr. ze wszystkich stanowisk', oeeAvg, oeeAvg === null ? 'var(--faint)' : oeeAvg >= 85 ? 'var(--green)' : oeeAvg >= 60 ? 'var(--orange)' : 'var(--red)') +
+      stockHtml +
+    '</div>' +
+    '<div class="chartsgrid">' +
+      '<div class="card"><h2>Jakość (GP12) <span class="cn">质量</span></h2><div id="qualityDonut"></div></div>' +
+      '<div class="card"><h2>Awarie wg stanowiska <span class="cn">故障 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
+    '</div>' +
+    '<div class="chartsgrid2">' +
+      '<div class="card"><h2>Wykonanie planu &#183; dzień po dniu (GP12) <span class="cn">计划完成率 &#183; 逐日</span></h2><div id="dailyPlanBars"></div></div>' +
+      '<div class="card"><h2>Zasięg wysyłek <span class="cn">发运覆盖天数</span></h2><div id="shipCoverage"></div></div>' +
+    '</div>';
+
+  renderQualityDonut(ok, scrap, rework, recovered);
+  renderDowntimeBars(days);
+  renderDailyPlanBars(days);
+  renderShipCoverage();
+  renderAwarieBanner();
+}
+
+function isoWeekNumber(dateIso) {
+  var p = dateIso.split('-');
+  var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  var firstThursday = new Date(d.getFullYear(), 0, 4);
+  firstThursday.setDate(firstThursday.getDate() + 3 - ((firstThursday.getDay() + 6) % 7));
+  return 1 + Math.round((d - firstThursday) / (7 * 24 * 3600 * 1000));
+}
+function fmtRange(days) {
+  var s = days[0].split('-'), e = days[6].split('-');
+  return s[2] + '/' + s[1] + ' &#8211; ' + e[2] + '/' + e[1];
+}
+function kpiTile(lbl, lblCn, val, sub, barPct, color) {
+  return '<div class="kpi"><div class="kpi-lbl">' + lbl + '<span class="cn">' + lblCn + '</span></div><div class="kpi-val">' + val + '</div><div class="kpi-sub">' + sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, Math.min(barPct || 0, 100)) + '%;background:' + color + '"></i></div></div>';
+}
+function renderStockKpi(countDates, days) {
+  if (!countDates.length) return kpiTile('Stan magazynowy', '库存', '&#8212;', 'brak inwentaryzacji', 0, 'var(--faint)');
+  var running = computeStockToday();
+  return kpiTile('Stan magazynowy', '库存', fmt(running), 'gotowe sztuki na dziś', 100, 'var(--blue)');
+}
+
+// Donut jakosci — Zgodne/Scrap/Rework to znaczenie dobry/zly, wiec kolory
+// statusowe (green/orange/red) tak jak wszedzie indziej w apce, NIE
+// neutralna paleta identyfikacyjna. <=6 segmentow "na pierwszy rzut oka" —
+// tutaj akurat 3, dokladnie w komfortowej strefie donuta.
+function renderQualityDonut(ok, scrap, rework, recovered) {
+  var el = document.getElementById('qualityDonut');
+  var total = ok + scrap + rework;
+  if (total <= 0) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
+  var segs = [
+    { label: 'Zgodne', cnLabel: '合格', value: ok, color: 'var(--green)', hex: '#1A9E50' },
+    { label: 'Rework', cnLabel: '返修', value: rework, color: 'var(--orange)', hex: '#D97706' },
+    { label: 'Scrap', cnLabel: '废品', value: scrap, color: 'var(--red)', hex: '#D92B2B' }
+  ];
+  var r = 62, thickness = 24, cx = 80, cy = 80;
+  var circumference = 2 * Math.PI * r;
+  var gapPx = 3;
+  var cum = 0;
+  var arcs = segs.map(function(s) {
+    var pct = s.value / total;
+    var len = Math.max(0, pct * circumference - gapPx);
+    var offset = -(cum * circumference);
+    cum += pct;
+    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + s.hex + '" stroke-width="' + thickness + '" stroke-dasharray="' + len + ' ' + (circumference - len) + '" stroke-dashoffset="' + offset + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"></circle>';
+  }).join('');
+  var svg = '<svg width="160" height="160" viewBox="0 0 160 160">' + arcs +
+    '<text x="' + cx + '" y="' + (cy - 4) + '" text-anchor="middle" fill="var(--text)" font-family="Barlow Condensed" font-weight="800" font-size="24">' + Math.round((ok / total) * 100) + '%</text>' +
+    '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" fill="var(--muted)" font-family="Barlow" font-size="9.5" letter-spacing="0.5">ZGODNE</text>' +
+    '</svg>';
+  var legend = '<div class="donutlegend">' + segs.map(function(s) {
+    return '<div class="row"><span class="sw" style="background:' + s.hex + '"></span>' + s.label + ' <span class="cn">' + s.cnLabel + '</span><b>' + fmt(s.value) + '</b></div>';
+  }).join('') + (recovered > 0 ? '<div class="row" style="color:var(--faint);font-size:11.5px">z tego odzyskane rework: ' + fmt(recovered) + '</div>' : '') + '</div>';
+  el.innerHTML = '<div class="donutwrap">' + svg + legend + '</div>';
+}
+
+// Pareto przestojow wg stanowiska — pozioma listwa, NIE kolowy: stacje to
+// nominalne kategorie bez sensownego "przy okazji" ograniczenia do 3, a
+// donut/pie do porownywania blizniaczych wartosci jest zly wybor (patrz
+// wytyczne wizualizacji) — pozioma listwa posortowana malejaco pokazuje
+// od razu i ranking, i skale, czego kolowy wykres nie potrafi.
+function renderDowntimeBars(days) {
+  var el = document.getElementById('downtimeBars');
+  var rows = STATE.awarieRows.filter(function(a) { return days.indexOf(a.date) >= 0; });
+  if (!rows.length) { el.innerHTML = '<div class="empty">Brak awarii w tym tygodniu. <span class="cn">本周无故障。</span></div>'; return; }
+  var byStation = {};
+  rows.forEach(function(a) { byStation[a.station] = (byStation[a.station] || 0) + (Number(a.czas_min) || 0); });
+  var list = Object.keys(byStation).map(function(st) { return { station: st, min: byStation[st] }; });
+  list.sort(function(a, b) { return b.min - a.min; });
+  var maxMin = list[0].min;
+  el.innerHTML = list.map(function(x) {
+    var pct = Math.round((x.min / maxMin) * 100);
+    return '<div class="hbar-row"><div class="hbar-lbl">' + x.station + '</div><div class="hbar-track"><div class="hbar-fill" style="width:' + Math.max(pct, 4) + '%"></div></div><div class="hbar-val">' + fmt(x.min) + ' min</div></div>';
+  }).join('');
+}
+
+// Wykonanie planu dzien po dniu, TYLKO GP12 (jak wszedzie indziej —
+// ostatnie stanowisko, kazda sztuka liczy sie raz) — user nie chcial
+// Porownania zmian (zalezy od nadgodzin, myli obraz), w to miejsce
+// pokazujemy zamiast tego trend dzienny tej samej metryki co gorny KPI.
+function renderDailyPlanBars(days) {
+  var el = document.getElementById('dailyPlanBars');
+  var todayISO = toISO(new Date());
+  var any = false;
+  var rowsHtml = days.map(function(d) {
+    var actual = 0, plan = 0;
+    STATE.stations.forEach(function(st) {
+      if (st !== 'GP12') return;
+      STATE.shiftLabels.forEach(function(sh) {
+        var r = STATE.rows.filter(function(x) { return x.date === d && x.station === st && x.shift === sh; })[0];
+        var hasPlan = planEntryFor(st, sh, d) !== null;
+        if (!r && !hasPlan) return;
+        if (r) actual += r.qty;
+        var pf = effectivePlanEntry(st, sh, d);
+        if (pf === null) pf = Number(STATE.stationTargets[st]) || 0;
+        plan += pf;
+      });
+    });
+    var dd = d.split('-');
+    var wd = new Date(Number(dd[0]), Number(dd[1]) - 1, Number(dd[2])).getDay();
+    var label = DAY_LABELS[(wd + 6) % 7];
+    if (plan <= 0) return '<div class="dailybar-row"><div class="dailybar-lbl">' + label + '</div><div class="dailybar-track"></div><div class="dailybar-val" style="color:var(--faint)">&#8212;</div></div>';
+    any = true;
+    var pct = Math.round((actual / plan) * 100);
+    var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
+    return '<div class="dailybar-row"><div class="dailybar-lbl" style="' + (d === todayISO ? 'color:var(--blue-soft)' : '') + '">' + label + '</div><div class="dailybar-track"><div class="dailybar-fill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div><div class="dailybar-val" style="color:' + color + '">' + pct + '%</div></div>';
+  }).join('');
+  el.innerHTML = any ? rowsHtml : '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
+}
+
+// Zasieg wysylek — projekcja W PRZOD od dzisiejszego stanu magazynowego:
+// kazdy kolejny dzien dodaje planowana produkcje GP12 (Cel/Plan, jesli
+// jest) i odejmuje planowana wysylke (Plan wysylek, nie "wyslano
+// faktycznie" — to dopiero przyszlosc). Zatrzymujemy sie na ostatnim dniu
+// dla ktorego mamy JAKIKOLWIEK jawny wpis w Planie wysylek — dalej juz nie
+// wiadomo co bedzie, wiec nie ma sensu udawac "pelnego pokrycia".
+function shippingPlanFor(dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var v = STATE.shippingPlan[mk] && STATE.shippingPlan[mk][dateIso];
+  return v ? Number(v) : 0;
+}
+function planForGp12(dateIso) {
+  var sum = 0;
+  STATE.shiftLabels.forEach(function(sh) {
+    var pf = effectivePlanEntry('GP12', sh, dateIso);
+    if (pf === null) pf = Number(STATE.stationTargets['GP12']) || 0;
+    sum += pf;
+  });
+  return sum;
+}
+function computeStockToday() {
+  var countDates = Object.keys(STATE.inventoryCounts).sort();
+  if (!countDates.length) return null;
+  var firstDate = countDates[0];
+  var todayISO = toISO(new Date());
+  var prodByDate = {};
+  STATE.rows.forEach(function(r) { if (r.station === 'GP12') prodByDate[r.date] = (prodByDate[r.date] || 0) + (Number(r.ok_count) || 0); });
+  var running = Number(STATE.inventoryCounts[firstDate]) || 0;
+  var cursor = new Date(Number(firstDate.slice(0,4)), Number(firstDate.slice(5,7)) - 1, Number(firstDate.slice(8,10)));
+  var end = new Date(Number(todayISO.slice(0,4)), Number(todayISO.slice(5,7)) - 1, Number(todayISO.slice(8,10)));
+  var idx = 0;
+  while (cursor <= end) {
+    var iso = toISO(cursor);
+    var ship = 0, mk = iso.slice(0, 7);
+    if (STATE.shippingActual[mk] && STATE.shippingActual[mk][iso]) ship = Number(STATE.shippingActual[mk][iso]);
+    if (idx > 0) running += (prodByDate[iso] || 0) - ship;
+    if (STATE.inventoryCounts[iso] !== undefined && idx > 0) running = Number(STATE.inventoryCounts[iso]);
+    cursor.setDate(cursor.getDate() + 1);
+    idx++;
+  }
+  return running;
+}
+function renderShipCoverage() {
+  var el = document.getElementById('shipCoverage');
+  var stockToday = computeStockToday();
+  if (stockToday === null) { el.innerHTML = '<div class="empty">Brak inwentaryzacji — wejdź w <b>Inwentarz</b>, żeby to policzyć. <span class="cn">尚无库存盘点。</span></div>'; return; }
+  // Ostatni dzien ze znanym planem wysylek — horyzont projekcji
+  var lastKnownShipDate = null;
+  Object.keys(STATE.shippingPlan).forEach(function(mk) {
+    Object.keys(STATE.shippingPlan[mk]).forEach(function(d) { if (!lastKnownShipDate || d > lastKnownShipDate) lastKnownShipDate = d; });
+  });
+  if (!lastKnownShipDate) { el.innerHTML = '<div class="empty">Brak Planu wysyłek — wejdź w <b>Plan</b>, żeby go uzupełnić. <span class="cn">尚无发运计划。</span></div>'; return; }
+  // Porownanie na SUROWYCH stringach ISO (nie obiektach Date) — cursor
+  // startuje z "new Date()" ktore niesie ze soba biezaca godzine, wiec
+  // porownanie Date<=Date moglo w zaleznosci od pory dnia bezsensownie
+  // urwac ostatni dzien projekcji (dzien+godzina > dzien+00:00).
+  var running = stockToday;
+  var cursor = addDays(new Date(), 1);
+  var shipmentsCovered = 0, daysCovered = 0, ranOutAt = null;
+  while (toISO(cursor) <= lastKnownShipDate) {
+    var iso = toISO(cursor);
+    var ship = shippingPlanFor(iso);
+    var prod = planForGp12(iso);
+    running += prod - ship;
+    daysCovered++;
+    if (ship > 0) shipmentsCovered++;
+    if (running < 0 && !ranOutAt) ranOutAt = iso;
+    cursor = addDays(cursor, 1);
+  }
+  var fmtD = function(iso) { var p = iso.split('-'); return p[2] + '/' + p[1]; };
+  if (ranOutAt) {
+    el.innerHTML = '<div class="coverage-hero"><span class="n" style="color:#ff7070">' + fmtD(ranOutAt) + '</span><span class="l">zabraknie zapasu, jeśli produkcja nie przyspieszy <span class="cn">若产量不变将在此日期缺货</span></span></div>' +
+      '<div class="coverage-detail">Znany plan wysyłek sięga do <b>' + fmtD(lastKnownShipDate) + '</b> (' + shipmentsCovered + ' dni z wysyłką).</div>';
+  } else {
+    el.innerHTML = '<div class="coverage-hero"><span class="n" style="color:#3fd17a">' + fmtD(lastKnownShipDate) + '</span><span class="l">pokryte w pełni do tej daty <span class="cn">在此日期前完全覆盖</span></span></div>' +
+      '<div class="coverage-detail"><b>' + shipmentsCovered + '</b> zaplanowanych dni wysyłki pokrytych, zapas na koniec: <b>' + fmt(running) + '</b> szt.</div>';
+  }
+}
+
+// Aktywne awarie na zywo — duzy tykajacy zegar per otwarta awaria, zeby na
+// duzym ekranie od razu bylo widac "co jest TERAZ zepsute i jak dlugo".
+function loadActiveAwarie() {
+  var wh = getWH();
+  fetch(wh + '?event_type=AWARIE_OTWARTE')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') return;
+      STATE.activeAwarie = data.otwarte || [];
+      renderAwarieBanner();
+    })
+    .catch(function() {});
+}
+function fmtClock(totalSec) {
+  var h = Math.floor(totalSec / 3600), m = Math.floor((totalSec % 3600) / 60), s = totalSec % 60;
+  return pad(h) + ':' + pad(m) + ':' + pad(s);
+}
+function renderAwarieBanner() {
+  var el = document.getElementById('awarieBanner');
+  if (!el) return;
+  if (STATE.activeAwarie === undefined) { el.innerHTML = ''; return; }
+  if (!STATE.activeAwarie.length) {
+    el.innerHTML = '<div class="awariebanner ok"><div class="awariebanner-head"><span class="awariebanner-dot"></span>Brak aktywnych awarii <span class="cn">无进行中的故障</span></div></div>';
+    return;
+  }
+  var rows = STATE.activeAwarie.map(function(a) {
+    return '<div class="awarie-active-row"><div class="awarie-active-info"><div class="awarie-active-station">' + a.station + (a.shift ? ' &#183; Zm. ' + a.shift : '') + '</div>' +
+      '<div class="awarie-active-meta">' + (a.type || 'Awaria') + (a.operator ? ' &#183; ' + a.operator : '') + '</div></div>' +
+      '<div class="awarie-active-clock" data-start="' + a.start_timestamp + '">00:00:00</div></div>';
+  }).join('');
+  el.innerHTML = '<div class="awariebanner alert"><div class="awariebanner-head"><span class="awariebanner-dot"></span>' + STATE.activeAwarie.length + ' aktywna awaria &#183; przerwa trwa <span class="cn">' + STATE.activeAwarie.length + '个进行中的故障</span></div>' + rows + '</div>';
+  tickActiveClocks();
+}
+function tickActiveClocks() {
+  document.querySelectorAll('.awarie-active-clock[data-start]').forEach(function(el) {
+    var start = new Date(el.dataset.start).getTime();
+    if (isNaN(start)) return;
+    var sec = Math.max(0, Math.floor((Date.now() - start) / 1000));
+    el.textContent = fmtClock(sec);
+    el.className = 'awarie-active-clock' + (sec >= 3600 ? ' crit' : sec >= 900 ? ' warn' : '');
+  });
+}
+
+init();
+</script>
+</body>
+</html>

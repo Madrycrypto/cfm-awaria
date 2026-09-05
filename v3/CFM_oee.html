@@ -155,7 +155,12 @@ tbody tr.grouphead td{padding-top:16px}
 </div>
 
 <script>
-function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
+// Domyslny webhook wpisany na sztywno — zeby KAZDY otwierajacy ten link
+// mial polaczenie od razu, bez konfigurowania Panelu Admina na tym samym
+// urzadzeniu/przegladarce (localStorage jest osobny dla kazdej przegladarki/
+// profilu/trybu incognito). Ten sam wzorzec co CFM_R_DZIENNY_V3.html.
+var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
 var STATE = { monthDate: new Date(), rows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {} };
 

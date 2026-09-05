@@ -730,27 +730,29 @@ function effectivePlanEntry(station, shift, dateIso) {
 // OEE (patrz CFM_oee.html — ta sama logika, do wspolnego kafelka OEE w
 // KPI-ach): Dostepnosc x Wydajnosc x Jakosc, cale z danych ktore juz mamy —
 // bez zadnych nowych wpisow.
-function idealRate(station) {
-  var target = Number(STATE.stationTargets[station]) || 0;
-  var full = getFullShiftMinutes(station);
-  return full > 0 ? target / full : 0;
-}
 function operatingInfo(station, shift, dateIso) {
   var planned = getWorktimeKorekta(station, shift, dateIso);
   if (planned === null) planned = getFullShiftMinutes(station);
   var awarieMin = getAwarieForDay(station, shift, dateIso).reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
   return { planned: planned, awarieMin: awarieMin, operating: Math.max(0, planned - awarieMin) };
 }
+// Teoretyczny cel na DANY dzien z tego samego zrodla co reszta Statystyk —
+// jawny wpis z Planu dzien-po-dzien (effectivePlanEntry), a dopiero w jego
+// braku ze stalego Celu stanowiska (stationTargets). Liczenie tylko z
+// Celu (stala wartosc na stanowisko) dawalo Wydajnosc "—" wszedzie tam,
+// gdzie admin uzupelnia Plan dzien-po-dzien, a nie staly Cel.
 function computeOee(g, days) {
-  var rate = idealRate(g.station);
+  var full = getFullShiftMinutes(g.station);
   var sumPlanned = 0, sumOperating = 0, sumActual = 0, sumOk = 0, sumIdeal = 0, n = 0;
   days.forEach(function(d) {
     var r = g.byDate[d];
     var hasPlan = planEntryFor(g.station, g.shift, d) !== null;
     if (!r && !hasPlan) return;
+    var planForDay = effectivePlanEntry(g.station, g.shift, d);
+    if (planForDay === null) planForDay = Number(STATE.stationTargets[g.station]) || 0;
     var op = operatingInfo(g.station, g.shift, d);
     sumPlanned += op.planned; sumOperating += op.operating;
-    sumIdeal += rate * op.operating;
+    sumIdeal += (full > 0 ? planForDay / full : 0) * op.operating;
     if (r) { sumActual += r.qty; sumOk += r.ok_count; }
     n++;
   });

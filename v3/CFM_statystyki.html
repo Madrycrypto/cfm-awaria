@@ -232,9 +232,20 @@ function init() {
 function loadMonth(opts) {
   opts = opts || {};
   var wh = getWH();
-  var r = monthRange(STATE.monthDate);
+  // Tygodnie liczymy PRZED pobraniem danych i pobieramy dane dla PELNEGO
+  // zakresu wyswietlanych tygodni, nie tylko samego kalendarzowego
+  // miesiaca — pierwszy/ostatni tydzien miesiaca czesto wystaje poza jego
+  // granice (np. poniedzialek nalezacy jeszcze do poprzedniego miesiaca).
+  // Bez tego taki dzien nie mial ZADNYCH danych zaladowanych (nawet gdy
+  // mial realny raport), co wygladalo jak dzien calkowicie bez sladu i
+  // bylo pomijane w sumie planu w renderKpis/getPeriodPlan — sztucznie
+  // zawyzajac % wykonania planu (mianownik za maly).
+  computeWeeks(opts.keepSelection);
+  var mr = monthRange(STATE.monthDate);
+  var start = STATE.weeks.length ? STATE.weeks[0].start : mr.start;
+  var end = STATE.weeks.length ? STATE.weeks[STATE.weeks.length - 1].end : mr.end;
   if (!opts.silent) document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
-  fetch(wh + '?event_type=STATYSTYKI&start=' + r.start + '&end=' + r.end)
+  fetch(wh + '?event_type=STATYSTYKI&start=' + start + '&end=' + end)
     .then(function(res) { return res.json(); })
     .then(function(data) {
       var liveEl = document.getElementById('liveStatus');
@@ -250,7 +261,6 @@ function loadMonth(opts) {
       STATE.rows = data.historia || [];
       STATE.reworkRows = data.rework_historia || [];
       STATE.awarieRows = data.awarie_historia || [];
-      computeWeeks(opts.keepSelection);
       render();
     })
     .catch(function() {
@@ -538,10 +548,19 @@ function renderKpis(groups, days, periodLabel) {
   var gp12Groups = groups.filter(function(g) { return g.station === 'GP12'; });
   var totalActual = 0, totalPlan = 0, totalOk = 0, totalNg = 0;
   gp12Groups.forEach(function(g) {
+    // Plan liczony TAK SAMO jak wszedzie indziej (Porownanie zmian, Bilans)
+    // — pelny zaplanowany wolumen okresu, WLACZNIE z dniami bez raportu.
+    // Poprzednio plan doliczal sie TYLKO za dni z juz zlozonym raportem
+    // (r.plan), wiec brakujacy/niezaraportowany dzien roboczy znikal z
+    // mianownika zamiast obnizyc %, sztucznie zawyzajac wykonanie planu.
+    var hasData = Object.keys(g.byDate).length > 0;
+    var hasPlanEntries = days.some(function(d) { return planEntryFor(g.station, g.shift, d) !== null; });
+    if (!hasData && !hasPlanEntries) return;
+    totalPlan += getPeriodPlan(g.station, g.shift, days);
     days.forEach(function(d) {
       var r = g.byDate[d];
       if (!r) return;
-      totalActual += r.qty; totalPlan += r.plan; totalOk += r.ok_count; totalNg += (r.scrap + r.rework);
+      totalActual += r.qty; totalOk += r.ok_count; totalNg += (r.scrap + r.rework);
     });
   });
   var totalRecovered = STATE.reworkRows.filter(function(r) { return days.indexOf(r.date) >= 0; }).reduce(function(s, r) { return s + (Number(r.recovered) || 0); }, 0);
@@ -550,11 +569,15 @@ function renderKpis(groups, days, periodLabel) {
   var passRate = totalActual > 0 ? ((totalOk / totalActual) * 100).toFixed(1) : null;
   var periodLbl = periodLabel === 'mies.' ? '(mies.)' : '(tydz.)';
   var periodLblCn = periodLabel === 'mies.' ? '（本月）' : '（本周）';
+  // OEE calej linii — srednia z KAZDEGO stanowiska+zmiany po rowno (tak
+  // samo jak w Porownaniu zmian), nie tylko GP12 — patrz CFM_oee.html.
+  var oeeResults = groups.map(function(g) { return computeOee(g, days); }).filter(function(r) { return r && r.oee !== null; });
+  var oeeAvg = oeeResults.length ? Math.round((oeeResults.reduce(function(s, r) { return s + r.oee; }, 0) / oeeResults.length) * 100) : null;
   var kpis = [
     { lbl: 'Wykonanie planu ' + periodLbl + ' (GP12)', lblCn: '计划完成率' + periodLblCn + '（GP12）', val: completion === null ? '&#8212;' : completion + '%', sub: 'plan: ' + fmt(totalPlan) + ' szt. · 计划', bar: completion === null ? 0 : Math.min(completion, 100), color: completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)' },
     { lbl: 'Pass rate ' + periodLbl + ' (GP12)', lblCn: '合格率' + periodLblCn + '（GP12）', val: passRate === null ? '&#8212;' : passRate + '%', sub: totalNg + ' szt. braków · 件不合格', bar: passRate || 0, color: 'var(--blue)' },
     { lbl: 'Zgodnych (GP12)', lblCn: '合格数量（GP12）', val: fmt(totalOkWithRecovered), sub: (totalRecovered > 0 ? '(w tym odzyskane: ' + fmt(totalRecovered) + ') · 含挽回' : 'z raportów GP12 · 合格'), bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
-    { lbl: 'Wpisów w okresie', lblCn: '本期记录数', val: groups.reduce(function(s, g) { return s + Object.keys(g.byDate).length; }, 0), sub: groups.length + ' stanowisko/zmiana · 工位/班次', bar: 100, color: 'var(--faint)' }
+    { lbl: 'OEE ' + periodLbl + ' (cała linia)', lblCn: 'OEE' + periodLblCn + '（全线）', val: oeeAvg === null ? '&#8212;' : oeeAvg + '%', sub: 'śr. ze wszystkich stanowisk · 各工位平均', bar: oeeAvg === null ? 0 : Math.min(oeeAvg, 100), color: oeeAvg === null ? 'var(--faint)' : oeeAvg >= 85 ? 'var(--green)' : oeeAvg >= 60 ? 'var(--orange)' : 'var(--red)' }
   ];
   document.getElementById('kpis').innerHTML = kpis.map(function(k) {
     return '<div class="kpi"><div class="kpi-lbl">' + k.lbl + '<span class="cn">' + k.lblCn + '</span></div><div class="kpi-val">' + k.val + '</div><div class="kpi-sub">' + k.sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, k.bar) + '%;background:' + k.color + '"></i></div></div>';
@@ -620,7 +643,7 @@ function renderPivot(groups, days, periodLabel) {
   stationOrder.forEach(function(stName) {
     var shifts = byStation[stName];
     shifts.forEach(function(g, si) {
-      var periodActual = 0, periodPlan = 0, periodOk = 0, periodQty = 0;
+      var periodActual = 0, periodOk = 0, periodQty = 0;
       var periodRows = [];
       // Plan pokazywany tu to ZAWSZE aktualny Plan miesieczny/korekta czasu
       // pracy (ten sam co w Bilansie), NIGDY wartosc r.plan zapisana w
@@ -628,12 +651,20 @@ function renderPivot(groups, days, periodLabel) {
       // chwili i moze byc juz nieaktualna (np. plan poprawiony pozniej), co
       // dawalo sprzeczne liczby miedzy ta tabela a Bilansem dla tego samego
       // dnia/stanowiska/zmiany.
+      // Suma planu okresu liczona TAK SAMO jak wszedzie indziej (Porownanie
+      // zmian, Bilans, KPI) przez getPeriodPlan — WLACZNIE z dniami bez
+      // zlozonego raportu. Wczesniej doliczal sie tylko plan dni, ktore
+      // mialy juz raport (dopisywany w tej samej petli co komorka), wiec
+      // dzien roboczy bez raportu (albo dzien spoza fetchowanego zakresu,
+      // patrz loadMonth) po prostu znikal z mianownika zamiast obnizyc %,
+      // sztucznie zawyzajac wykonanie planu.
+      var periodPlan = getPeriodPlan(stName, g.shift, days);
       var cells = days.map(function(d) {
         var r = g.byDate[d];
         var planForDay = effectivePlanEntry(stName, g.shift, d);
         if (planForDay === null) planForDay = Number(STATE.stationTargets[stName]) || 0;
         if (!r) return '<td><span class="pct off">&#8212;</span></td>';
-        periodActual += r.qty; periodPlan += planForDay; periodOk += r.ok_count; periodQty += r.qty;
+        periodActual += r.qty; periodOk += r.ok_count; periodQty += r.qty;
         periodRows.push(r);
         return '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.qty) + '</span><span class="cell-plan">/' + fmt(planForDay) + '</span></div></td>';
       }).join('');
@@ -694,6 +725,41 @@ function effectivePlanEntry(station, shift, dateIso) {
   if (korekta === null) return base;
   var full = getFullShiftMinutes(station);
   return full > 0 ? Math.round(base * (korekta / full)) : base;
+}
+
+// OEE (patrz CFM_oee.html — ta sama logika, do wspolnego kafelka OEE w
+// KPI-ach): Dostepnosc x Wydajnosc x Jakosc, cale z danych ktore juz mamy —
+// bez zadnych nowych wpisow.
+function idealRate(station) {
+  var target = Number(STATE.stationTargets[station]) || 0;
+  var full = getFullShiftMinutes(station);
+  return full > 0 ? target / full : 0;
+}
+function operatingInfo(station, shift, dateIso) {
+  var planned = getWorktimeKorekta(station, shift, dateIso);
+  if (planned === null) planned = getFullShiftMinutes(station);
+  var awarieMin = getAwarieForDay(station, shift, dateIso).reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
+  return { planned: planned, awarieMin: awarieMin, operating: Math.max(0, planned - awarieMin) };
+}
+function computeOee(g, days) {
+  var rate = idealRate(g.station);
+  var sumPlanned = 0, sumOperating = 0, sumActual = 0, sumOk = 0, sumIdeal = 0, n = 0;
+  days.forEach(function(d) {
+    var r = g.byDate[d];
+    var hasPlan = planEntryFor(g.station, g.shift, d) !== null;
+    if (!r && !hasPlan) return;
+    var op = operatingInfo(g.station, g.shift, d);
+    sumPlanned += op.planned; sumOperating += op.operating;
+    sumIdeal += rate * op.operating;
+    if (r) { sumActual += r.qty; sumOk += r.ok_count; }
+    n++;
+  });
+  if (!n) return null;
+  var availability = sumPlanned > 0 ? sumOperating / sumPlanned : null;
+  var performance = sumIdeal > 0 ? sumActual / sumIdeal : null;
+  var quality = sumActual > 0 ? sumOk / sumActual : null;
+  var oee = (availability !== null && performance !== null && quality !== null) ? availability * performance * quality : null;
+  return { availability: availability, performance: performance, quality: quality, oee: oee };
 }
 // Pelny zaplanowany wolumen dla stanowiska+zmiany w podanym zakresie dni
 // (nawet dni jeszcze bez raportu). Jesli w Planie miesiecznym jest

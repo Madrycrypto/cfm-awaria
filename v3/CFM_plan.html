@@ -102,6 +102,23 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .automirror{background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
 .automirror b{color:var(--text)}
 
+.excelimport{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.excelimport-hint{font-size:11.5px;color:var(--faint);line-height:1.5;max-width:520px}
+.diffpanel{background:var(--surface);border:1px solid var(--blue);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.diffpanel-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.diffpanel-head h3{font-family:var(--fh);font-weight:800;font-size:15px}
+.diffpanel-head h3 .cn{font-family:var(--fc);font-size:12px;font-weight:500;margin-left:6px;color:var(--faint)}
+.diffpanel-summary{font-size:12.5px;color:var(--muted)}
+.difftable{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;max-height:320px;overflow-y:auto;display:block}
+.difftable th{text-align:left;color:var(--muted);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+.difftable td{padding:5px 8px;border-bottom:1px solid var(--border-soft);font-variant-numeric:tabular-nums}
+.difftable tr.new td{color:#3fd17a}
+.difftable tr.changed td{color:#f0a030}
+.diffpanel-actions{display:flex;gap:10px;margin-top:12px}
+.btn-diff{font-family:var(--fh);font-weight:800;font-size:12px;letter-spacing:0.03em;text-transform:uppercase;border-radius:8px;padding:9px 16px;cursor:pointer;border:none}
+.btn-diff.approve{background:var(--green);color:#fff}
+.btn-diff.cancel{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+
 .gridwrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:18px}
 .gridtable{border-collapse:collapse;font-size:10.5px}
 .gridtable thead th{position:sticky;top:0;background:var(--surface-2);color:var(--muted);font-family:var(--fh);font-weight:700;padding:5px 3px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border-soft);min-width:26px}
@@ -140,6 +157,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // Domyslny webhook wpisany na sztywno — zeby KAZDY otwierajacy ten link
 // mial polaczenie od razu, bez konfigurowania Panelu Admina na tym samym
@@ -321,6 +339,11 @@ function render() {
   // recznie sledzic "kiedy zaktualizowalem forecast" (edycja jest zawsze
   // na biezaco/na zywo).
   html += '<div class="stationgroup"><div class="stationgroup-name">Wysyłki <span class="cn">发运</span></div>' +
+    '<div class="excelimport">' +
+      '<label class="btn-mini copy" style="display:inline-flex;align-items:center;cursor:pointer">Wgraj Excel od klienta<small>上传客户Excel文件</small><input type="file" id="shipExcelInput" accept=".xlsx,.xls" style="display:none"></label>' +
+      '<span class="excelimport-hint">Wczytam plik, porównam z aktualnym planem wysyłek i pokażę różnice do zatwierdzenia — nic nie zapisze się automatycznie.<span class="cn">读取文件后与当前发运计划比较，显示差异供确认 — 不会自动保存。</span></span>' +
+    '</div>' +
+    '<div id="shipDiffPanel"></div>' +
     renderShippingRow('plan', 'Plan wysyłek', '发运计划', y, m, nDays, STATE.shippingPlan[mk] || {}) +
     renderShippingRow('actual', 'Wysłano (faktycznie)', '实际发货数量', y, m, nDays, STATE.shippingActual[mk] || {}) +
     '</div>';
@@ -347,6 +370,8 @@ function render() {
   document.getElementById('nextMonth').onclick = function() { stashCurrentMonthInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() + 1, 1); render(); };
   document.getElementById('btnCopy').onclick = copyFromPrevMonth;
   document.getElementById('btnSave').onclick = savePlan;
+  var shipInput = document.getElementById('shipExcelInput');
+  if (shipInput) shipInput.onchange = function(e) { if (e.target.files[0]) handleShipExcelFile(e.target.files[0]); e.target.value = ''; };
 
   renderPlanGrid(y, m, nDays, entry);
 }
@@ -536,6 +561,148 @@ function renderShippingRow(kind, label, cnLabel, y, m, nDays, flatEntry) {
     '</div>' +
     '<div class="daystrip" style="display:' + (expand ? 'flex' : 'none') + ';">' + dayCells + '</div>' +
   '</div>';
+}
+
+// ── WGRYWANIE PLANU WYSYLEK Z EXCELA OD KLIENTA ─────────────────────────
+// Klient (Tesla) wysyla harmonogram wysylek jako .xlsx z arkuszem
+// zawierajacym wiersz "Ship Date" (daty w kolumnach) i osobny wiersz
+// nizej z kolumna "UoM" jako ostatnia etykieta przed danymi — zaraz pod
+// nim zaczynaja sie wiersze z ilosciami w tych samych kolumnach co daty.
+// User potwierdzil ze ten uklad jest zawsze taki sam.
+var HORIZON_DAYS = 180; // ile dni od pierwszej daty w pliku importujemy
+function normalizeExcelDate(raw) {
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (raw instanceof Date) return isoFromDateObj(raw);
+  if (typeof raw === 'string') {
+    var m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[1] + '-' + m[2] + '-' + m[3];
+    var d = new Date(raw);
+    if (!isNaN(d.getTime())) return isoFromDateObj(d);
+    return null;
+  }
+  if (typeof raw === 'number') {
+    var epoch = new Date(Date.UTC(1899, 11, 30));
+    return isoFromDateObj(new Date(epoch.getTime() + raw * 86400000));
+  }
+  return null;
+}
+function isoFromDateObj(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function isoToDateObj(iso) { var p = iso.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
+
+// aoa = tablica wierszy (array-of-arrays) z XLSX.utils.sheet_to_json(ws,{header:1}).
+// Zwraca {monthKey: {dateIso: ilosc}} albo null jesli nie rozpoznano ukladu.
+function parseShippingExcelFromAOA(rows) {
+  var shipRowIdx = -1, shipColStart = -1;
+  rows.forEach(function(row, ri) {
+    (row || []).forEach(function(cell, ci) {
+      if (String(cell === undefined || cell === null ? '' : cell).trim() === 'Ship Date') { shipRowIdx = ri; shipColStart = ci + 1; }
+    });
+  });
+  if (shipRowIdx === -1) return null;
+
+  var uomRowIdx = -1;
+  rows.forEach(function(row, ri) {
+    (row || []).forEach(function(cell) {
+      if (String(cell === undefined || cell === null ? '' : cell).trim() === 'UoM') uomRowIdx = ri;
+    });
+  });
+  if (uomRowIdx === -1) return null;
+
+  var dateRow = rows[shipRowIdx] || [];
+  var result = {};
+  var firstDateSeen = null;
+
+  for (var dr = uomRowIdx + 1; dr < rows.length; dr++) {
+    var dataRow = rows[dr];
+    if (!dataRow || dataRow.every(function(c) { return c === null || c === undefined || c === ''; })) continue;
+    for (var c = shipColStart; c < dateRow.length; c++) {
+      var iso = normalizeExcelDate(dateRow[c]);
+      if (!iso) continue;
+      if (!firstDateSeen) firstDateSeen = iso;
+      else if ((isoToDateObj(iso) - isoToDateObj(firstDateSeen)) / 86400000 > HORIZON_DAYS) break;
+      var qty = Number(dataRow[c]);
+      if (!qty) continue;
+      var mk = iso.slice(0, 7);
+      if (!result[mk]) result[mk] = {};
+      result[mk][iso] = qty;
+    }
+  }
+  return result;
+}
+
+function handleShipExcelFile(file) {
+  if (typeof XLSX === 'undefined') { showToast('Biblioteka do czytania Excela nie wczytała się — sprawdź połączenie internetowe i odśwież stronę · Excel读取库未加载', 'err'); return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var wb;
+    try { wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' }); } catch (err) { showToast('Nie udało się odczytać pliku · 无法读取文件', 'err'); return; }
+    var newPlan = null;
+    for (var i = 0; i < wb.SheetNames.length && !newPlan; i++) {
+      var aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[i]], { header: 1, raw: true, defval: null });
+      newPlan = parseShippingExcelFromAOA(aoa);
+    }
+    if (!newPlan || !Object.keys(newPlan).length) { showToast('Nie rozpoznano układu pliku (brak "Ship Date"/"UoM") · 无法识别文件格式', 'err'); return; }
+    showShipDiff(newPlan);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Porownuje nowy plan (z Excela) z aktualnym STATE.shippingPlan — kazdy
+// dzien z pliku jest albo "nowy" (nie bylo go wczesniej), "zmieniony"
+// (byla inna wartosc) albo pomijany w tabeli roznic jesli identyczny
+// (nie ma sensu pokazywac tego co i tak sie zgadza).
+function computeShippingDiff(newPlan) {
+  var changes = [];
+  var sameCount = 0;
+  Object.keys(newPlan).sort().forEach(function(mk) {
+    Object.keys(newPlan[mk]).sort().forEach(function(iso) {
+      var newVal = newPlan[mk][iso];
+      var oldVal = STATE.shippingPlan[mk] && STATE.shippingPlan[mk][iso] !== undefined ? STATE.shippingPlan[mk][iso] : null;
+      if (oldVal === newVal) { sameCount++; return; }
+      changes.push({ date: iso, oldVal: oldVal, newVal: newVal, kind: oldVal === null ? 'new' : 'changed' });
+    });
+  });
+  return { changes: changes, sameCount: sameCount };
+}
+
+var pendingShipPlan = null;
+function showShipDiff(newPlan) {
+  pendingShipPlan = newPlan;
+  var diff = computeShippingDiff(newPlan);
+  var panel = document.getElementById('shipDiffPanel');
+  if (!panel) return;
+  if (!diff.changes.length) {
+    panel.innerHTML = '<div class="diffpanel"><div class="diffpanel-summary">Plik wczytany — wszystkie ' + diff.sameCount + ' dni już zgadzają się z aktualnym planem, nic do zatwierdzenia. <span class="cn">文件已读取，全部' + diff.sameCount + '天与当前计划一致，无需确认。</span></div></div>';
+    return;
+  }
+  var rows = diff.changes.map(function(c) {
+    var dd = c.date.split('-');
+    return '<tr class="' + c.kind + '"><td>' + dd[2] + '/' + dd[1] + '/' + dd[0] + '</td><td>' + (c.oldVal === null ? '&#8212;' : c.oldVal) + '</td><td>' + c.newVal + '</td></tr>';
+  }).join('');
+  panel.innerHTML = '<div class="diffpanel">' +
+    '<div class="diffpanel-head"><h3>Znalezione różnice <span class="cn">发现的差异</span></h3>' +
+    '<div class="diffpanel-summary">' + diff.changes.length + ' dni różnych/nowych, ' + diff.sameCount + ' bez zmian</div></div>' +
+    '<div style="overflow-x:auto"><table class="difftable"><thead><tr><th>Data</th><th>Było</th><th>Z pliku</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div class="diffpanel-actions">' +
+      '<button type="button" class="btn-diff approve" onclick="approveShipDiff()">Zatwierdź i zastosuj<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">确认并应用</small></button>' +
+      '<button type="button" class="btn-diff cancel" onclick="cancelShipDiff()">Anuluj<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">取消</small></button>' +
+    '</div></div>';
+}
+function approveShipDiff() {
+  if (!pendingShipPlan) return;
+  Object.keys(pendingShipPlan).forEach(function(mk) {
+    if (!STATE.shippingPlan[mk]) STATE.shippingPlan[mk] = {};
+    Object.keys(pendingShipPlan[mk]).forEach(function(iso) { STATE.shippingPlan[mk][iso] = pendingShipPlan[mk][iso]; });
+  });
+  pendingShipPlan = null;
+  document.getElementById('shipDiffPanel').innerHTML = '';
+  markDirty();
+  render();
+  showToast('Zastosowano — pamiętaj kliknąć "Zapisz plan"! · 已应用 — 别忘了点击"保存计划"!', 'ok');
+}
+function cancelShipDiff() {
+  pendingShipPlan = null;
+  document.getElementById('shipDiffPanel').innerHTML = '';
 }
 
 function copyFromPrevMonth() {

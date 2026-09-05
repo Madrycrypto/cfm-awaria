@@ -121,7 +121,7 @@ tbody tr.grouphead td{padding-top:16px}
 .weekblock-head{font-family:var(--fh);font-weight:700;font-size:12px;color:var(--muted);margin-bottom:6px;padding-left:2px}
 .weekblock .barsgrid{padding:10px 12px;gap:6px}
 .barrow{display:grid;grid-template-columns:64px 1fr 84px;align-items:center;gap:8px}
-#shiftComparison .barrow{grid-template-columns:96px 1fr 230px}
+#shiftComparison .barrow{grid-template-columns:96px 1fr 110px}
 .barrow-lbl{font-family:var(--fh);font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bartrack{position:relative;height:11px;background:var(--border-soft);border-radius:5px;overflow:hidden}
 .barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
@@ -144,7 +144,7 @@ tbody tr.grouphead td{padding-top:16px}
   .kpis{grid-template-columns:repeat(2,1fr)}
   h1{font-size:24px}
   .barrow{grid-template-columns:52px 1fr 70px;gap:6px}
-  #shiftComparison .barrow{grid-template-columns:74px 1fr 150px}
+  #shiftComparison .barrow{grid-template-columns:74px 1fr 90px}
   #shiftComparison .barrow-pct{white-space:normal;line-height:1.5}
   .dailybarrow{grid-template-columns:54px 1fr 78px 38px;gap:4px}
   .wtinput{font-size:10px;padding:5px 0}
@@ -577,26 +577,24 @@ function renderShiftComparison(groups, days) {
     var actual = 0, ok = 0;
     Object.keys(g.byDate).forEach(function(d) { actual += g.byDate[d].qty; ok += g.byDate[d].ok_count; });
     var plan = getPeriodPlan(g.station, g.shift, days);
-    if (!byShift[g.shift]) byShift[g.shift] = { pcts: [], passRates: [], sumActual: 0, sumPlan: 0 };
+    if (!byShift[g.shift]) byShift[g.shift] = { pcts: [], passRates: [] };
     if (plan > 0) byShift[g.shift].pcts.push((actual / plan) * 100);
     if (actual > 0) byShift[g.shift].passRates.push((ok / actual) * 100);
-    byShift[g.shift].sumActual += actual;
-    byShift[g.shift].sumPlan += plan;
   });
   var shiftsOrder = STATE.shiftLabels.filter(function(s) { return byShift[s] && byShift[s].pcts.length; });
   if (!shiftsOrder.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
   var avg = function(arr) { return arr.length ? Math.round(arr.reduce(function(a, x) { return a + x; }, 0) / arr.length) : null; };
   var rows = shiftsOrder.map(function(s) {
-    return { shift: s, pct: avg(byShift[s].pcts), passRate: avg(byShift[s].passRates), n: byShift[s].pcts.length, sumActual: byShift[s].sumActual, sumPlan: byShift[s].sumPlan };
+    return { shift: s, pct: avg(byShift[s].pcts), passRate: avg(byShift[s].passRates), n: byShift[s].pcts.length };
   });
   rows.sort(function(a, b) { return b.pct - a.pct; });
-  var hint = '<div class="wthint">% &#8212; śr. wykonanie planu na stanowiskach tej zmiany, suma = wszystkie stanowiska razem &#183; 该班次各工位平均计划完成率，总数为各工位合计</div>';
+  var hint = '<div class="wthint">% &#8212; śr. wykonanie planu na stanowiskach tej zmiany &#183; 该班次各工位平均计划完成率</div>';
   el.innerHTML = hint + rows.map(function(r, i) {
     var color = r.pct >= 95 ? 'var(--green)' : r.pct >= 80 ? 'var(--orange)' : 'var(--red)';
     var crown = i === 0 && rows.length > 1 ? ' &#9733;' : '';
     return '<div class="barrow"><div class="barrow-lbl" style="color:' + shiftColor(r.shift) + '">Zmiana ' + r.shift + crown + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + Math.min(r.pct, 100) + '%;background:' + color + '"></div></div>' +
-      '<div class="barrow-pct"><b style="color:' + color + '">' + r.pct + '%</b> &nbsp;' + fmt(r.sumActual) + '/' + fmt(r.sumPlan) +
+      '<div class="barrow-pct"><b style="color:' + color + '">' + r.pct + '%</b>' +
       (r.passRate !== null ? ' &nbsp;pass ' + r.passRate + '%' : '') + '</div></div>';
   }).join('');
 }

@@ -619,10 +619,15 @@ function renderKpis(groups, days, periodLabel) {
 // planu z WSZYSTKICH jej stanowisk po rowno — kazde stanowisko liczy sie tyle
 // samo, niezaleznie od wolumenu. Pomijamy kombinacje stanowisko+zmiana bez
 // zadnego sladu (bez danych i bez wpisu w Planie) — tak samo jak barsHtml.
+// Porownanie zmian liczone TYLKO z GP12 (ostatnie stanowisko, kontrola
+// jakosci koncowej) — tak samo jak gorne KPI (patrz komentarz w renderKpis):
+// kazda sztuka przechodzi przez wiele stanowisk, wiec usrednianie WSZYSTKICH
+// stanowisk myliloby "ktora zmiana jest lepsza" z "ktora zmiana ma lepsze
+// stanowiska w swoim gronie" — a to nie to samo pytanie.
 function renderShiftComparison(groups, days) {
   var el = document.getElementById('shiftComparison');
   var byShift = {};
-  groups.forEach(function(g) {
+  groups.filter(function(g) { return g.station === 'GP12'; }).forEach(function(g) {
     var hasData = Object.keys(g.byDate).length > 0;
     var hasPlanEntries = days.some(function(d) { return planEntryFor(g.station, g.shift, d) !== null; });
     if (!hasData && !hasPlanEntries) return;
@@ -640,7 +645,7 @@ function renderShiftComparison(groups, days) {
     return { shift: s, pct: avg(byShift[s].pcts), passRate: avg(byShift[s].passRates), n: byShift[s].pcts.length };
   });
   rows.sort(function(a, b) { return b.pct - a.pct; });
-  var hint = '<div class="wthint">% &#8212; śr. wykonanie planu na stanowiskach tej zmiany &#183; 该班次各工位平均计划完成率</div>';
+  var hint = '<div class="wthint">% &#8212; wykonanie planu GP12 tej zmiany &#183; 该班次GP12计划完成率</div>';
   el.innerHTML = hint + rows.map(function(r, i) {
     var color = r.pct >= 95 ? 'var(--green)' : r.pct >= 80 ? 'var(--orange)' : 'var(--red)';
     var crown = i === 0 && rows.length > 1 ? ' &#9733;' : '';

@@ -2005,10 +2005,9 @@ var awariaActiveBreakdown = null;
 // Wola sie przy kazdej zmianie stanowiska (saveStation) i przy wejsciu na
 // zakladke Awaria — pokazuje/chowa baner w zaleznosci od tego, czy TO
 // KONKRETNE stanowisko (nie "jakiekolwiek") ma cos otwartego.
-function awariaSyncActiveForStation() {
-  var station = document.getElementById('stationSel').value;
-  awariaActiveBreakdown = station ? (awariaActiveByStation[station] || null) : null;
-  if (awariaActiveBreakdown) {
+function awariaApplyActiveDisplay(active) {
+  awariaActiveBreakdown = active;
+  if (active) {
     awariaShowActiveBanner();
     document.getElementById('btnAwariaEnd').disabled = false;
   } else {
@@ -2016,6 +2015,39 @@ function awariaSyncActiveForStation() {
     document.getElementById('btnAwariaEnd').disabled = true;
     clearInterval(awariaTimerInterval);
   }
+}
+// Pokazuje od razu to co wiemy LOKALNIE (bez czekania na siec), a zaraz
+// potem dopytuje SERWER (SPRAWDZ, juz istniejacy endpoint) i nadpisuje
+// wynik jesli sie rozni — bez tego telefon B nie widzial awarii
+// zaczetej na telefonie A dla tego samego stanowiska, dopoki ktos nie
+// probowal na nim wystartowac nowej (SPRAWDZ odpalal sie dopiero wtedy).
+// Serwer jest tu ZRODLEM PRAWDY: jesli mowi "zamkniete", czyscimy tez
+// nasz lokalny wpis (mogl zostac zamkniety z innego urzadzenia).
+function awariaSyncActiveForStation() {
+  var station = document.getElementById('stationSel').value;
+  awariaApplyActiveDisplay(station ? (awariaActiveByStation[station] || null) : null);
+  if (!station) return;
+  var wh = getWH();
+  if (!wh) return;
+  fetch(wh + '?event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(station))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (document.getElementById('stationSel').value !== station) return; // user zdazyl juz przelaczyc
+      if (data && data.open && data.awaria) {
+        var active = {
+          station: station, type: data.awaria.typ, operator: data.awaria.operator || '',
+          startTs: data.awaria.startIso, startFormatted: awariaFormatTs(new Date(data.awaria.startIso))
+        };
+        awariaActiveByStation[station] = active;
+        awariaSaveActiveMap();
+        awariaApplyActiveDisplay(active);
+      } else if (awariaActiveByStation[station]) {
+        delete awariaActiveByStation[station];
+        awariaSaveActiveMap();
+        awariaApplyActiveDisplay(null);
+      }
+    })
+    .catch(function() {});
 }
 var awariaLocalHistory = JSON.parse(localStorage.getItem('cfm_awaria_history') || '[]');
 var awariaTimerInterval = null;

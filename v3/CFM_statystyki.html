@@ -725,10 +725,12 @@ function renderSqdiHelper(groups, days) {
     var perfResults = groups.map(function(g) { return computeOee(g, [d]); }).filter(function(r) { return r && r.performance !== null; });
     var perfAvg = perfResults.length ? Math.round(perfResults.reduce(function(s, r) { return s + r.performance; }, 0) / perfResults.length * 100) + '%' : '&#8212;';
 
-    // Stracone godziny CALEJ linii tego dnia — suma Awarie ze wszystkich
-    // stanowisk/zmian razem (nie tylko brak materialu), to co karta
-    // "Inwentarz" fizycznej tablicy SQDIP pokazuje jako "工时损失".
-    var lostMin = STATE.awarieRows.filter(function(a) { return a.date === d; }).reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
+    // Stracone godziny tego dnia — TYLKO stanowiska nalezace do tej
+    // konkretnej linii (OP51/52, OP60/61, GP12), nie wszystkie stanowiska
+    // w fabryce — user chce widziec przestoj wlasnie tej linii na tablicy
+    // SQDIP, nie calego zakladu.
+    var lineStations = ['OP51/52', 'OP60/61', 'GP12'];
+    var lostMin = STATE.awarieRows.filter(function(a) { return a.date === d && lineStations.indexOf(a.station) >= 0; }).reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
     var lostH = lostMin > 0 ? (lostMin / 60).toFixed(1) + ' h' : '&#8212;';
 
     return '<tr><td>' + label + '</td><td>' + passRate + '</td><td>' + planPct + '</td><td>' + perfAvg + '</td><td>' + lostH + '</td></tr>';

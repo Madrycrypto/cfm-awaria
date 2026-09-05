@@ -153,7 +153,8 @@ var WD = ['pn','wt','śr','cz','pt','so','nd'];
 
 var STATE = {
   viewMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-  stations: [], shiftLabels: ['A', 'B', 'C'], targets: {}, plan: {}, dirty: false
+  stations: [], shiftLabels: ['A', 'B', 'C'], targets: {}, plan: {},
+  shippingPlan: {}, shippingActual: {}, dirty: false
 };
 
 // applySaveButtonState maluje przycisk wg AKTUALNEGO STATE.dirty,
@@ -211,6 +212,8 @@ function init() {
       } catch (e) {}
       try { STATE.targets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.targets = {}; }
       try { STATE.plan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.plan = {}; }
+      try { STATE.shippingPlan = JSON.parse(u.cfm_shipping_plan || '{}'); } catch (e) { STATE.shippingPlan = {}; }
+      try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
       if (!STATE.stations.length) { showConnError('Brak skonfigurowanych stanowisk · 未配置工位'); return; }
       liveEl.className = 'live';
       liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
@@ -310,6 +313,18 @@ function render() {
     });
     html += '</div>';
   });
+
+  // Wysylki — osobna, plaska sekcja (bez podzialu na stanowisko/zmiane):
+  // Plan (co klient zamowil, wpisywane z wyprzedzeniem, edytowalne kiedy
+  // klient zmieni forecast) i Wyslano (co faktycznie wyjechalo) — dokladnie
+  // ten sam wzorzec "wpisz i zapisz" co reszta Planu, zeby nie trzeba bylo
+  // recznie sledzic "kiedy zaktualizowalem forecast" (edycja jest zawsze
+  // na biezaco/na zywo).
+  html += '<div class="stationgroup"><div class="stationgroup-name">Wysyłki <span class="cn">发运</span></div>' +
+    renderShippingRow('plan', 'Plan wysyłek', '发运计划', y, m, nDays, STATE.shippingPlan[mk] || {}) +
+    renderShippingRow('actual', 'Wysłano (faktycznie)', '实际发货数量', y, m, nDays, STATE.shippingActual[mk] || {}) +
+    '</div>';
+
   document.getElementById('planlist').innerHTML = html || '<div class="empty">Brak stanowisk. <span class="cn">无工位。</span></div>';
   document.getElementById('planlist').addEventListener('input', function(e) {
     if (e.target && e.target.matches('.daystrip input')) { markDirty(); refreshPlanGrid(); }
@@ -322,8 +337,14 @@ function render() {
   // STATE.plan PRZED przelaczeniem widoku. To NIE zastepuje "Zapisz plan"
   // (na serwer nadal trzeba wyslac recznie) — chroni tylko przed utrata
   // danych w ramach tej samej sesji w przegladarce.
-  document.getElementById('prevMonth').onclick = function() { STATE.plan[monthKey(STATE.viewMonth)] = collectPlanFromInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1); render(); };
-  document.getElementById('nextMonth').onclick = function() { STATE.plan[monthKey(STATE.viewMonth)] = collectPlanFromInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() + 1, 1); render(); };
+  function stashCurrentMonthInputs() {
+    var curMk = monthKey(STATE.viewMonth);
+    STATE.plan[curMk] = collectPlanFromInputs();
+    STATE.shippingPlan[curMk] = collectShippingFromInputs('plan');
+    STATE.shippingActual[curMk] = collectShippingFromInputs('actual');
+  }
+  document.getElementById('prevMonth').onclick = function() { stashCurrentMonthInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1); render(); };
+  document.getElementById('nextMonth').onclick = function() { stashCurrentMonthInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() + 1, 1); render(); };
   document.getElementById('btnCopy').onclick = copyFromPrevMonth;
   document.getElementById('btnSave').onclick = savePlan;
 
@@ -463,7 +484,13 @@ function clearShiftDays(btn) {
 
 function collectPlanFromInputs() {
   var entry = {};
-  document.querySelectorAll('.daystrip input').forEach(function(el) {
+  // :not([data-shiprow]) — wiersze Wysylki (Plan/Wyslano) uzywaja tej samej
+  // klasy .daystrip (dla wspolnego stylu i wspolnych funkcji quickCopy/
+  // toggleDays/clearShiftDays), ale maja WLASNA plaska strukture
+  // (data-shiprow zamiast data-station+data-shift) — patrz
+  // collectShippingFromInputs. Bez tego wykluczenia trafialyby tutaj jako
+  // stanowisko "undefined".
+  document.querySelectorAll('.daystrip input:not([data-shiprow])').forEach(function(el) {
     var st = el.dataset.station, sh = el.dataset.shift, iso = el.dataset.date;
     var v = Number(el.value) || 0;
     if (v > 0) {
@@ -473,6 +500,42 @@ function collectPlanFromInputs() {
     }
   });
   return entry;
+}
+
+// Wysylki (Plan / Wyslano) — jedna plaska liczba dzien->ilosc, bez podzialu
+// na stanowisko/zmiane (to jeden wspolny produkt wychodzacy z magazynu).
+// Ten sam wzorzec UI co karty stanowisk (analyzeShift dziala na dowolnej
+// plaskiej mapie iso->wartosc, wiec dziala tu bez zmian).
+function collectShippingFromInputs(kind) {
+  var entry = {};
+  document.querySelectorAll('.daystrip input[data-shiprow="' + kind + '"]').forEach(function(el) {
+    var iso = el.dataset.date;
+    var v = Number(el.value) || 0;
+    if (v > 0) entry[iso] = v;
+  });
+  return entry;
+}
+function renderShippingRow(kind, label, cnLabel, y, m, nDays, flatEntry) {
+  var info = analyzeShift(flatEntry, y, m, nDays);
+  var expand = info.filledCount > 0 && !info.uniform;
+  var dayCells = '';
+  for (var d = 1; d <= nDays; d++) {
+    var iso = dateISO(y, m, d);
+    var wd = new Date(y, m, d).getDay();
+    var isSun = wd === 0;
+    var val = flatEntry[iso] !== undefined ? flatEntry[iso] : '';
+    dayCells += '<div class="daycell' + (isSun ? ' sun' : '') + '"><div class="dlabel">' + d + ' ' + WD[(wd + 6) % 7] + '</div><input type="number" min="0" value="' + val + '" data-shiprow="' + kind + '" data-date="' + iso + '"></div>';
+  }
+  return '<div class="shiftcard" data-shiprow="' + kind + '">' +
+    '<div class="shiftcard-head">' +
+      '<span class="shiftpill">' + label + '<span class="cn">' + cnLabel + '</span></span>' +
+      '<input type="number" min="0" class="quickval" placeholder="np. 1120" value="' + info.quickVal + '">' +
+      '<button type="button" class="btn-mini copy" onclick="quickCopy(this)">Kopiuj pon&#8211;pt<small>复制周一至周五</small></button>' +
+      '<button type="button" class="btn-mini clear" onclick="clearShiftDays(this)">Wyczyść dni<small>清空天数</small></button>' +
+      '<button type="button" class="btn-mini toggle' + (expand ? ' open' : '') + '" onclick="toggleDays(this)">Dni ' + (expand ? '&#9652;' : '&#9662;') + ' <span class="cn">天数</span> (' + info.filledCount + ')</button>' +
+    '</div>' +
+    '<div class="daystrip" style="display:' + (expand ? 'flex' : 'none') + ';">' + dayCells + '</div>' +
+  '</div>';
 }
 
 function copyFromPrevMonth() {
@@ -502,15 +565,19 @@ function copyFromPrevMonth() {
 function savePlan() {
   var mk = monthKey(STATE.viewMonth);
   STATE.plan[mk] = collectPlanFromInputs();
+  STATE.shippingPlan[mk] = collectShippingFromInputs('plan');
+  STATE.shippingActual[mk] = collectShippingFromInputs('actual');
   localStorage.setItem('cfm_monthly_plan', JSON.stringify(STATE.plan));
+  localStorage.setItem('cfm_shipping_plan', JSON.stringify(STATE.shippingPlan));
+  localStorage.setItem('cfm_shipping_actual', JSON.stringify(STATE.shippingActual));
   clearDirty();
 
   var wh = getWH();
-  fetch(wh, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_monthly_plan', wartosc: JSON.stringify(STATE.plan) })
-  }).then(function() {
+  Promise.all([
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_monthly_plan', wartosc: JSON.stringify(STATE.plan) }) }),
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_plan', wartosc: JSON.stringify(STATE.shippingPlan) }) }),
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_actual', wartosc: JSON.stringify(STATE.shippingActual) }) })
+  ]).then(function() {
     showToast('Plan zapisany! · 计划已保存!', 'ok');
   }).catch(function() {
     showToast('Zapisano lokalnie, błąd wysyłki · 已本地保存，发送失败', 'err');

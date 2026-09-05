@@ -209,9 +209,16 @@ function init() {
 function loadMonth(opts) {
   opts = opts || {};
   var wh = getWH();
-  var r = monthRange(STATE.monthDate);
+  // Tygodnie liczymy PRZED pobraniem danych i pobieramy pelny zakres
+  // wyswietlanych tygodni, nie tylko sam kalendarzowy miesiac —
+  // pierwszy/ostatni tydzien miesiaca czesto wystaje poza jego granice
+  // (patrz ta sama poprawka w CFM_statystyki.html).
+  computeWeeks(opts.keepSelection);
+  var mr = monthRange(STATE.monthDate);
+  var start = STATE.weeks.length ? STATE.weeks[0].start : mr.start;
+  var end = STATE.weeks.length ? STATE.weeks[STATE.weeks.length - 1].end : mr.end;
   if (!opts.silent) document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
-  fetch(wh + '?event_type=STATYSTYKI&start=' + r.start + '&end=' + r.end)
+  fetch(wh + '?event_type=STATYSTYKI&start=' + start + '&end=' + end)
     .then(function(res) { return res.json(); })
     .then(function(data) {
       var liveEl = document.getElementById('liveStatus');
@@ -226,7 +233,6 @@ function loadMonth(opts) {
       document.getElementById('lastUpdate').textContent = 'odświeżono: ' + new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) + ' · 已更新';
       STATE.rows = data.historia || [];
       STATE.awarieRows = data.awarie_historia || [];
-      computeWeeks(opts.keepSelection);
       render();
     })
     .catch(function() {
@@ -331,6 +337,14 @@ function getWorktimeKorekta(station, shift, dateIso) {
   var v = STATE.worktimeKorekty[worktimeKey(station, shift, dateIso)];
   return (v || v === 0) ? Number(v) : null;
 }
+function effectivePlanEntry(station, shift, dateIso) {
+  var base = planEntryFor(station, shift, dateIso);
+  if (base === null) return null;
+  var korekta = getWorktimeKorekta(station, shift, dateIso);
+  if (korekta === null) return base;
+  var full = getFullShiftMinutes(station);
+  return full > 0 ? Math.round(base * (korekta / full)) : base;
+}
 
 // Dostepny (zaplanowany) czas pracy na dany dzien = korekta czasu pracy z
 // Statystyk jesli ktos ja wpisal (np. czekanie na piec), inaczej pelny czas
@@ -347,26 +361,28 @@ function operatingInfo(station, shift, dateIso) {
 // (Panel Admina, ten sam co uzupelnia Plan gdy brak jawnego wpisu dzien-po-
 // dzien) podzielony przez pelny czas zmiany — zero nowych ustawien, to co
 // admin juz raz wpisal.
-function idealRate(station) {
-  var target = Number(STATE.stationTargets[station]) || 0;
-  var full = getFullShiftMinutes(station);
-  return full > 0 ? target / full : 0;
-}
-
 // OEE = Dostepnosc x Wydajnosc x Jakosc, agregowane dla stanowiska+zmiany
 // na zadanym zestawie dni. Liczymy TYLKO dni z jakimkolwiek sladem (raport
 // LUB jawny wpis w Planie) — tak samo jak reszta Statystyk, zeby
 // nieuzywane zmiany nie zanizaly wyniku zerami.
+// Teoretyczny cel na DANY dzien liczymy z tego samego zrodla co wszedzie
+// indziej w Statystykach — jawny wpis z Planu dzien-po-dzien
+// (effectivePlanEntry), a dopiero w jego braku ze stalego Celu stanowiska
+// (stationTargets). W tej instalacji Plan dzien-po-dzien jest wypelniony,
+// a staly Cel czesto NIE — liczenie tylko z Celu (jak w pierwszej wersji)
+// dawalo wszedzie Wydajnosc "—".
 function computeOee(g, days) {
-  var rate = idealRate(g.station);
+  var full = getFullShiftMinutes(g.station);
   var sumPlanned = 0, sumAwarieMin = 0, sumOperating = 0, sumActual = 0, sumOk = 0, sumIdeal = 0, n = 0;
   days.forEach(function(d) {
     var r = g.byDate[d];
     var hasPlan = planEntryFor(g.station, g.shift, d) !== null;
     if (!r && !hasPlan) return;
+    var planForDay = effectivePlanEntry(g.station, g.shift, d);
+    if (planForDay === null) planForDay = Number(STATE.stationTargets[g.station]) || 0;
     var op = operatingInfo(g.station, g.shift, d);
     sumPlanned += op.planned; sumAwarieMin += op.awarieMin; sumOperating += op.operating;
-    sumIdeal += rate * op.operating;
+    sumIdeal += (full > 0 ? planForDay / full : 0) * op.operating;
     if (r) { sumActual += r.qty; sumOk += r.ok_count; }
     n++;
   });

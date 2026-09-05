@@ -312,6 +312,43 @@ function planForDate_(monthlyPlan, targets, station, shift, dateIso) {
   if (e) return Number(e) || 0;
   return Number(targets[station]) || 0;
 }
+function planEntryFor_(monthlyPlan, station, shift, dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var e = monthlyPlan[mk] && monthlyPlan[mk][station] && monthlyPlan[mk][station][shift] && monthlyPlan[mk][station][shift][dateIso];
+  return e ? Number(e) : null;
+}
+function enumerateDays_(startIso, endIso) {
+  var days = [];
+  var sp = startIso.split('-'), ep = endIso.split('-');
+  var cursor = new Date(Number(sp[0]), Number(sp[1]) - 1, Number(sp[2]));
+  var end = new Date(Number(ep[0]), Number(ep[1]) - 1, Number(ep[2]));
+  while (cursor <= end) {
+    days.push(Utilities.formatDate(cursor, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd'));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+// Pelny zaplanowany wolumen CALEGO okresu (start..end) dla stanowiska+
+// zmiany — TA SAMA logika co getPeriodPlan w CFM_statystyki.html (jesli w
+// Planie jest chociaz jeden jawny wpis w tym okresie, licz WYLACZNIE jawne
+// wpisy — dni bez wpisu = 0; w przeciwnym razie Cel x dni robocze). Bez
+// tego (poprzednia wersja liczyla plan TYLKO za dni z juz zlozonym
+// raportem) niezaraportowany dzien roboczy znikal z mianownika zamiast
+// obnizyc %, przez co Premie i Statystyki dla tego samego stanowiska/
+// zmiany/okresu pokazywaly rozne procenty.
+function getPeriodPlan_(monthlyPlan, targets, station, shift, startIso, endIso) {
+  var days = enumerateDays_(startIso, endIso);
+  var hasAnyEntry = days.some(function(d) { return planEntryFor_(monthlyPlan, station, shift, d) !== null; });
+  if (hasAnyEntry) {
+    return days.reduce(function(sum, d) { return sum + (planEntryFor_(monthlyPlan, station, shift, d) || 0); }, 0);
+  }
+  var weekdays = days.filter(function(d) {
+    var parts = d.split('-');
+    var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
+    return wd !== 0 && wd !== 6;
+  }).length;
+  return weekdays * (Number(targets[station]) || 0);
+}
 function handlePremia(ss, p) {
   var monthlyPlan = {}, stationTargets = {};
   var ustSheet = ss.getSheetByName('Ustawienia');
@@ -336,9 +373,18 @@ function handlePremia(ss, p) {
       if (!byKey[key]) byKey[key] = { station: r[3], shift: r[2], sumQty: 0, sumOk: 0, sumPlan: 0, count: 0 };
       byKey[key].sumQty += Number(r[5]) || 0;
       byKey[key].sumOk += Number(r[9]) || 0;
-      byKey[key].sumPlan += planForDate_(monthlyPlan, stationTargets, r[3], r[2], d);
       byKey[key].count += 1;
     }
+  }
+  // Plan CALEGO okresu (start..end), nie tylko dni z juz zlozonym
+  // raportem — patrz komentarz przy getPeriodPlan_. Liczony raz na
+  // stanowisko+zmiane (nie w petli po wierszach), zeby niezaraportowany
+  // dzien roboczy poprawnie obnizal % zamiast znikac z mianownika.
+  if (p.start && p.end) {
+    Object.keys(byKey).forEach(function(key) {
+      var g = byKey[key];
+      g.sumPlan = getPeriodPlan_(monthlyPlan, stationTargets, g.station, g.shift, p.start, p.end);
+    });
   }
 
   // Przestoj przypisany do KONKRETNEJ zmiany (kolumna 'shift', zapisywana

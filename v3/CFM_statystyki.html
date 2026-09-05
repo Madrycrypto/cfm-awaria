@@ -185,7 +185,14 @@ tbody tr.grouphead td{padding-top:16px}
 </div>
 
 <script>
-function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
+// Domyslny webhook wpisany na sztywno — zeby KAZDY otwierajacy ten link
+// (np. przeslany operatorowi) mial polaczenie od razu, bez koniecznosci
+// najpierw otwierania glownej apki i konfigurowania Panelu Admina na tym
+// samym urzadzeniu/przegladarce (localStorage jest osobny dla kazdej
+// przegladarki/profilu/trybu incognito). Ten sam wzorzec co juz dziala w
+// CFM_R_DZIENNY_V3.html (applyFactoryDefaults) i CFM_awaria_app.html.
+var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
 var STATE = { monthDate: new Date(), rows: [], reworkRows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {} };
 
@@ -436,9 +443,9 @@ function render() {
     '<div class="section"><div class="section-head"><h2>Wykonanie planu &#183; dzień po dniu<span class="cn">计划完成率 &#183; 逐日</span></h2><div class="legend">' +
       '<span><i style="background:#3fd17a"></i>&#8805; 95%</span><span><i style="background:#f0a030"></i>80&#8211;94%</span><span><i style="background:#ff7070"></i>&lt; 80%</span>' +
     '</div></div><div class="tablewrap"><div class="tablescroll"><table id="pivot"></table></div></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Bilans tygodniowy<span class="cn">每周计划平衡</span></h2></div><div id="weeklyBalance"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Bilans dzienny<span class="cn">每日计划平衡</span></h2></div><div id="dailyBalance"></div></div>' +
+    '<div class="section"><div class="section-head"><h2>Bilans tygodniowy<span class="cn">每周计划平衡</span></h2></div><div id="weeklyBalance"></div></div>' +
+    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Awarie &#183; przestoje w okresie<span class="cn">故障 &#183; 本期停机</span></h2></div><div class="barsgrid" id="awarieSummary"></div></div>';
 
@@ -449,9 +456,9 @@ function render() {
   renderKpis(periodGroups, days, periodLabel);
   renderShiftComparison(periodGroups, days);
   renderPivot(periodGroups, days, periodLabel);
-  renderBars(groups);
-  renderWeeklyBalance();
   renderDailyBalance(days);
+  renderWeeklyBalance();
+  renderBars(groups);
   renderReworkBalance(days);
   renderAwarieSummary(days);
 }

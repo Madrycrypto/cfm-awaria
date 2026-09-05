@@ -577,7 +577,7 @@ var timerInterval = null;
 
 // ── INIT ─────────────────────────────────────────────────────
 function pobierzUstawieniaZArkusza() {
-  var wh = localStorage.getItem('cfm_raport_webhook') || '';
+  var wh = state.webhookUrl || localStorage.getItem('cfm_webhook') || '';
   if (!wh) return;
   fetch(wh + '?event_type=GET_USTAWIENIA')
     .then(function(r) { return r.json(); })

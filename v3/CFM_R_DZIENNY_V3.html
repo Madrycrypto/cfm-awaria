@@ -37,8 +37,14 @@ button{cursor:pointer;font-family:var(--fh)}
 .topbar-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.5}
 .gear-btn{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:2px 8px;line-height:1}
 .topbar-left{display:flex;align-items:center;gap:10px}
-.dashboard-link{font-family:var(--fb);font-weight:700;font-size:10.5px;color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:7px;padding:5px 9px;white-space:nowrap}
-.dashboard-link:hover{color:var(--text);background:#161616}
+.navmenu-wrap{position:relative}
+.navmenu-btn{background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:16px;padding:3px 9px;cursor:pointer;line-height:1.6}
+.navmenu-btn:hover{color:var(--text)}
+.navmenu-dropdown{display:none;position:absolute;top:calc(100% + 6px);left:0;background:#161616;border:1px solid var(--border);border-radius:10px;padding:6px;min-width:170px;flex-direction:column;gap:2px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.navmenu-dropdown.open{display:flex}
+.navmenu-dropdown a{font-family:var(--fb);font-weight:600;font-size:13px;color:var(--muted);text-decoration:none;padding:9px 10px;border-radius:7px;white-space:nowrap}
+.navmenu-dropdown a:hover{color:var(--text);background:#222}
+.navmenu-dropdown a.on{color:#fff;background:var(--blue)}
 .gear-btn.active{color:var(--text)}
 
 .main{padding:16px;max-width:480px;margin:0 auto;padding-bottom:60px}
@@ -281,7 +287,19 @@ button{cursor:pointer;font-family:var(--fh)}
 <div class="topbar">
   <div class="topbar-left">
     <div class="logo">CFM</div>
-    <a href="CFM_dashboard.html" class="dashboard-link">&#128202; Dashboard</a>
+    <div class="navmenu-wrap">
+      <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
+      <div class="navmenu-dropdown" id="navmenuDropdown">
+        <a href="CFM_dashboard.html">&#128202; Dashboard</a>
+        <a href="CFM_R_DZIENNY_V3.html" class="on">&#128221; Raport dzienny</a>
+        <a href="CFM_statystyki.html">&#128200; Statystyki</a>
+        <a href="CFM_oee.html">&#9881;&#65039; OEE</a>
+        <a href="CFM_premie.html">&#128176; Premie</a>
+        <a href="CFM_plan.html">&#128197; Plan</a>
+        <a href="CFM_obsada.html">&#128101; Obsada</a>
+        <a href="CFM_inwentarz.html">&#128230; Inwentarz</a>
+      </div>
+    </div>
   </div>
   <div class="topbar-right">&#25253;&#21578;&#31995;&#32479;<br><span id="clockDisplay" style="color:var(--text);font-weight:600;"></span></div>
   <button class="gear-btn" id="gearBtn" onclick="openAdmin()">&#9881;</button>
@@ -2739,6 +2757,14 @@ function openAdmin() {
   o.classList.add('open'); i.value = '';
   setTimeout(function() { i.focus(); }, 100);
 }
+
+function toggleNavMenu() {
+  document.getElementById('navmenuDropdown').classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  var wrap = document.querySelector('.navmenu-wrap');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('navmenuDropdown').classList.remove('open');
+});
 function pinOverlayConfirm() {
   var p = document.getElementById('pinOverlayInput').value;
   var sp = localStorage.getItem('cfm_pin') || '1234';

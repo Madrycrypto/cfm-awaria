@@ -16,7 +16,7 @@
   --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
   --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
   --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
-  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;
+  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;--calm:#8A9BB0;
   --good-bg:rgba(26,158,80,0.14);--warn-bg:rgba(217,119,6,0.16);--crit-bg:rgba(217,43,43,0.16);
   --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
 }
@@ -127,12 +127,27 @@ tbody tr.grouphead td{padding-top:16px}
 .barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
 .barrow-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);white-space:nowrap}
 .barrow-pct b{font-family:var(--fh);font-size:12.5px;font-weight:800}
-.dailybarrow{display:grid;grid-template-columns:74px 1fr 90px 46px;align-items:center;gap:6px}
-.wtinput{width:100%;box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:10.5px;text-align:center;padding:5px 1px}
+.wtinput{box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:10.5px;text-align:center;padding:5px 1px}
 .wtinput:focus{outline:none;border-color:var(--blue)}
 .wtinput::placeholder{color:var(--faint);font-weight:600}
-.wthint{font-size:10px;color:var(--faint);padding:0 2px 2px;text-align:right}
-.shiftsubhead{font-family:var(--fh);font-weight:800;font-size:10px;letter-spacing:.3px;text-transform:uppercase;padding-left:2px}
+.wthint{font-size:10px;color:var(--faint);padding:0 2px 8px;text-align:right}
+.daygridtable{border-collapse:collapse;width:100%;min-width:520px}
+.daygridtable thead th{font-family:var(--fb);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);text-align:center;padding:10px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.daygridtable thead th:first-child{text-align:left}
+.daygridtable tbody td{padding:8px;border-bottom:1px solid var(--border-soft);vertical-align:middle;text-align:center}
+.daygridtable tbody tr:last-child td{border-bottom:none}
+.gcstation{font-family:var(--fh);font-weight:700;font-size:13px;color:var(--text);text-align:left!important;white-space:nowrap}
+.gccell{display:flex;align-items:center;gap:10px;min-width:210px;text-align:left}
+.gc-empty{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:0.03em;padding:6px 0;line-height:1.5;text-align:center;width:100%}
+.gc-empty .cn{display:block;text-transform:none;font-size:9px;margin-top:1px}
+.gc-textblock{flex:0 0 auto;min-width:90px}
+.gc-pct{font-family:var(--fh);font-weight:800;font-size:16px;line-height:1.1}
+.gc-bar{position:relative;flex:1 1 auto;height:13px;border-radius:4px;background:var(--border-soft);overflow:hidden}
+.gc-bar i{position:absolute;left:0;top:0;height:100%;border-radius:4px;transition:width .4s}
+.gc-marker{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,0.55);transform:translateX(-1px)}
+.gc-sub{font-size:9.5px;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:flex-start;gap:3px;flex-wrap:wrap}
+.gc-timeinput{width:40px;padding:1px 2px;font-size:9px}
+.gc-awariabtn{font-family:var(--fb);font-weight:700;font-size:9px;color:var(--red);background:none;border:none;padding:0;cursor:pointer}
 
 .note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6}
 .note b{color:var(--text)}
@@ -146,8 +161,9 @@ tbody tr.grouphead td{padding-top:16px}
   .barrow{grid-template-columns:52px 1fr 70px;gap:6px}
   #shiftComparison .barrow{grid-template-columns:74px 1fr 90px}
   #shiftComparison .barrow-pct{white-space:normal;line-height:1.5}
-  .dailybarrow{grid-template-columns:54px 1fr 78px 38px;gap:4px}
   .wtinput{font-size:10px;padding:5px 0}
+  .gccell{min-width:170px;gap:6px}
+  .gc-pct{font-size:14px}
 }
 </style>
 </head>
@@ -838,48 +854,75 @@ function renderWeeklyBalance() {
   }).join('');
 }
 
-// Ten sam wzor co tygodniowy, ale dla kazdego pojedynczego dnia z
-// biezaco przegladanego okresu (tydzien albo caly miesiac, w zaleznosci
-// od przelacznika u gory strony) — dzien bez zadnego wpisu i bez planu
-// jest przez barsHtml/getPeriodPlan po prostu pomijany per stanowisko
-// (patrz komentarz w barsHtml), wiec dni calkowicie puste pokazuja "Brak danych."
-// Wiersze paskow dla POJEDYNCZEGO dnia, per stanowisko+zmiana (nie
-// zagregowane po stanowisku jak w barsHtml) — zeby kazdy wiersz mogl miec
-// wlasne pole korekty dostepnego czasu pracy. Pokazujemy tylko
-// stanowisko+zmiane ktore maja tego dnia dane LUB jawny wpis w Planie
-// (ten sam warunek co w barsHtml, zeby nie pokazywac nieuzywanych zmian).
-function dailyBarsHtml(groups, dateIso) {
-  var rows = groups.filter(function(g) {
-    var hasData = !!g.byDate[dateIso];
-    var hasPlan = planEntryFor(g.station, g.shift, dateIso) !== null;
-    return hasData || hasPlan;
+// Siatka stanowisko x zmiana dla POJEDYNCZEGO dnia — stanowiska jako
+// wiersze, zmiany jako kolumny, zeby od razu bylo widac cala zmiane obok
+// siebie (poprzednia wersja byla dlugą pionową listą: zmiana->stanowisko->
+// stanowisko->..., dla kazdego dnia z osobna — zbyt dlugie i malo czytelne
+// przy porownywaniu zmian). buildGroups juz zwraca WSZYSTKIE skonfigurowane
+// stanowisko+zmiana (nawet puste), wiec siatka ma zawsze te same wiersze/
+// kolumny niezaleznie od tego co akurat ma dane tego dnia.
+function dailyGridHtml(groups, dateIso) {
+  if (!groups.length) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
+  // Dzien calkowicie bez sladu (zaden stanowisko+zmiana nie ma ani danych,
+  // ani planu) pokazuje krotki komunikat zamiast pelnej siatki samych
+  // "BRAK DANYCH" — inaczej puste dni (np. przyszle w tym samym tygodniu)
+  // zajmowalyby tyle samo miejsca co dni z realnymi wynikami.
+  var anyTrace = groups.some(function(g) {
+    return !!g.byDate[dateIso] || planEntryFor(g.station, g.shift, dateIso) !== null;
   });
-  if (!rows.length) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
-  var byShift = {};
-  rows.forEach(function(g) { if (!byShift[g.shift]) byShift[g.shift] = []; byShift[g.shift].push(g); });
-  var shiftsOrder = STATE.shiftLabels.filter(function(s) { return byShift[s]; });
-  var hint = '<div class="wthint">dostępny czas pracy (min), domyślnie ' + getFullShiftMinutes(rows[0].station) + ' &#183; 可用工作时间（分钟）</div>';
-  return hint + shiftsOrder.map(function(s) {
-    var head = '<div class="shiftsubhead" style="color:' + shiftColor(s) + '">Zmiana ' + s + '</div>';
-    var rowsHtml = byShift[s].map(function(g) {
-      var actual = g.byDate[dateIso] ? g.byDate[dateIso].qty : 0;
-      var plan = effectivePlanEntry(g.station, g.shift, dateIso) || 0;
-      var pct = plan > 0 ? Math.round((actual / plan) * 100) : 0;
-      var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
-      var full = getFullShiftMinutes(g.station);
-      var korekta = getWorktimeKorekta(g.station, g.shift, dateIso);
-      var awarie = getAwarieForDay(g.station, g.shift, dateIso);
-      var awarieMin = awarie.reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
-      var awarieInfo = awarieMin > 0 ?
-        '<div class="awarieinfo"><button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">auto z Awarii: ' + awarieMin + ' min &#9662; <span class="cn">故障</span></button><div class="reasonbox">' + awarieChipsHtml(awarie) + '</div></div>' : '';
-      return '<div class="dailybarrow"><div class="barrow-lbl">' + g.station + '</div>' +
-        '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
-        '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(actual) + '/' + fmt(plan) + '</div>' +
-        '<input type="number" class="wtinput" min="0" placeholder="' + full + '" title="Dostępny czas pracy (min) &#183; 可用工作时间" value="' + (korekta === null ? '' : korekta) + '" data-station="' + g.station.replace(/"/g, '&quot;') + '" data-shift="' + g.shift + '" data-date="' + dateIso + '"></div>' +
-        awarieInfo;
+  if (!anyTrace) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
+  var byStation = {};
+  var stationOrder = [];
+  groups.forEach(function(g) {
+    if (!byStation[g.station]) { byStation[g.station] = {}; stationOrder.push(g.station); }
+    byStation[g.station][g.shift] = g;
+  });
+  var shiftsOrder = STATE.shiftLabels;
+  var hint = '<div class="wthint">dostępny czas pracy (min), domyślnie ' + getFullShiftMinutes(stationOrder[0]) + ' &#183; 可用工作时间（分钟）</div>';
+  var thead = '<thead><tr><th>Stanowisko<span class="cn">工位</span></th>' +
+    shiftsOrder.map(function(s) { return '<th style="color:' + shiftColor(s) + '">Zmiana ' + s + '</th>'; }).join('') +
+    '</tr></thead>';
+  var rows = stationOrder.map(function(stName) {
+    var cells = shiftsOrder.map(function(s) {
+      var g = byStation[stName][s];
+      var hasData = !!(g && g.byDate[dateIso]);
+      var hasPlan = planEntryFor(stName, s, dateIso) !== null;
+      if (!hasData && !hasPlan) return '<td><div class="gc-empty">BRAK DANYCH<span class="cn">无数据</span></div></td>';
+      var actual = hasData ? g.byDate[dateIso].qty : 0;
+      var plan = effectivePlanEntry(stName, s, dateIso) || 0;
+      var pct = plan > 0 ? Math.round((actual / plan) * 100) : (actual > 0 ? 0 : null);
+      // 4 progi zamiast 3 (jak w reszcie apki) — >=110% osobno na jaskrawa
+      // zielen, zeby wyraznie odroznic "znaczaco ponad plan" od "w okolicy
+      // planu" (95-109%, stonowany niebieskoszary), tak jak w referencyjnym
+      // wzorze. Pomarancz (80-94%) i czerwien (<80%) bez zmian.
+      var color = pct === null ? 'var(--faint)' : pct >= 110 ? 'var(--green)' : pct >= 95 ? 'var(--calm)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
+      var full = getFullShiftMinutes(stName);
+      var korekta = getWorktimeKorekta(stName, s, dateIso);
+      var awarie = getAwarieForDay(stName, s, dateIso);
+      var awarieMin = awarie.reduce(function(sum, a) { return sum + (Number(a.czas_min) || 0); }, 0);
+      var awarieBtn = awarieMin > 0 ?
+        '<button type="button" class="gc-awariabtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">&#9888; ' + awarieMin + '&#8217;</button>' : '';
+      var awarieBox = awarieMin > 0 ? '<div class="reasonbox">' + awarieChipsHtml(awarie) + '</div>' : '';
+      // Tekst (%, wykonanie/plan, czas, awaria) po LEWEJ, pasek po PRAWEJ —
+      // obok siebie zamiast jedno pod drugim, zeby wiersz zajmowal jak
+      // najmniej miejsca w pionie. Pasek skalowany do BAR_MAX% (nie do
+      // samego pct), z biala kreska-znacznikiem przy 100%, zeby bylo widac
+      // "o ile ponad/ponizej celu", tak jak w referencyjnym wzorze.
+      var barMax = 150;
+      var barPct = Math.min((pct || 0) / barMax * 100, 100);
+      var markerPct = 100 / barMax * 100;
+      return '<td><div class="gccell">' +
+        '<div class="gc-textblock">' +
+        '<div class="gc-pct" style="color:' + color + '">' + (pct === null ? '&#8212;' : pct + '%') + '</div>' +
+        '<div class="gc-sub">' + fmt(actual) + '/' + fmt(plan) +
+        ' &#183; <input type="number" class="wtinput gc-timeinput" min="0" placeholder="' + full + '" title="Dostępny czas pracy (min) &#183; 可用工作时间" value="' + (korekta === null ? '' : korekta) + '" data-station="' + stName.replace(/"/g, '&quot;') + '" data-shift="' + s + '" data-date="' + dateIso + '">' +
+        awarieBtn + '</div></div>' +
+        '<div class="gc-bar"><i style="width:' + barPct + '%;background:' + color + '"></i><span class="gc-marker" style="left:' + markerPct + '%"></span></div>' +
+        '</div>' + awarieBox + '</td>';
     }).join('');
-    return head + rowsHtml;
+    return '<tr><td class="gcstation">' + stName + '</td>' + cells + '</tr>';
   }).join('');
+  return hint + '<div class="tablewrap"><div class="tablescroll"><table class="daygridtable">' + thead + '<tbody>' + rows + '</tbody></table></div></div>';
 }
 
 function renderDailyBalance(days) {
@@ -891,7 +934,7 @@ function renderDailyBalance(days) {
     var parts = d.split('-');
     var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
     var label = DAY_LABELS[(wd + 6) % 7] + ' ' + parts[2] + '/' + parts[1] + (d === todayISO ? ' · dziś' : '');
-    return '<div class="weekblock"><div class="weekblock-head">' + label + '</div><div class="barsgrid">' + dailyBarsHtml(dayGroups, d) + '</div></div>';
+    return '<div class="weekblock"><div class="weekblock-head">' + label + '</div>' + dailyGridHtml(dayGroups, d) + '</div>';
   }).join('');
   el.querySelectorAll('.wtinput').forEach(function(inp) {
     inp.addEventListener('change', function() {

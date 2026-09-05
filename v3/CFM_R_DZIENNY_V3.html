@@ -36,6 +36,9 @@ button{cursor:pointer;font-family:var(--fh)}
 .logo span{color:var(--blue)}
 .topbar-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.5}
 .gear-btn{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:2px 8px;line-height:1}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.dashboard-link{font-family:var(--fb);font-weight:700;font-size:10.5px;color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:7px;padding:5px 9px;white-space:nowrap}
+.dashboard-link:hover{color:var(--text);background:#161616}
 .gear-btn.active{color:var(--text)}
 
 .main{padding:16px;max-width:480px;margin:0 auto;padding-bottom:60px}
@@ -276,7 +279,10 @@ button{cursor:pointer;font-family:var(--fh)}
 <body>
 
 <div class="topbar">
-  <div class="logo">CFM</div>
+  <div class="topbar-left">
+    <div class="logo">CFM</div>
+    <a href="CFM_dashboard.html" class="dashboard-link">&#128202; Dashboard</a>
+  </div>
   <div class="topbar-right">&#25253;&#21578;&#31995;&#32479;<br><span id="clockDisplay" style="color:var(--text);font-weight:600;"></span></div>
   <button class="gear-btn" id="gearBtn" onclick="openAdmin()">&#9881;</button>
 </div>
@@ -1961,19 +1967,31 @@ var awariaActiveBreakdown = JSON.parse(localStorage.getItem('cfm_awaria_active')
 var awariaLocalHistory = JSON.parse(localStorage.getItem('cfm_awaria_history') || '[]');
 var awariaTimerInterval = null;
 var awariaCurrentType = null;
+// Lista-fallback sprzed wprowadzenia pola "wymaga opisu" per typ (patrz
+// typeNeedsDesc) — uzywana TYLKO gdy zapisany typ jeszcze nie ma wlasnego
+// pola needsDesc (migracja starych ustawien), zeby nie zmienic
+// zachowania juz skonfigurowanych typow bez jawnej akcji admina.
 var AWARIA_NO_DESC_TYPES = ['Mikroprzestój', 'Oczekiwanie na lidera'];
 var awariaPendingStart = null;
 var awariaOpenExisting = null;
 
 var DEFAULT_AWARIA_TYPES = [
-  { pl: 'Awaria maszyny', cn: '设备故障' },
-  { pl: 'Oczekiwanie na lidera', cn: '等待班长' },
-  { pl: 'Brak materiału', cn: '缺料' },
-  { pl: 'Mikroprzestój', cn: '短暂停机' },
-  { pl: 'Szkolenie', cn: '培训' },
-  { pl: 'Inne', cn: '其他' }
+  { pl: 'Awaria maszyny', cn: '设备故障', needsDesc: true },
+  { pl: 'Oczekiwanie na lidera', cn: '等待班长', needsDesc: false },
+  { pl: 'Brak materiału', cn: '缺料', needsDesc: true },
+  { pl: 'Mikroprzestój', cn: '短暂停机', needsDesc: false },
+  { pl: 'Szkolenie', cn: '培训', needsDesc: true },
+  { pl: 'Inne', cn: '其他', needsDesc: true }
 ];
 function getAwariaTypes() { var s = localStorage.getItem('cfm_types'); return s ? JSON.parse(s) : DEFAULT_AWARIA_TYPES; }
+// Czy TEN typ (po nazwie PL) wymaga opisu przy zamknieciu — pole
+// needsDesc ustawiane w Panelu Admina (checkbox), z fallbackiem na stara
+// hardkodowana liste dla typow zapisanych PRZED wprowadzeniem tego pola.
+function typeNeedsDesc(typeName) {
+  var t = getAwariaTypes().filter(function(x) { return x.pl === typeName; })[0];
+  if (t && t.needsDesc !== undefined) return !!t.needsDesc;
+  return AWARIA_NO_DESC_TYPES.indexOf(typeName) < 0;
+}
 
 var AWARIA_OPISY = {
   'Awaria maszyny': { label: 'Co się zepsuło? *', ph: 'Np. silnik, pasek, czujnik...' },
@@ -2009,13 +2027,15 @@ function awariaSelectType(btn) {
 // awarii — patrz awariaShowActiveBanner/awariaSubmitEnd.
 function updateAwariaDescBoxForActive() {
   var box = document.getElementById('awariaDescBox'), lbl = document.getElementById('awariaDescLbl'), inp = document.getElementById('awariaDescInput');
-  if (!awariaActiveBreakdown || AWARIA_NO_DESC_TYPES.indexOf(awariaActiveBreakdown.type) >= 0) {
+  if (!awariaActiveBreakdown || !typeNeedsDesc(awariaActiveBreakdown.type)) {
     box.classList.remove('vis'); inp.value = '';
     return;
   }
-  var o = AWARIA_OPISY[awariaActiveBreakdown.type];
-  if (o) { lbl.textContent = o.label; inp.placeholder = o.ph; box.classList.add('vis'); }
-  else { box.classList.remove('vis'); inp.value = ''; }
+  // Fallback generyczny gdy typ (np. wlasny, dodany w Panelu Admina) nie ma
+  // wlasnej etykiety w AWARIA_OPISY — bez tego pole zostawalo ukryte mimo
+  // ze needsDesc=true, wiec nie dalo sie w ogole zamknac takiej awarii.
+  var o = AWARIA_OPISY[awariaActiveBreakdown.type] || { label: 'Opis przyczyny *', ph: 'Opisz szczegóły...' };
+  lbl.textContent = o.label; inp.placeholder = o.ph; box.classList.add('vis');
 }
 
 function awariaSubmitStart() {
@@ -2116,7 +2136,7 @@ function awariaDoStart(station, typFull) {
 function awariaSubmitEnd() {
   if (!awariaActiveBreakdown) return;
   var desc = document.getElementById('awariaDescInput').value.trim();
-  if (AWARIA_NO_DESC_TYPES.indexOf(awariaActiveBreakdown.type) < 0 && !desc) {
+  if (typeNeedsDesc(awariaActiveBreakdown.type) && !desc) {
     showToast('Opisz przyczynę przed zamknięciem! · 结束前请描述原因!', 'err');
     document.getElementById('awariaDescInput').focus();
     return;
@@ -2207,9 +2227,9 @@ function awariaBackfillSelectType(btn) {
 }
 function awariaBackfillUpdateDescBox() {
   var box = document.getElementById('awariaBackfillDescBox'), lbl = document.getElementById('awariaBackfillDescLbl'), inp = document.getElementById('awariaBackfillDescInput');
-  if (AWARIA_NO_DESC_TYPES.indexOf(awariaBackfillType) >= 0) { box.classList.remove('vis'); inp.value = ''; return; }
-  var o = AWARIA_OPISY[awariaBackfillType];
-  if (o) { lbl.textContent = o.label; inp.placeholder = o.ph; box.classList.add('vis'); }
+  if (!typeNeedsDesc(awariaBackfillType)) { box.classList.remove('vis'); inp.value = ''; return; }
+  var o = AWARIA_OPISY[awariaBackfillType] || { label: 'Opis przyczyny *', ph: 'Opisz szczegóły...' };
+  lbl.textContent = o.label; inp.placeholder = o.ph; box.classList.add('vis');
 }
 function awariaSubmitBackfill() {
   var station = document.getElementById('stationSel').value;
@@ -2220,12 +2240,12 @@ function awariaSubmitBackfill() {
   var minVal = parseFloat(document.getElementById('awariaBackfillMin').value);
   if (!minVal || minVal <= 0) { showToast('Podaj czas trwania! · 请输入持续时间!', 'err'); return; }
   var desc = document.getElementById('awariaBackfillDescInput').value.trim();
-  if (AWARIA_NO_DESC_TYPES.indexOf(awariaBackfillType) < 0 && !desc) {
+  if (typeNeedsDesc(awariaBackfillType) && !desc) {
     showToast('Opisz przyczynę! · 请描述原因!', 'err');
     document.getElementById('awariaBackfillDescInput').focus();
     return;
   }
-  var typFull = AWARIA_NO_DESC_TYPES.indexOf(awariaBackfillType) >= 0 ? awariaBackfillType : awariaBackfillType + ': ' + desc;
+  var typFull = !typeNeedsDesc(awariaBackfillType) ? awariaBackfillType : awariaBackfillType + ': ' + desc;
   var operator = document.getElementById('operatorSel').value || '';
   var startD = new Date(dateVal + 'T12:00:00');
   var endD = new Date(startD.getTime() + minVal * 60000);
@@ -2488,16 +2508,19 @@ function saveReasons() {
 function renderAwariaTypesList() {
   var t = getAwariaTypes();
   document.getElementById('awariaTypesList').innerHTML = t.map(function(x, i) {
-    return '<div class="list-item-row"><input class="list-item-input" id="at-pl-' + i + '" value="' + x.pl + '" placeholder="Polski" style="flex:2;"><input class="list-item-input" id="at-cn-' + i + '" value="' + x.cn + '" placeholder="中文" style="flex:1;"><button class="list-item-del" onclick="delAwariaType(' + i + ')">×</button></div>';
+    var needsDesc = x.needsDesc !== undefined ? x.needsDesc : typeNeedsDesc(x.pl);
+    return '<div class="list-item-row"><input class="list-item-input" id="at-pl-' + i + '" value="' + x.pl + '" placeholder="Polski" style="flex:2;"><input class="list-item-input" id="at-cn-' + i + '" value="' + x.cn + '" placeholder="中文" style="flex:1;">' +
+      '<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);white-space:nowrap;padding:0 6px;"><input type="checkbox" id="at-desc-' + i + '"' + (needsDesc ? ' checked' : '') + '>wymaga opisu</label>' +
+      '<button class="list-item-del" onclick="delAwariaType(' + i + ')">×</button></div>';
   }).join('');
 }
-function addAwariaType() { var t = getAwariaTypes(); t.push({ pl: 'Nowy typ', cn: '新类型' }); localStorage.setItem('cfm_types', JSON.stringify(t)); renderAwariaTypesList(); }
+function addAwariaType() { var t = getAwariaTypes(); t.push({ pl: 'Nowy typ', cn: '新类型', needsDesc: true }); localStorage.setItem('cfm_types', JSON.stringify(t)); renderAwariaTypesList(); }
 function delAwariaType(i) { var t = getAwariaTypes(); t.splice(i, 1); localStorage.setItem('cfm_types', JSON.stringify(t)); renderAwariaTypesList(); }
 function saveAwariaTypes() {
   var t = getAwariaTypes();
   var saved = t.map(function(x, i) {
-    var pl = document.getElementById('at-pl-' + i), cn = document.getElementById('at-cn-' + i);
-    return { pl: pl ? (pl.value.trim() || x.pl) : x.pl, cn: cn ? (cn.value.trim() || x.cn) : x.cn };
+    var pl = document.getElementById('at-pl-' + i), cn = document.getElementById('at-cn-' + i), desc = document.getElementById('at-desc-' + i);
+    return { pl: pl ? (pl.value.trim() || x.pl) : x.pl, cn: cn ? (cn.value.trim() || x.cn) : x.cn, needsDesc: desc ? desc.checked : true };
   });
   localStorage.setItem('cfm_types', JSON.stringify(saved));
   pushSettingToServer('cfm_types');

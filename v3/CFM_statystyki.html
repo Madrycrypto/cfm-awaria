@@ -99,6 +99,7 @@ thead th .cn{display:block;text-transform:none;font-size:9.5px;color:var(--faint
 tbody td{padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
 tbody td:first-child,tbody td:nth-child(2){text-align:left}
 tbody tr:last-child td{border-bottom:none}
+#sqdiHelper th:nth-child(2),#sqdiHelper td:nth-child(2){text-align:right}
 tbody tr.grouphead td{padding-top:16px}
 .stationname{font-family:var(--fh);font-weight:700;font-size:15px;color:var(--text)}
 .shiftpill{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);font-weight:700;font-size:12px;letter-spacing:0.03em}
@@ -137,6 +138,7 @@ tbody tr.grouphead td{padding-top:16px}
 .daygridtable tbody td{padding:8px;border-bottom:1px solid var(--border-soft);vertical-align:middle;text-align:center}
 .daygridtable tbody tr:last-child td{border-bottom:none}
 .gcstation{font-family:var(--fh);font-weight:700;font-size:13px;color:var(--text);text-align:left!important;white-space:nowrap}
+.gc-stationavg{font-family:var(--fb);font-weight:700;font-size:10.5px;margin-top:3px}
 .gccell{display:flex;align-items:center;gap:10px;min-width:210px;text-align:left}
 .gc-empty{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:0.03em;padding:6px 0;line-height:1.5;text-align:center;width:100%}
 .gc-empty .cn{display:block;text-transform:none;font-size:9px;margin-top:1px}
@@ -436,6 +438,7 @@ function render() {
     '<div class="headactions">' + monthNavHtml() + '<button class="btn-export" id="btnRefresh" style="background:var(--surface-2);color:var(--text);border:1px solid var(--border)">Odśwież <span class="cn">刷新</span></button><button class="btn-export" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
     '<div class="weekpicker" id="weekPicker"></div>' +
     '<div class="kpis" id="kpis"></div>' +
+    '<div class="section"><div class="section-head"><h2>Do tablicy SQDI &#183; dzień po dniu<span class="cn">SQDI看板 &#183; 逐日</span></h2></div><div class="tablewrap"><div class="tablescroll"><table id="sqdiHelper"></table></div></div></div>' +
     '<div class="section"><div class="section-head"><h2>Porównanie zmian &#183; która lepsza<span class="cn">班次对比 &#183; 哪个更好</span></h2></div><div class="barsgrid" id="shiftComparison"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Wykonanie planu &#183; dzień po dniu<span class="cn">计划完成率 &#183; 逐日</span></h2><div class="legend">' +
       '<span><i style="background:#3fd17a"></i>&#8805; 95%</span><span><i style="background:#f0a030"></i>80&#8211;94%</span><span><i style="background:#ff7070"></i>&lt; 80%</span>' +
@@ -451,6 +454,7 @@ function render() {
   var filledCount = periodGroups.filter(function(g) { return Object.keys(g.byDate).length > 0; }).length;
   document.getElementById('weekLabel').textContent = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + filledCount + '/' + periodGroups.length + ' pozycji z wpisami · ' + filledCount + '/' + periodGroups.length + ' 项有记录';
   renderKpis(periodGroups, days, periodLabel);
+  renderSqdiHelper(periodGroups, days);
   renderShiftComparison(periodGroups, days);
   renderPivot(periodGroups, days, periodLabel);
   renderDailyBalance(days);
@@ -616,6 +620,48 @@ function renderKpis(groups, days, periodLabel) {
 // planu z WSZYSTKICH jej stanowisk po rowno — kazde stanowisko liczy sie tyle
 // samo, niezaleznie od wolumenu. Pomijamy kombinacje stanowisko+zmiana bez
 // zadnego sladu (bez danych i bez wpisu w Planie) — tak samo jak barsHtml.
+// Podglad kilku liczb do recznego przepisania na fizyczna tablice SQDIP na
+// hali (Bezpieczenstwo/Jakosc/Wysylka/Inwentarz/Produktywnosc) — user
+// pokazal taka tablice z notatka "zrodlo danych = Statystyki dzienne".
+// Bezpieczenstwo i stany magazynowe to osobne logi (apka tego nie zbiera),
+// ale te 3 liczby juz mamy policzone:
+//  - Jakosc: pass rate GP12 (jednorazowa zdawalnosc)
+//  - Wysylka: % wykonania planu GP12 (wskaznik realizacji)
+//  - Produktywnosc: Wydajnosc z OEE, usredniona ze wszystkich stanowisk
+function renderSqdiHelper(groups, days) {
+  var table = document.getElementById('sqdiHelper');
+  var todayISO = toISO(new Date());
+  var thead = '<thead><tr><th>Dzień<span class="cn">日期</span></th>' +
+    '<th>Jakość &#183; pass rate GP12<span class="cn">质量 &#183; 合格率</span></th>' +
+    '<th>Wysłane &#183; % planu GP12<span class="cn">发运 &#183; 计划完成率</span></th>' +
+    '<th>Produktywność &#183; wydajność<span class="cn">生产率 &#183; 效能率</span></th></tr></thead>';
+  var rows = days.map(function(d) {
+    var dd = d.split('-');
+    var wd = new Date(Number(dd[0]), Number(dd[1]) - 1, Number(dd[2])).getDay();
+    var label = DAY_LABELS[(wd + 6) % 7] + ' ' + dd[2] + '/' + dd[1] + (d === todayISO ? ' &#183; dziś' : '');
+
+    var gp12 = groups.filter(function(g) { return g.station === 'GP12'; });
+    var actual = 0, ok = 0, plan = 0;
+    gp12.forEach(function(g) {
+      var r = g.byDate[d];
+      if (r) { actual += r.qty; ok += r.ok_count; }
+      if (r || planEntryFor('GP12', g.shift, d) !== null) {
+        var planForDay = effectivePlanEntry('GP12', g.shift, d);
+        if (planForDay === null) planForDay = Number(STATE.stationTargets['GP12']) || 0;
+        plan += planForDay;
+      }
+    });
+    var passRate = actual > 0 ? ((ok / actual) * 100).toFixed(1) + '%' : '&#8212;';
+    var planPct = plan > 0 ? Math.round((actual / plan) * 100) + '%' : '&#8212;';
+
+    var perfResults = groups.map(function(g) { return computeOee(g, [d]); }).filter(function(r) { return r && r.performance !== null; });
+    var perfAvg = perfResults.length ? Math.round(perfResults.reduce(function(s, r) { return s + r.performance; }, 0) / perfResults.length * 100) + '%' : '&#8212;';
+
+    return '<tr><td>' + label + '</td><td>' + passRate + '</td><td>' + planPct + '</td><td>' + perfAvg + '</td></tr>';
+  }).join('');
+  table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
+}
+
 // Porownanie zmian liczone TYLKO z GP12 (ostatnie stanowisko, kontrola
 // jakosci koncowej) — tak samo jak gorne KPI (patrz komentarz w renderKpis):
 // kazda sztuka przechodzi przez wiele stanowisk, wiec usrednianie WSZYSTKICH
@@ -901,6 +947,7 @@ function dailyGridHtml(groups, dateIso) {
     shiftsOrder.map(function(s) { return '<th style="color:' + shiftColor(s) + '">Zmiana ' + s + '</th>'; }).join('') +
     '</tr></thead>';
   var rows = stationOrder.map(function(stName) {
+    var pctsForAvg = [];
     var cells = shiftsOrder.map(function(s) {
       var g = byStation[stName][s];
       var hasData = !!(g && g.byDate[dateIso]);
@@ -909,6 +956,7 @@ function dailyGridHtml(groups, dateIso) {
       var actual = hasData ? g.byDate[dateIso].qty : 0;
       var plan = effectivePlanEntry(stName, s, dateIso) || 0;
       var pct = plan > 0 ? Math.round((actual / plan) * 100) : (actual > 0 ? 0 : null);
+      if (pct !== null) pctsForAvg.push(pct);
       var color = pctColor4(pct);
       var full = getFullShiftMinutes(stName);
       var korekta = getWorktimeKorekta(stName, s, dateIso);
@@ -934,7 +982,9 @@ function dailyGridHtml(groups, dateIso) {
         '<div class="gc-bar"><i style="width:' + barPct + '%;background:' + color + '"></i><span class="gc-marker" style="left:' + markerPct + '%"></span></div>' +
         '</div>' + awarieBox + '</td>';
     }).join('');
-    return '<tr><td class="gcstation">' + stName + '</td>' + cells + '</tr>';
+    var avgPct = pctsForAvg.length ? Math.round(pctsForAvg.reduce(function(a, b) { return a + b; }, 0) / pctsForAvg.length) : null;
+    var avgHtml = avgPct === null ? '' : '<div class="gc-stationavg" style="color:' + pctColor4(avgPct) + '">śr. ' + avgPct + '%</div>';
+    return '<tr><td class="gcstation">' + stName + avgHtml + '</td>' + cells + '</tr>';
   }).join('');
   return hint + '<div class="tablewrap"><div class="tablescroll"><table class="daygridtable">' + thead + '<tbody>' + rows + '</tbody></table></div></div>';
 }

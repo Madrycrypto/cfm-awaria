@@ -2610,9 +2610,18 @@ function renderAwariaTypesList() {
   document.getElementById('awariaTypesList').innerHTML = t.map(function(x, i) {
     var needsDesc = x.needsDesc !== undefined ? x.needsDesc : typeNeedsDesc(x.pl);
     return '<div class="list-item-row"><input class="list-item-input" id="at-pl-' + i + '" value="' + x.pl + '" placeholder="Polski" style="flex:2;"><input class="list-item-input" id="at-cn-' + i + '" value="' + x.cn + '" placeholder="中文" style="flex:1;">' +
-      '<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);white-space:nowrap;padding:0 6px;"><input type="checkbox" id="at-desc-' + i + '"' + (needsDesc ? ' checked' : '') + '>wymaga opisu</label>' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);white-space:nowrap;padding:0 6px;">' +
+        '<label class="toggle-wrap"><input type="checkbox" id="at-desc-' + i + '"' + (needsDesc ? ' checked' : '') + ' onchange="toggleAwariaTypeDesc(' + i + ')"><span class="toggle-slider" id="at-desc-sl-' + i + '" style="background:' + (needsDesc ? '#1A6ED8' : '#333') + ';"><span class="toggle-dot" id="at-desc-dot-' + i + '" style="transform:' + (needsDesc ? 'translateX(20px)' : 'translateX(0)') + ';background:' + (needsDesc ? '#fff' : '#888') + ';"></span></span></label>' +
+        'wymaga opisu</label>' +
       '<button class="list-item-del" onclick="delAwariaType(' + i + ')">×</button></div>';
   }).join('');
+}
+function toggleAwariaTypeDesc(i) {
+  var checked = document.getElementById('at-desc-' + i).checked;
+  var sl = document.getElementById('at-desc-sl-' + i), dot = document.getElementById('at-desc-dot-' + i);
+  sl.style.background = checked ? '#1A6ED8' : '#333';
+  dot.style.transform = checked ? 'translateX(20px)' : 'translateX(0)';
+  dot.style.background = checked ? '#fff' : '#888';
 }
 function addAwariaType() { var t = getAwariaTypes(); t.push({ pl: 'Nowy typ', cn: '新类型', needsDesc: true }); localStorage.setItem('cfm_types', JSON.stringify(t)); renderAwariaTypesList(); }
 function delAwariaType(i) { var t = getAwariaTypes(); t.splice(i, 1); localStorage.setItem('cfm_types', JSON.stringify(t)); renderAwariaTypesList(); }

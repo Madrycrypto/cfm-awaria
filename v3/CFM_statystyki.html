@@ -73,13 +73,15 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .reason-chip.awaria b{color:var(--red)}
 
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
-.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
-.kpi-lbl{font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:600;margin-bottom:8px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.kpi-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:600;margin-bottom:6px}
 .kpi-lbl .cn{display:block;text-transform:none;font-size:11px;margin-top:2px;letter-spacing:0}
-.kpi-val{font-family:var(--fh);font-weight:800;font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
-.kpi-sub{font-size:12px;margin-top:8px;font-weight:600;color:var(--faint)}
-.kpi-bar{height:4px;border-radius:2px;background:var(--border-soft);margin-top:12px;overflow:hidden}
+.kpi-val{font-family:var(--fh);font-weight:800;font-size:26px;line-height:1;font-variant-numeric:tabular-nums}
+.kpi-sub{font-size:11px;margin-top:6px;font-weight:600;color:var(--faint)}
+.kpi-bar{height:4px;border-radius:2px;background:var(--border-soft);margin-top:9px;overflow:hidden}
 .kpi-bar i{display:block;height:100%;border-radius:2px;transition:width .5s}
+.kpi-inv{font-size:12px;margin-top:7px;padding-top:7px;border-top:1px solid var(--border-soft);color:var(--text);font-weight:600}
+.kpi-inv b{font-family:var(--fh);font-size:15px}
 
 .section{margin-bottom:30px}
 .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap}
@@ -196,7 +198,7 @@ tbody tr.grouphead td{padding-top:16px}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { monthDate: new Date(), rows: [], reworkRows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {} };
+var STATE = { monthDate: new Date(), rows: [], reworkRows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {} };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -239,9 +241,12 @@ function init() {
       try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
       try { STATE.czasPracy = JSON.parse(u.cfm_premia_czas_pracy || '{}'); } catch (e) { STATE.czasPracy = {}; }
       try { STATE.worktimeKorekty = JSON.parse(u.cfm_statystyki_worktime || '{}'); } catch (e) { STATE.worktimeKorekty = {}; }
+      try { STATE.inventoryCounts = JSON.parse(u.cfm_inventory_counts || '{}'); } catch (e) { STATE.inventoryCounts = {}; }
+      try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
     })
     .catch(function() {})
-    .then(loadMonth);
+    .then(loadMonth)
+    .then(loadStockLevel);
 
   // Auto-odswiezanie — strona sama NIE wie kiedy ktos wyslal raport w
   // apce, wiec dopytujemy backend co jakis czas w tle (bez migania
@@ -253,6 +258,65 @@ function init() {
     if (!document.hidden) loadMonth({ silent: true, keepSelection: true });
   });
 }
+
+// Stan magazynowy gotowych sztuk — niezalezny od wybranego tygodnia/
+// miesiaca (zawsze "na dzisiaj"), liczony jako: ostatnia inwentaryzacja +
+// dobre sztuki z GP12 - wyslano (faktycznie, z Planu), dzien po dniu, od
+// dnia ostatniej inwentaryzacji do dzis. Ta sama logika co CFM_inwentarz.html.
+// Osobny, niezalezny fetch (nie blokuje glownego widoku Statystyk, ktore
+// dotycza wybranego okresu, nie "dzisiaj").
+function shippingActualFor(dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var v = STATE.shippingActual[mk] && STATE.shippingActual[mk][dateIso];
+  return v ? Number(v) : 0;
+}
+function loadStockLevel() {
+  var countDates = Object.keys(STATE.inventoryCounts).sort();
+  if (!countDates.length) { STATE.stockLevel = null; renderStockBanner(); return; }
+  var firstDate = countDates[0];
+  var todayISO = toISO(new Date());
+  var wh = getWH();
+  fetch(wh + '?event_type=STATYSTYKI&start=' + firstDate + '&end=' + todayISO)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') return;
+      var prodByDate = {};
+      (data.historia || []).forEach(function(r) { if (r.station === 'GP12') prodByDate[r.date] = (prodByDate[r.date] || 0) + (Number(r.ok_count) || 0); });
+      var cursor = firstDate, running = Number(STATE.inventoryCounts[firstDate]) || 0, lastCountDate = firstDate;
+      var days = [];
+      var d = new Date(Number(firstDate.slice(0,4)), Number(firstDate.slice(5,7)) - 1, Number(firstDate.slice(8,10)));
+      var end = new Date(Number(todayISO.slice(0,4)), Number(todayISO.slice(5,7)) - 1, Number(todayISO.slice(8,10)));
+      while (d <= end) { days.push(toISO(d)); d = addDays(d, 1); }
+      days.forEach(function(iso, idx) {
+        if (idx > 0) running += (prodByDate[iso] || 0) - shippingActualFor(iso);
+        if (STATE.inventoryCounts[iso] !== undefined && idx > 0) { running = Number(STATE.inventoryCounts[iso]); }
+        if (STATE.inventoryCounts[iso] !== undefined) lastCountDate = iso;
+      });
+      STATE.stockLevel = { balance: running, lastCountDate: lastCountDate, lastCountQty: Number(STATE.inventoryCounts[lastCountDate]) };
+      renderStockBanner();
+      // Stan magazynowy dochodzi asynchronicznie (osobny fetch) — jesli
+      // KPI-e juz sie wyrenderowaly BEZ tej liczby (bo ten fetch jeszcze
+      // trwal), doraportuj ja teraz do kafelka "Zgodnych (GP12)".
+      if (STATE.lastKpiArgs) renderKpis(STATE.lastKpiArgs.groups, STATE.lastKpiArgs.days, STATE.lastKpiArgs.periodLabel);
+    })
+    .catch(function() {});
+}
+// Baner pokazuje sie TYLKO gdy nie ma jeszcze zadnej inwentaryzacji (zachca
+// do wpisania pierwszej) — sam stan liczbowy, gdy juz jest dostepny, zyje
+// w kafelku "Zgodnych (GP12)" (patrz invTileHtml), zeby nie dublowac tej
+// samej informacji w dwoch miejscach na stronie.
+function renderStockBanner() {
+  var el = document.getElementById('stockBanner');
+  if (!el) return;
+  if (STATE.stockLevel === null) { el.innerHTML = '<div class="note" style="margin-bottom:22px"><div class="ic">i</div><div>Brak zapisanej inwentaryzacji — otwórz stronę <b>Inwentarz</b>, żeby wpisać pierwszy stan magazynowy i zacząć liczyć saldo na żywo.</div></div>'; return; }
+  el.innerHTML = '';
+}
+function invTileHtml() {
+  if (!STATE.stockLevel) return '';
+  var s = STATE.stockLevel;
+  return '<div class="kpi-inv">Inwentarz: <b>' + fmt(s.balance) + '</b> szt. na dziś <span class="cn">今日库存</span></div>';
+}
+function fmtDMY(iso) { var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
 
 function loadMonth(opts) {
   opts = opts || {};
@@ -437,6 +501,7 @@ function render() {
     '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub" id="weekLabel"></div></div>' +
     '<div class="headactions">' + monthNavHtml() + '<button class="btn-export" id="btnRefresh" style="background:var(--surface-2);color:var(--text);border:1px solid var(--border)">Odśwież <span class="cn">刷新</span></button><button class="btn-export" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
     '<div class="weekpicker" id="weekPicker"></div>' +
+    '<div id="stockBanner"></div>' +
     '<div class="kpis" id="kpis"></div>' +
     '<div class="section"><div class="section-head"><h2>Do tablicy SQDI &#183; dzień po dniu<span class="cn">SQDI看板 &#183; 逐日</span></h2></div><div class="tablewrap"><div class="tablescroll"><table id="sqdiHelper"></table></div></div></div>' +
     '<div class="section"><div class="section-head"><h2>Porównanie zmian &#183; która lepsza<span class="cn">班次对比 &#183; 哪个更好</span></h2></div><div class="barsgrid" id="shiftComparison"></div></div>' +
@@ -451,6 +516,7 @@ function render() {
 
   wireMonthNav();
   renderWeekPicker();
+  renderStockBanner();
   var filledCount = periodGroups.filter(function(g) { return Object.keys(g.byDate).length > 0; }).length;
   document.getElementById('weekLabel').textContent = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + filledCount + '/' + periodGroups.length + ' pozycji z wpisami · ' + filledCount + '/' + periodGroups.length + ' 项有记录';
   renderKpis(periodGroups, days, periodLabel);
@@ -575,6 +641,7 @@ function renderWeekPicker() {
 // gornych KPI. Tabela ponizej (per stanowisko) nadal poprawnie pokazuje
 // KAZDE stanowisko osobno — to inny, celowo pelny widok.
 function renderKpis(groups, days, periodLabel) {
+  STATE.lastKpiArgs = { groups: groups, days: days, periodLabel: periodLabel };
   var gp12Groups = groups.filter(function(g) { return g.station === 'GP12'; });
   var totalActual = 0, totalPlan = 0, totalOk = 0, totalNg = 0;
   gp12Groups.forEach(function(g) {
@@ -606,11 +673,11 @@ function renderKpis(groups, days, periodLabel) {
   var kpis = [
     { lbl: 'Wykonanie planu ' + periodLbl + ' (GP12)', lblCn: '计划完成率' + periodLblCn + '（GP12）', val: completion === null ? '&#8212;' : completion + '%', sub: 'plan: ' + fmt(totalPlan) + ' szt. · 计划', bar: completion === null ? 0 : Math.min(completion, 100), color: completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)' },
     { lbl: 'Pass rate ' + periodLbl + ' (GP12)', lblCn: '合格率' + periodLblCn + '（GP12）', val: passRate === null ? '&#8212;' : passRate + '%', sub: totalNg + ' szt. braków · 件不合格', bar: passRate || 0, color: 'var(--blue)' },
-    { lbl: 'Zgodnych (GP12)', lblCn: '合格数量（GP12）', val: fmt(totalOkWithRecovered), sub: (totalRecovered > 0 ? '(w tym odzyskane: ' + fmt(totalRecovered) + ') · 含挽回' : 'z raportów GP12 · 合格'), bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)' },
+    { lbl: 'Zgodnych (GP12)', lblCn: '合格数量（GP12）', val: fmt(totalOkWithRecovered), sub: (totalRecovered > 0 ? '(w tym odzyskane: ' + fmt(totalRecovered) + ') · 含挽回' : 'z raportów GP12 · 合格'), bar: completion === null ? 0 : Math.min(completion, 100), color: 'var(--blue)', extra: invTileHtml() },
     { lbl: 'OEE ' + periodLbl + ' (cała linia)', lblCn: 'OEE' + periodLblCn + '（全线）', val: oeeAvg === null ? '&#8212;' : oeeAvg + '%', sub: 'śr. ze wszystkich stanowisk · 各工位平均', bar: oeeAvg === null ? 0 : Math.min(oeeAvg, 100), color: oeeAvg === null ? 'var(--faint)' : oeeAvg >= 85 ? 'var(--green)' : oeeAvg >= 60 ? 'var(--orange)' : 'var(--red)' }
   ];
   document.getElementById('kpis').innerHTML = kpis.map(function(k) {
-    return '<div class="kpi"><div class="kpi-lbl">' + k.lbl + '<span class="cn">' + k.lblCn + '</span></div><div class="kpi-val">' + k.val + '</div><div class="kpi-sub">' + k.sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, k.bar) + '%;background:' + k.color + '"></i></div></div>';
+    return '<div class="kpi"><div class="kpi-lbl">' + k.lbl + '<span class="cn">' + k.lblCn + '</span></div><div class="kpi-val">' + k.val + '</div><div class="kpi-sub">' + k.sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, k.bar) + '%;background:' + k.color + '"></i></div>' + (k.extra || '') + '</div>';
   }).join('');
 }
 
@@ -634,7 +701,8 @@ function renderSqdiHelper(groups, days) {
   var thead = '<thead><tr><th>Dzień<span class="cn">日期</span></th>' +
     '<th>Jakość &#183; pass rate GP12<span class="cn">质量 &#183; 合格率</span></th>' +
     '<th>Wysłane &#183; % planu GP12<span class="cn">发运 &#183; 计划完成率</span></th>' +
-    '<th>Produktywność &#183; wydajność<span class="cn">生产率 &#183; 效能率</span></th></tr></thead>';
+    '<th>Produktywność &#183; wydajność<span class="cn">生产率 &#183; 效能率</span></th>' +
+    '<th>Inwentarz &#183; stracone godziny linii<span class="cn">库存 &#183; 产线损失工时</span></th></tr></thead>';
   var rows = days.map(function(d) {
     var dd = d.split('-');
     var wd = new Date(Number(dd[0]), Number(dd[1]) - 1, Number(dd[2])).getDay();
@@ -657,7 +725,13 @@ function renderSqdiHelper(groups, days) {
     var perfResults = groups.map(function(g) { return computeOee(g, [d]); }).filter(function(r) { return r && r.performance !== null; });
     var perfAvg = perfResults.length ? Math.round(perfResults.reduce(function(s, r) { return s + r.performance; }, 0) / perfResults.length * 100) + '%' : '&#8212;';
 
-    return '<tr><td>' + label + '</td><td>' + passRate + '</td><td>' + planPct + '</td><td>' + perfAvg + '</td></tr>';
+    // Stracone godziny CALEJ linii tego dnia — suma Awarie ze wszystkich
+    // stanowisk/zmian razem (nie tylko brak materialu), to co karta
+    // "Inwentarz" fizycznej tablicy SQDIP pokazuje jako "工时损失".
+    var lostMin = STATE.awarieRows.filter(function(a) { return a.date === d; }).reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
+    var lostH = lostMin > 0 ? (lostMin / 60).toFixed(1) + ' h' : '&#8212;';
+
+    return '<tr><td>' + label + '</td><td>' + passRate + '</td><td>' + planPct + '</td><td>' + perfAvg + '</td><td>' + lostH + '</td></tr>';
   }).join('');
   table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
 }

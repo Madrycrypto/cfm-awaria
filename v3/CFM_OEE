@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0d0d0d">
+<title>CFM · OEE</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
+  --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
+  --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
+  --shift-a:#5AA9FF;--shift-b:#1A6ED8;--shift-c:#0B3D91;
+  --good-bg:rgba(26,158,80,0.14);--warn-bg:rgba(217,119,6,0.16);--crit-bg:rgba(217,43,43,0.16);
+  --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
+body{padding-bottom:60px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+.cn{font-family:var(--fc);color:var(--faint);font-weight:400}
+::selection{background:var(--blue);color:#fff}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar-inner{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
+.logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;color:var(--text);display:flex;align-items:center;gap:8px}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
+.crumb{font-size:13px;color:var(--muted)}
+.crumb b{color:var(--text);font-weight:600}
+.topbar-right{margin-left:auto;font-size:12px;color:var(--faint);text-align:right;line-height:1.4}
+.topbar-right .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:600}
+.topbar-right .live.off{color:var(--red)}
+.live-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
+
+.pagehead{padding:28px 0 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+h1{font-family:var(--fh);font-weight:800;font-size:30px;letter-spacing:0.2px}
+h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
+.sub{color:var(--muted);font-size:14px;margin-top:4px}
+.monthnav{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px}
+.monthnav button{background:none;border:none;color:var(--muted);font-size:18px;padding:6px 12px;cursor:pointer;border-radius:8px}
+.monthnav button:hover{color:var(--text);background:var(--surface-2)}
+.monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:uppercase;min-width:130px;text-align:center}
+.monthnav .mlabel .cn{font-size:11px;text-transform:none;margin-left:4px}
+.headactions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.btn-export{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:#fff;background:var(--green);border:none;padding:10px 16px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.btn-export:hover{background:#22b45c}
+.btn-export .cn{color:rgba(255,255,255,0.75);font-size:11px}
+
+.weekpicker{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.weekpicker button{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:8px 14px;border-radius:9px;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.weekpicker button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.weekpicker button:not(.on):hover{color:var(--text);border-color:var(--faint)}
+.weekpicker .sep{width:1px;background:var(--border);margin:2px 4px}
+.weekpicker button.month{border-style:dashed}
+.weekpicker button.month.on{background:var(--green);border-color:var(--green)}
+
+.reasonbtn{font-family:var(--fb);font-weight:600;font-size:10.5px;color:var(--muted);background:none;border:1px solid var(--border-soft);border-radius:6px;padding:2px 8px;cursor:pointer;margin-left:10px}
+.reasonbtn:hover{color:var(--text);border-color:var(--faint)}
+.reasonbox{display:none;margin-top:8px;flex-wrap:wrap;gap:6px}
+.reasonbox.open{display:flex}
+.reason-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--text);white-space:normal}
+.reason-chip b{font-family:var(--fh);color:var(--blue-soft)}
+.reason-chip.off{color:var(--faint)}
+.reason-chip.awaria b{color:var(--red)}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+.kpi-lbl{font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:600;margin-bottom:8px}
+.kpi-lbl .cn{display:block;text-transform:none;font-size:11px;margin-top:2px;letter-spacing:0}
+.kpi-val{font-family:var(--fh);font-weight:800;font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+.kpi-sub{font-size:12px;margin-top:8px;font-weight:600;color:var(--faint)}
+.kpi-bar{height:4px;border-radius:2px;background:var(--border-soft);margin-top:12px;overflow:hidden}
+.kpi-bar i{display:block;height:100%;border-radius:2px;transition:width .5s}
+
+.section{margin-bottom:30px}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap}
+.section-head h2{font-family:var(--fh);font-weight:700;font-size:19px;letter-spacing:0.2px}
+.section-head h2 .cn{font-family:var(--fc);font-size:13px;font-weight:500;margin-left:6px}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+.tablewrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.tablescroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:880px}
+thead th{font-family:var(--fb);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);text-align:right;padding:12px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+thead th:first-child,thead th:nth-child(2){text-align:left}
+thead th.today{color:var(--blue-soft)}
+thead th .cn{display:block;text-transform:none;font-size:9.5px;color:var(--faint);margin-top:2px}
+tbody td{padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
+tbody td:first-child,tbody td:nth-child(2){text-align:left}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.grouphead td{padding-top:16px}
+.stationname{font-family:var(--fh);font-weight:700;font-size:15px;color:var(--text)}
+.shiftpill{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);font-weight:700;font-size:12px;letter-spacing:0.03em}
+.shiftpill i{width:7px;height:7px;border-radius:50%}
+.pct{display:inline-block;min-width:48px;padding:3px 7px;border-radius:6px;font-weight:700;font-size:12px}
+.pct.good{background:var(--good-bg);color:#3fd17a}
+.pct.warn{background:var(--warn-bg);color:#f0a030}
+.pct.crit{background:var(--crit-bg);color:#ff7070}
+.pct.off{color:var(--faint);background:none;font-weight:500}
+.rowtotal{font-weight:800;color:var(--text)}
+.subrow td{padding-top:2px;padding-bottom:10px;color:var(--muted);font-size:11.5px;border-bottom:1px solid var(--border-soft);white-space:normal}
+
+.barsgrid{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.barrow{display:grid;grid-template-columns:64px 1fr 84px;align-items:center;gap:8px}
+#oeeShiftComparison .barrow{grid-template-columns:96px 1fr 60px}
+.barrow-lbl{font-family:var(--fh);font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bartrack{position:relative;height:11px;background:var(--border-soft);border-radius:5px;overflow:hidden}
+.barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
+.barrow-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);white-space:nowrap}
+.barrow-pct b{font-family:var(--fh);font-size:12.5px;font-weight:800}
+.oeerow{margin-bottom:12px}
+.oeerow:last-child{margin-bottom:0}
+.oeesub{font-size:10.5px;color:var(--muted);padding:5px 2px 0 78px}
+.wthint{font-size:10px;color:var(--faint);padding:0 2px 8px;text-align:right}
+
+.note{display:flex;gap:12px;background:var(--surface);border:1px dashed var(--border);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:26px}
+.note b{color:var(--text)}
+.note .ic{font-family:var(--fh);font-weight:900;font-size:18px;color:var(--blue-soft);flex-shrink:0}
+.empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
+.empty a{color:var(--blue-soft)}
+
+@media (max-width:760px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  h1{font-size:24px}
+  .barrow{grid-template-columns:52px 1fr 70px;gap:6px}
+  #oeeShiftComparison .barrow{grid-template-columns:74px 1fr 60px}
+  .oeesub{padding-left:60px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="dot"></span>CFM</div>
+    <div class="crumb"><b>OEE <span class="cn">设备综合效率</span></b></div>
+    <div class="topbar-right">
+      <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
+      <div id="lastUpdate"></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+  <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
+</div>
+
+<script>
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
+
+var STATE = { monthDate: new Date(), rows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {} };
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function mondayOf(d) { var x = new Date(d); var day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); x.setHours(0,0,0,0); return x; }
+function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+var MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+var MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
+var DAY_LABELS_CN = ['周一','周二','周三','周四','周五','周六','周日'];
+
+function monthRange(d) {
+  var start = new Date(d.getFullYear(), d.getMonth(), 1);
+  var end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return { start: toISO(start), end: toISO(end), startD: start, endD: end };
+}
+
+function init() {
+  var wh = getWH();
+  var liveEl = document.getElementById('liveStatus');
+  if (!wh) {
+    liveEl.className = 'live off';
+    liveEl.innerHTML = '<span class="live-pulse"></span>brak połączenia <span class="cn">未连接</span>';
+    document.getElementById('app').innerHTML = '<div class="empty">Nie skonfigurowano połączenia na tym urządzeniu.<br><span class="cn">此设备尚未配置连接。</span><br><br>Otwórz główną apkę CFM &#8594; Panel Admina &#8594; Połączenie, skonfiguruj Webhook URL, wróć tutaj i odśwież stronę.<br><span class="cn">打开CFM主应用 &#8594; 管理面板 &#8594; 连接，配置Webhook网址，然后返回此页面刷新。</span></div>';
+    return;
+  }
+  fetch(wh + '?event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var u = (data && data.ustawienia) || {};
+      try { STATE.stations = JSON.parse(u.cfm_stations || '[]'); } catch (e) { STATE.stations = []; }
+      try {
+        var shifts = JSON.parse(u.cfm_shifts || 'null');
+        if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
+      } catch (e) {}
+      try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
+      try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
+      try { STATE.czasPracy = JSON.parse(u.cfm_premia_czas_pracy || '{}'); } catch (e) { STATE.czasPracy = {}; }
+      try { STATE.worktimeKorekty = JSON.parse(u.cfm_statystyki_worktime || '{}'); } catch (e) { STATE.worktimeKorekty = {}; }
+    })
+    .catch(function() {})
+    .then(loadMonth);
+
+  setInterval(function() { loadMonth({ silent: true, keepSelection: true }); }, 45000);
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) loadMonth({ silent: true, keepSelection: true });
+  });
+}
+
+function loadMonth(opts) {
+  opts = opts || {};
+  var wh = getWH();
+  var r = monthRange(STATE.monthDate);
+  if (!opts.silent) document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
+  fetch(wh + '?event_type=STATYSTYKI&start=' + r.start + '&end=' + r.end)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      var liveEl = document.getElementById('liveStatus');
+      if (data.status !== 'ok') {
+        liveEl.className = 'live off';
+        liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
+        document.getElementById('app').innerHTML = '<div class="empty">Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span></div>';
+        return;
+      }
+      liveEl.className = 'live';
+      liveEl.innerHTML = '<span class="live-pulse"></span>zasilane z RaportDzienny <span class="cn">数据来自日报表</span>';
+      document.getElementById('lastUpdate').textContent = 'odświeżono: ' + new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) + ' · 已更新';
+      STATE.rows = data.historia || [];
+      STATE.awarieRows = data.awarie_historia || [];
+      computeWeeks(opts.keepSelection);
+      render();
+    })
+    .catch(function() {
+      var liveEl = document.getElementById('liveStatus');
+      liveEl.className = 'live off';
+      liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
+      document.getElementById('app').innerHTML = '<div class="empty">Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span></div>';
+    });
+}
+
+function computeWeeks(keepSelection) {
+  var r = monthRange(STATE.monthDate);
+  var firstMonday = mondayOf(r.startD);
+  var weeks = [];
+  var cursor = firstMonday;
+  while (cursor <= r.endD) {
+    var days = [];
+    for (var i = 0; i < 7; i++) days.push(toISO(addDays(cursor, i)));
+    weeks.push({ start: days[0], end: days[6], days: days });
+    cursor = addDays(cursor, 7);
+  }
+  STATE.weeks = weeks;
+  if (keepSelection && STATE.selectedWeekIdx < weeks.length) return;
+  var todayISO = toISO(new Date());
+  var idx = weeks.findIndex(function(w) { return todayISO >= w.start && todayISO <= w.end; });
+  STATE.selectedWeekIdx = idx >= 0 ? idx : weeks.length - 1;
+}
+
+function groupByStationShift(rows) {
+  var map = {};
+  var order = [];
+  rows.forEach(function(r) {
+    var key = r.station + '||' + r.shift;
+    if (!map[key]) { map[key] = { station: r.station, shift: r.shift, byDate: {} }; order.push(key); }
+    map[key].byDate[r.date] = r;
+  });
+  order.sort(function(a, b) {
+    var ga = map[a], gb = map[b];
+    if (ga.station !== gb.station) return ga.station < gb.station ? -1 : 1;
+    return ga.shift < gb.shift ? -1 : ga.shift > gb.shift ? 1 : 0;
+  });
+  return order.map(function(k) { return map[k]; });
+}
+
+function buildGroups(rows) {
+  var discovered = groupByStationShift(rows);
+  if (!STATE.stations.length) return discovered;
+  var byKey = {};
+  discovered.forEach(function(g) { byKey[g.station + '||' + g.shift] = g; });
+  var list = [];
+  STATE.stations.forEach(function(st) {
+    if (st === 'OP40 OUT') return;
+    STATE.shiftLabels.forEach(function(sh) {
+      var key = st + '||' + sh;
+      list.push(byKey[key] || { station: st, shift: sh, byDate: {} });
+    });
+  });
+  return list;
+}
+
+function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
+function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
+function pctOeeClass(p) { if (p === null) return 'off'; if (p >= 85) return 'good'; if (p >= 60) return 'warn'; return 'crit'; }
+
+function monthDays(monthDate) {
+  var r = monthRange(monthDate);
+  var days = [];
+  var cursor = new Date(r.startD);
+  while (cursor <= r.endD) { days.push(toISO(cursor)); cursor = addDays(cursor, 1); }
+  return days;
+}
+
+// Awarie dla konkretnego dnia/stanowiska/zmiany — te same dane co w
+// Statystykach, tutaj wchodza wprost do Dostepnosci (patrz operatingInfo).
+function getAwarieForDay(station, shift, dateIso) {
+  return STATE.awarieRows.filter(function(a) {
+    return a.date === dateIso && a.station === station && a.shift === shift;
+  });
+}
+function awarieChipsHtml(entries, showDate) {
+  if (!entries.length) return '<span class="reason-chip off">brak szczegółów &#183; 无详情</span>';
+  return entries.map(function(a) {
+    var dateLbl = '';
+    if (showDate && a.date) { var dd = a.date.split('-'); dateLbl = dd[2] + '/' + dd[1] + ' &#183; '; }
+    return '<span class="reason-chip awaria">' + dateLbl + '<b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>';
+  }).join('');
+}
+
+// Plan na DANY dzien — jak w Statystykach: jawny wpis z Planu miesiecznego,
+// w przeciwnym razie null (bez fallbacku na Cele — OEE potrzebuje tylko
+// wiedziec CZY dany dzien ma jakikolwiek slad, nie samej liczby planu).
+function planEntryFor(station, shift, dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var e = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station] && STATE.monthlyPlan[mk][station][shift] && STATE.monthlyPlan[mk][station][shift][dateIso];
+  return e ? Number(e) : null;
+}
+function getFullShiftMinutes(station) {
+  return Number(STATE.czasPracy[station]) || 450;
+}
+function worktimeKey(station, shift, dateIso) { return station + '||' + shift + '||' + dateIso; }
+function getWorktimeKorekta(station, shift, dateIso) {
+  var v = STATE.worktimeKorekty[worktimeKey(station, shift, dateIso)];
+  return (v || v === 0) ? Number(v) : null;
+}
+
+// Dostepny (zaplanowany) czas pracy na dany dzien = korekta czasu pracy z
+// Statystyk jesli ktos ja wpisal (np. czekanie na piec), inaczej pelny czas
+// zmiany. Czas pracujacy = to minus faktyczne przestoje z Awarii.
+function operatingInfo(station, shift, dateIso) {
+  var planned = getWorktimeKorekta(station, shift, dateIso);
+  if (planned === null) planned = getFullShiftMinutes(station);
+  var awarie = getAwarieForDay(station, shift, dateIso);
+  var awarieMin = awarie.reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
+  return { planned: planned, awarieMin: awarieMin, operating: Math.max(0, planned - awarieMin), awarie: awarie };
+}
+
+// Teoretyczna wydajnosc (szt./min) stanowiska = jego skonfigurowany Cel
+// (Panel Admina, ten sam co uzupelnia Plan gdy brak jawnego wpisu dzien-po-
+// dzien) podzielony przez pelny czas zmiany — zero nowych ustawien, to co
+// admin juz raz wpisal.
+function idealRate(station) {
+  var target = Number(STATE.stationTargets[station]) || 0;
+  var full = getFullShiftMinutes(station);
+  return full > 0 ? target / full : 0;
+}
+
+// OEE = Dostepnosc x Wydajnosc x Jakosc, agregowane dla stanowiska+zmiany
+// na zadanym zestawie dni. Liczymy TYLKO dni z jakimkolwiek sladem (raport
+// LUB jawny wpis w Planie) — tak samo jak reszta Statystyk, zeby
+// nieuzywane zmiany nie zanizaly wyniku zerami.
+function computeOee(g, days) {
+  var rate = idealRate(g.station);
+  var sumPlanned = 0, sumAwarieMin = 0, sumOperating = 0, sumActual = 0, sumOk = 0, sumIdeal = 0, n = 0;
+  days.forEach(function(d) {
+    var r = g.byDate[d];
+    var hasPlan = planEntryFor(g.station, g.shift, d) !== null;
+    if (!r && !hasPlan) return;
+    var op = operatingInfo(g.station, g.shift, d);
+    sumPlanned += op.planned; sumAwarieMin += op.awarieMin; sumOperating += op.operating;
+    sumIdeal += rate * op.operating;
+    if (r) { sumActual += r.qty; sumOk += r.ok_count; }
+    n++;
+  });
+  if (!n) return null;
+  var availability = sumPlanned > 0 ? sumOperating / sumPlanned : null;
+  var performance = sumIdeal > 0 ? sumActual / sumIdeal : null;
+  var quality = sumActual > 0 ? sumOk / sumActual : null;
+  var oee = (availability !== null && performance !== null && quality !== null) ? availability * performance * quality : null;
+  return { availability: availability, performance: performance, quality: quality, oee: oee, sumAwarieMin: sumAwarieMin, n: n };
+}
+
+function render() {
+  var app = document.getElementById('app');
+  if (!STATE.rows.length) {
+    app.innerHTML = '<div class="pagehead"><div><h1>OEE <span class="cn">设备综合效率</span></h1><div class="sub">' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + '</div></div>' + monthNavHtml() + '</div><div class="empty">Brak wpisów w tym miesiącu. <span class="cn">本月无记录。</span></div>';
+    wireMonthNav();
+    return;
+  }
+
+  var isMonth = STATE.viewMode === 'month';
+  var days = isMonth ? monthDays(STATE.monthDate) : STATE.weeks[STATE.selectedWeekIdx].days;
+  var periodLabel = isMonth ? 'mies.' : 'tyg.';
+  var periodGroups = buildGroups(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
+
+  app.innerHTML =
+    '<div class="pagehead"><div><h1>OEE <span class="cn">设备综合效率</span></h1><div class="sub" id="weekLabel"></div></div>' +
+    '<div class="headactions">' + monthNavHtml() + '<button class="btn-export" id="btnRefresh" style="background:var(--surface-2);color:var(--text);border:1px solid var(--border)">Odśwież <span class="cn">刷新</span></button></div></div>' +
+    '<div class="weekpicker" id="weekPicker"></div>' +
+    '<div class="note"><div class="ic">i</div><div><b>Jak liczymy OEE</b> · OEE = Dostępność &#215; Wydajność &#215; Jakość — bez żadnych dodatkowych wpisów. Dostępność = (dostępny czas pracy &#8722; przestoje z Awarii) / dostępny czas pracy. Wydajność = wynik rzeczywisty / wynik możliwy do osiągnięcia w tym czasie przy skonfigurowanym Celu. Jakość = sztuki zgodne / wszystkie wyprodukowane. <span class="cn">OEE = 时间开动率 &#215; 性能开动率 &#215; 合格率，全部自动计算，无需额外录入。</span></div></div>' +
+    '<div class="kpis" id="kpis"></div>' +
+    '<div class="section"><div class="section-head"><h2>Porównanie zmian &#183; OEE<span class="cn">班次对比 &#183; OEE</span></h2></div><div class="barsgrid" id="oeeShiftComparison"></div></div>' +
+    '<div class="section"><div class="section-head"><h2>OEE &#183; stanowiska<span class="cn">各工位OEE</span></h2></div><div class="barsgrid" id="oeeStations"></div></div>' +
+    '<div class="section"><div class="section-head"><h2>OEE &#183; dzień po dniu<span class="cn">OEE &#183; 逐日</span></h2><div class="legend">' +
+      '<span><i style="background:#3fd17a"></i>&#8805; 85%</span><span><i style="background:#f0a030"></i>60&#8211;84%</span><span><i style="background:#ff7070"></i>&lt; 60%</span>' +
+    '</div></div><div class="tablewrap"><div class="tablescroll"><table id="oeePivot"></table></div></div></div>';
+
+  wireMonthNav();
+  renderWeekPicker();
+  var filledCount = periodGroups.filter(function(g) { return Object.keys(g.byDate).length > 0; }).length;
+  document.getElementById('weekLabel').textContent = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + filledCount + '/' + periodGroups.length + ' pozycji z wpisami · ' + filledCount + '/' + periodGroups.length + ' 项有记录';
+  renderOeeKpis(periodGroups, days, periodLabel);
+  renderOeeShiftComparison(periodGroups, days);
+  renderOeeStations(periodGroups, days);
+  renderOeePivot(periodGroups, days, periodLabel);
+}
+
+function fmtWeekRange(week) {
+  var s = week.start.split('-'), e = week.end.split('-');
+  return s[2] + '/' + s[1] + ' &#8211; ' + e[2] + '/' + e[1];
+}
+function fmtWeekRangePlain(week) {
+  var s = week.start.split('-'), e = week.end.split('-');
+  return s[2] + '/' + s[1] + ' – ' + e[2] + '/' + e[1];
+}
+
+function monthNavHtml() {
+  return '<div class="monthnav"><button id="prevMonth">&#8249;</button><div class="mlabel">' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + '<span class="cn">' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></div><button id="nextMonth">&#8250;</button></div>';
+}
+function wireMonthNav() {
+  document.getElementById('prevMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() - 1, 1); loadMonth(); };
+  document.getElementById('nextMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() + 1, 1); loadMonth(); };
+  var refreshBtn = document.getElementById('btnRefresh');
+  if (refreshBtn) refreshBtn.onclick = function() { loadMonth({ keepSelection: true }); };
+}
+
+function renderWeekPicker() {
+  var el = document.getElementById('weekPicker');
+  el.innerHTML = STATE.weeks.map(function(w, i) {
+    return '<button data-i="' + i + '" class="' + (STATE.viewMode === 'week' && i === STATE.selectedWeekIdx ? 'on' : '') + '">' + fmtWeekRange(w) + '</button>';
+  }).join('') + '<span class="sep"></span><button id="btnMonthView" class="month' + (STATE.viewMode === 'month' ? ' on' : '') + '">Cały miesiąc <span class="cn">整月</span></button>';
+  document.getElementById('btnMonthView').onclick = function() { STATE.viewMode = 'month'; render(); };
+  el.querySelectorAll('button:not(#btnMonthView)').forEach(function(b) {
+    b.onclick = function() { STATE.viewMode = 'week'; STATE.selectedWeekIdx = Number(b.dataset.i); render(); };
+  });
+}
+
+// Srednie z KAZDEGO stanowiska+zmiany po rowno (tak samo jak w Statystykach
+// przy porownaniu zmian) — rozne stanowiska maja rozna skale wolumenu, wiec
+// nie mozna po prostu zsumowac sztuk, ale kazde stanowisko ma wlasny %OEE,
+// ktory mozna juz usrednic 1:1.
+function renderOeeKpis(groups, days) {
+  var results = groups.map(function(g) { return computeOee(g, days); }).filter(function(r) { return r && r.oee !== null; });
+  var el = document.getElementById('kpis');
+  if (!results.length) { el.innerHTML = '<div class="empty" style="grid-column:1/-1">Brak danych. <span class="cn">无数据。</span></div>'; return; }
+  var avg = function(key) {
+    var vals = results.map(function(r) { return r[key]; }).filter(function(v) { return v !== null; });
+    return vals.length ? Math.round((vals.reduce(function(a, b) { return a + b; }, 0) / vals.length) * 100) : null;
+  };
+  var av = avg('availability'), pf = avg('performance'), ql = avg('quality'), oe = avg('oee');
+  var totalAwarieMin = results.reduce(function(s, r) { return s + r.sumAwarieMin; }, 0);
+  var kpis = [
+    { lbl: 'OEE', lblCn: 'OEE综合效率', val: oe === null ? '&#8212;' : oe + '%', sub: 'śr. z ' + results.length + ' stanowisko/zmiana · 工位/班次平均', bar: oe || 0, color: oe === null ? 'var(--faint)' : oe >= 85 ? 'var(--green)' : oe >= 60 ? 'var(--orange)' : 'var(--red)' },
+    { lbl: 'Dostępność', lblCn: '时间开动率', val: av === null ? '&#8212;' : av + '%', sub: 'przestoje z Awarii: ' + fmt(totalAwarieMin) + ' min · 故障停机', bar: av || 0, color: 'var(--blue)' },
+    { lbl: 'Wydajność', lblCn: '性能开动率', val: pf === null ? '&#8212;' : pf + '%', sub: 'wynik vs Cel w dostępnym czasie · 实际/目标', bar: pf || 0, color: 'var(--blue)' },
+    { lbl: 'Jakość', lblCn: '合格率', val: ql === null ? '&#8212;' : ql + '%', sub: 'zgodne / wszystkie sztuki · 合格/总数', bar: ql || 0, color: 'var(--blue)' }
+  ];
+  el.innerHTML = kpis.map(function(k) {
+    return '<div class="kpi"><div class="kpi-lbl">' + k.lbl + '<span class="cn">' + k.lblCn + '</span></div><div class="kpi-val">' + k.val + '</div><div class="kpi-sub">' + k.sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, Math.min(k.bar, 100)) + '%;background:' + k.color + '"></i></div></div>';
+  }).join('');
+}
+
+function renderOeeShiftComparison(groups, days) {
+  var el = document.getElementById('oeeShiftComparison');
+  var byShift = {};
+  groups.forEach(function(g) {
+    var r = computeOee(g, days);
+    if (!r || r.oee === null) return;
+    if (!byShift[g.shift]) byShift[g.shift] = [];
+    byShift[g.shift].push(r.oee * 100);
+  });
+  var shiftsOrder = STATE.shiftLabels.filter(function(s) { return byShift[s] && byShift[s].length; });
+  if (!shiftsOrder.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
+  var avg = function(arr) { return arr.length ? Math.round(arr.reduce(function(a, x) { return a + x; }, 0) / arr.length) : null; };
+  var rows = shiftsOrder.map(function(s) { return { shift: s, oee: avg(byShift[s]) }; });
+  rows.sort(function(a, b) { return b.oee - a.oee; });
+  var hint = '<div class="wthint">OEE &#8212; śr. ze wszystkich stanowisk tej zmiany &#183; 该班次平均OEE</div>';
+  el.innerHTML = hint + rows.map(function(r, i) {
+    var color = r.oee >= 85 ? 'var(--green)' : r.oee >= 60 ? 'var(--orange)' : 'var(--red)';
+    var crown = i === 0 && rows.length > 1 ? ' &#9733;' : '';
+    return '<div class="barrow"><div class="barrow-lbl" style="color:' + shiftColor(r.shift) + '">Zmiana ' + r.shift + crown + '</div>' +
+      '<div class="bartrack"><div class="barfill" style="width:' + Math.min(r.oee, 100) + '%;background:' + color + '"></div></div>' +
+      '<div class="barrow-pct"><b style="color:' + color + '">' + r.oee + '%</b></div></div>';
+  }).join('');
+}
+
+function renderOeeStations(groups, days) {
+  var el = document.getElementById('oeeStations');
+  var rows = groups.map(function(g) {
+    var r = computeOee(g, days);
+    return r ? { station: g.station, shift: g.shift, r: r } : null;
+  }).filter(Boolean);
+  if (!rows.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
+  rows.sort(function(a, b) { return (b.r.oee || 0) - (a.r.oee || 0); });
+  el.innerHTML = rows.map(function(x) {
+    var oee = x.r.oee === null ? null : Math.round(x.r.oee * 100);
+    var color = oee === null ? 'var(--faint)' : oee >= 85 ? 'var(--green)' : oee >= 60 ? 'var(--orange)' : 'var(--red)';
+    var av = x.r.availability === null ? null : Math.round(x.r.availability * 100);
+    var pf = x.r.performance === null ? null : Math.round(x.r.performance * 100);
+    var ql = x.r.quality === null ? null : Math.round(x.r.quality * 100);
+    return '<div class="oeerow"><div class="barrow"><div class="barrow-lbl" style="color:' + shiftColor(x.shift) + '">' + x.station + ' &#183; Zm.' + x.shift + '</div>' +
+      '<div class="bartrack"><div class="barfill" style="width:' + Math.min(oee || 0, 100) + '%;background:' + color + '"></div></div>' +
+      '<div class="barrow-pct"><b style="color:' + color + '">' + (oee === null ? '&#8212;' : oee + '%') + '</b></div></div>' +
+      '<div class="oeesub">Dostępność ' + (av === null ? '&#8212;' : av + '%') + ' &#183; Wydajność ' + (pf === null ? '&#8212;' : pf + '%') + ' &#183; Jakość ' + (ql === null ? '&#8212;' : ql + '%') +
+      (x.r.sumAwarieMin > 0 ? ' &#183; przestój ' + fmt(x.r.sumAwarieMin) + ' min' : '') + '</div></div>';
+  }).join('');
+}
+
+function renderOeePivot(groups, days, periodLabel) {
+  var table = document.getElementById('oeePivot');
+  var todayISO = toISO(new Date());
+  if (!groups.length) { table.parentElement.parentElement.innerHTML = '<div class="empty">Brak wpisów w tym okresie. <span class="cn">本期无记录。</span></div>'; return; }
+  var thead = '<thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Zmiana<span class="cn">班次</span></th>' +
+    days.map(function(d) {
+      var dd = d.split('-');
+      var wd = new Date(Number(dd[0]), Number(dd[1]) - 1, Number(dd[2])).getDay();
+      var wi = (wd + 6) % 7;
+      return '<th class="' + (d === todayISO ? 'today' : '') + '">' + DAY_LABELS[wi] + '<br><span style="font-weight:400;text-transform:none;font-size:10px">' + dd[2] + '/' + dd[1] + '</span><span class="cn">' + DAY_LABELS_CN[wi] + '</span></th>';
+    }).join('') +
+    '<th>OEE ' + periodLabel + '<span class="cn">OEE合计</span></th></tr></thead>';
+
+  var byStation = {};
+  var stationOrder = [];
+  groups.forEach(function(g) { if (!byStation[g.station]) { byStation[g.station] = []; stationOrder.push(g.station); } byStation[g.station].push(g); });
+
+  var rows = '';
+  stationOrder.forEach(function(stName) {
+    var shifts = byStation[stName];
+    shifts.forEach(function(g, si) {
+      var cells = days.map(function(d) {
+        var day = computeOee(g, [d]);
+        if (!day || day.oee === null) return '<td><span class="pct off">&#8212;</span></td>';
+        var oee = Math.round(day.oee * 100);
+        return '<td><span class="pct ' + pctOeeClass(oee) + '">' + oee + '%</span></td>';
+      }).join('');
+      var period = computeOee(g, days);
+      var periodAwarie = [];
+      days.forEach(function(d) { periodAwarie = periodAwarie.concat(getAwarieForDay(stName, g.shift, d)); });
+      var periodAwarieMin = periodAwarie.reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
+      var oeeTxt = period && period.oee !== null ? Math.round(period.oee * 100) + '%' : '&#8212;';
+      var avTxt = period && period.availability !== null ? Math.round(period.availability * 100) + '%' : '&#8212;';
+      var pfTxt = period && period.performance !== null ? Math.round(period.performance * 100) + '%' : '&#8212;';
+      var qlTxt = period && period.quality !== null ? Math.round(period.quality * 100) + '%' : '&#8212;';
+      rows += '<tr class="' + (si === 0 ? 'grouphead' : '') + '">' +
+        (si === 0 ? '<td rowspan="' + shifts.length * 2 + '"><div class="stationname">' + stName + '</div></td>' : '') +
+        '<td><span class="shiftpill"><i style="background:' + shiftColor(g.shift) + '"></i>Zmiana ' + g.shift + '</span></td>' +
+        cells + '<td><span class="rowtotal">' + oeeTxt + '</span></td></tr>' +
+        '<tr class="subrow"><td colspan="' + (days.length + 1) + '">Dostępność ' + avTxt + ' &#183; Wydajność ' + pfTxt + ' &#183; Jakość ' + qlTxt +
+        (periodAwarieMin > 0 ? '<button type="button" class="reasonbtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">auto z Awarii: ' + periodAwarieMin + ' min &#9662; <span class="cn">故障</span></button><div class="reasonbox">' + awarieChipsHtml(periodAwarie, true) + '</div>' : '') +
+        '</td></tr>';
+    });
+  });
+  table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
+}
+
+init();
+</script>
+</body>
+</html>

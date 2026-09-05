@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0d0d0d">
+<title>CFM · Inwentarz</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
+  --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
+  --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
+  --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
+body{padding-bottom:60px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+.cn{font-family:var(--fc);color:var(--faint);font-weight:400}
+::selection{background:var(--blue);color:#fff}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar-inner{max-width:1000px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px}
+.logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
+.crumb{font-size:13px;color:var(--muted)}
+.crumb b{color:var(--text);font-weight:600}
+.topbar-right{margin-left:auto;font-size:12px;color:var(--faint);text-align:right;line-height:1.4}
+.topbar-right .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:600}
+.topbar-right .live.off{color:var(--red)}
+.live-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
+
+.pagehead{padding:28px 0 18px}
+h1{font-family:var(--fh);font-weight:800;font-size:30px;letter-spacing:0.2px}
+h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
+.sub{color:var(--muted);font-size:14px;margin-top:4px;line-height:1.6}
+
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+.kpi-lbl{font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:600;margin-bottom:8px}
+.kpi-lbl .cn{display:block;text-transform:none;font-size:11px;margin-top:2px;letter-spacing:0}
+.kpi-val{font-family:var(--fh);font-weight:800;font-size:32px;line-height:1;font-variant-numeric:tabular-nums}
+.kpi-sub{font-size:12px;margin-top:8px;font-weight:600;color:var(--faint)}
+
+.section{margin-bottom:26px}
+.section-head{margin-bottom:12px}
+.section-head h2{font-family:var(--fh);font-weight:700;font-size:19px;letter-spacing:0.2px}
+.section-head h2 .cn{font-family:var(--fc);font-size:13px;font-weight:500;margin-left:6px}
+
+.formcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+.field input{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:14px;padding:9px 10px;font-variant-numeric:tabular-nums}
+.field input:focus{outline:none;border-color:var(--blue)}
+.btn-save{font-family:var(--fh);font-weight:800;font-size:13px;letter-spacing:0.03em;text-transform:uppercase;color:#fff;background:var(--blue);border:none;padding:11px 20px;border-radius:9px;cursor:pointer}
+.btn-save:hover{filter:brightness(1.1)}
+
+.tablewrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.tablescroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:600px}
+thead th{font-family:var(--fb);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);text-align:right;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+thead th:first-child{text-align:left}
+tbody td{padding:8px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
+tbody td:first-child{text-align:left;font-weight:600}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.today td{background:rgba(26,110,216,0.08)}
+.balance{font-weight:800;color:var(--text)}
+.recount{color:var(--blue-soft);font-weight:700}
+.diff-pos{color:#3fd17a}
+.diff-neg{color:#ff7070}
+
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:40}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(26,158,80,0.4);color:#3fd17a}
+.toast.err{border-color:rgba(217,43,43,0.4);color:#ff7070}
+
+.empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
+
+@media (max-width:760px){
+  .kpis{grid-template-columns:1fr}
+  h1{font-size:24px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="dot"></span>CFM</div>
+    <div class="crumb"><b>Inwentarz <span class="cn">库存</span></b></div>
+    <div class="topbar-right">
+      <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+  <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
+
+var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [] };
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function isoToDate(iso) { var p = iso.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
+var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
+function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
+
+function showToast(msg, kind) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (kind || '');
+  setTimeout(function() { t.className = 'toast ' + (kind || ''); }, 2400);
+}
+
+function enumerateDays(startIso, endIso) {
+  var days = [];
+  var cursor = isoToDate(startIso);
+  var end = isoToDate(endIso);
+  while (cursor <= end) { days.push(toISO(cursor)); cursor = addDays(cursor, 1); }
+  return days;
+}
+function shippingActualFor(dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var v = STATE.shippingActual[mk] && STATE.shippingActual[mk][dateIso];
+  return v ? Number(v) : 0;
+}
+
+function init() {
+  var wh = getWH();
+  var liveEl = document.getElementById('liveStatus');
+  fetch(wh + '?event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { showConnError(); return; }
+      var u = data.ustawienia || {};
+      try { STATE.inventoryCounts = JSON.parse(u.cfm_inventory_counts || '{}'); } catch (e) { STATE.inventoryCounts = {}; }
+      try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
+      liveEl.className = 'live';
+      liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
+      loadAndRender();
+    })
+    .catch(function() { showConnError(); });
+}
+
+function showConnError() {
+  var liveEl = document.getElementById('liveStatus');
+  liveEl.className = 'live off';
+  liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
+  document.getElementById('app').innerHTML = '<div class="empty">Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span></div>';
+}
+
+// Symulacja liczona od NAJSTARSZEJ zapisanej inwentaryzacji do dzis —
+// kazda kolejna inwentaryzacja PO drodze resetuje saldo do faktycznie
+// policzonej wartosci (i pokazuje roznice: ubytek/nadwyzka), a miedzy
+// resetami saldo = poprzednie saldo + dobre sztuki z GP12 - wyslano
+// (faktycznie, z Planu). Produkcje GP12 pobieramy z tego samego
+// STATYSTYKI co reszta apki (ok_count), zeby liczba byla identyczna z
+// tym co juz widac w Statystykach/OEE.
+function loadAndRender() {
+  var countDates = Object.keys(STATE.inventoryCounts).sort();
+  if (!countDates.length) {
+    renderNoBaseline();
+    return;
+  }
+  var firstDate = countDates[0];
+  var todayISO = toISO(new Date());
+  var wh = getWH();
+  fetch(wh + '?event_type=STATYSTYKI&start=' + firstDate + '&end=' + todayISO)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { showConnError(); return; }
+      STATE.rows = (data.historia || []).filter(function(r) { return r.station === 'GP12'; });
+      render(firstDate, todayISO);
+    })
+    .catch(function() { showConnError(); });
+}
+
+function renderNoBaseline() {
+  document.getElementById('app').innerHTML =
+    '<div class="pagehead"><h1>Inwentarz <span class="cn">库存</span></h1><div class="sub">Brak zapisanej inwentaryzacji — wpisz pierwszy punkt odniesienia (ile sztuk jest fizycznie na magazynie DZISIAJ), żeby zacząć liczyć saldo na żywo.<br><span class="cn">还没有库存盘点记录 — 请先输入今天的实际库存数量，才能开始自动计算库存余额。</span></div></div>' +
+    formHtml();
+  wireForm();
+}
+
+function render(firstDate, todayISO) {
+  var prodByDate = {};
+  STATE.rows.forEach(function(r) { prodByDate[r.date] = (prodByDate[r.date] || 0) + (Number(r.ok_count) || 0); });
+
+  var days = enumerateDays(firstDate, todayISO);
+  var running = Number(STATE.inventoryCounts[firstDate]) || 0;
+  var out = [];
+  days.forEach(function(d, idx) {
+    var prod = prodByDate[d] || 0;
+    var ship = shippingActualFor(d);
+    var countToday = STATE.inventoryCounts[d] !== undefined ? Number(STATE.inventoryCounts[d]) : null;
+    var discrepancy = null;
+    if (idx > 0) running += prod - ship;
+    if (countToday !== null && idx > 0) { discrepancy = countToday - running; running = countToday; }
+    out.push({ date: d, production: prod, shipped: ship, balance: running, counted: countToday, discrepancy: discrepancy });
+  });
+
+  var todayRow = out[out.length - 1];
+  var lastCountDate = firstDate;
+  Object.keys(STATE.inventoryCounts).forEach(function(d) { if (d <= todayISO && d > lastCountDate) lastCountDate = d; });
+  var daysSince = Math.round((isoToDate(todayISO) - isoToDate(lastCountDate)) / 86400000);
+
+  var app = document.getElementById('app');
+  app.innerHTML =
+    '<div class="pagehead"><h1>Inwentarz <span class="cn">库存</span></h1><div class="sub">Stan liczony na żywo: ostatnia inwentaryzacja + dobre sztuki z GP12 &#8722; wysłano (z Planu). <span class="cn">实时库存 = 上次盘点 + GP12合格数量 &#8722; 实际发货数量。</span></div></div>' +
+    '<div class="kpis">' +
+      '<div class="kpi"><div class="kpi-lbl">Stan dzisiaj (liczony)<span class="cn">今日库存（计算）</span></div><div class="kpi-val">' + fmt(todayRow.balance) + '</div><div class="kpi-sub">szt. &#183; 件</div></div>' +
+      '<div class="kpi"><div class="kpi-lbl">Ostatnia inwentaryzacja<span class="cn">上次盘点</span></div><div class="kpi-val">' + fmt(Number(STATE.inventoryCounts[lastCountDate])) + '</div><div class="kpi-sub">' + fmtDateLabel(lastCountDate) + ' &#183; ' + daysSince + ' dni temu</div></div>' +
+      '<div class="kpi"><div class="kpi-lbl">Od inwentaryzacji<span class="cn">自盘点以来</span></div><div class="kpi-val">' + (todayRow.balance - Number(STATE.inventoryCounts[lastCountDate]) >= 0 ? '+' : '') + fmt(todayRow.balance - Number(STATE.inventoryCounts[lastCountDate])) + '</div><div class="kpi-sub">produkcja &#8722; wysyłki &#183; 生产-发货</div></div>' +
+    '</div>' +
+    '<div class="section"><div class="section-head"><h2>Nowa inwentaryzacja<span class="cn">新盘点</span></h2></div>' + formHtml() + '</div>' +
+    '<div class="section"><div class="section-head"><h2>Saldo dzień po dniu<span class="cn">逐日库存余额</span></h2></div>' +
+    '<div class="tablewrap"><div class="tablescroll"><table><thead><tr>' +
+      '<th>Dzień<span class="cn">日期</span></th><th>Produkcja GP12<span class="cn">GP12产量</span></th><th>Wysłano<span class="cn">发货</span></th><th>Saldo<span class="cn">余额</span></th><th>Inwentaryzacja<span class="cn">盘点</span></th>' +
+    '</tr></thead><tbody>' +
+      out.slice().reverse().map(function(r) {
+        var dd = r.date.split('-');
+        var wd = isoToDate(r.date).getDay();
+        var label = DAY_LABELS[(wd + 6) % 7] + ' ' + dd[2] + '/' + dd[1] + (r.date === todayISO ? ' &#183; dziś' : '');
+        var countCell = r.counted === null ? '&#8212;' :
+          '<span class="recount">' + fmt(r.counted) + '</span>' + (r.discrepancy !== null ? ' <span class="' + (r.discrepancy >= 0 ? 'diff-pos' : 'diff-neg') + '">(' + (r.discrepancy >= 0 ? '+' : '') + fmt(r.discrepancy) + ')</span>' : '');
+        return '<tr class="' + (r.date === todayISO ? 'today' : '') + '"><td>' + label + '</td><td>' + fmt(r.production) + '</td><td>' + fmt(r.shipped) + '</td><td class="balance">' + fmt(r.balance) + '</td><td>' + countCell + '</td></tr>';
+      }).join('') +
+    '</tbody></table></div></div></div>';
+
+  wireForm();
+}
+
+function fmtDateLabel(iso) {
+  var dd = iso.split('-');
+  return dd[2] + '/' + dd[1] + '/' + dd[0];
+}
+
+function formHtml() {
+  var todayISO = toISO(new Date());
+  return '<div class="formcard">' +
+    '<div class="field"><label>Data &#183; 日期</label><input type="date" id="invDate" value="' + todayISO + '"></div>' +
+    '<div class="field"><label>Ilość policzona fizycznie &#183; 实际盘点数量</label><input type="number" min="0" id="invQty" placeholder="np. 15000"></div>' +
+    '<button type="button" class="btn-save" id="btnSaveInv">Zapisz inwentaryzację<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存盘点</small></button>' +
+  '</div>';
+}
+
+function wireForm() {
+  var btn = document.getElementById('btnSaveInv');
+  if (btn) btn.onclick = saveInventoryCount;
+}
+
+function saveInventoryCount() {
+  var dateEl = document.getElementById('invDate');
+  var qtyEl = document.getElementById('invQty');
+  var d = dateEl.value;
+  var q = Number(qtyEl.value);
+  if (!d) { showToast('Wybierz datę &#183; 请选择日期', 'err'); return; }
+  if (!q || q < 0) { showToast('Wpisz poprawną ilość &#183; 请输入正确数量', 'err'); return; }
+  STATE.inventoryCounts[d] = q;
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_inventory_counts', wartosc: JSON.stringify(STATE.inventoryCounts) })
+  }).then(function() {
+    showToast('Inwentaryzacja zapisana! &#183; 盘点已保存!', 'ok');
+    loadAndRender();
+  }).catch(function() {
+    showToast('Błąd zapisu &#183; 保存失败', 'err');
+  });
+}
+
+init();
+</script>
+</body>
+</html>

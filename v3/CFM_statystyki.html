@@ -530,13 +530,24 @@ function render() {
   renderAwarieSummary(days);
 }
 
+// Numer tygodnia ISO 8601 (poniedzialek = 1. dzien, tydzien 1 = ten z
+// pierwszym czwartkiem roku) — standardowa definicja uzywana w Polsce, np.
+// "tydzien 36" na tablicach produkcyjnych.
+function isoWeekNumber(dateIso) {
+  var p = dateIso.split('-');
+  var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  var firstThursday = new Date(d.getFullYear(), 0, 4);
+  firstThursday.setDate(firstThursday.getDate() + 3 - ((firstThursday.getDay() + 6) % 7));
+  return 1 + Math.round((d - firstThursday) / (7 * 24 * 3600 * 1000));
+}
 function fmtWeekRange(week) {
   var s = week.start.split('-'), e = week.end.split('-');
-  return s[2] + '/' + s[1] + ' &#8211; ' + e[2] + '/' + e[1];
+  return 'Tydz. ' + isoWeekNumber(week.start) + ' &#183; ' + s[2] + '/' + s[1] + ' &#8211; ' + e[2] + '/' + e[1];
 }
 function fmtWeekRangePlain(week) {
   var s = week.start.split('-'), e = week.end.split('-');
-  return s[2] + '/' + s[1] + ' – ' + e[2] + '/' + e[1];
+  return 'Tydz. ' + isoWeekNumber(week.start) + ' · ' + s[2] + '/' + s[1] + ' – ' + e[2] + '/' + e[1];
 }
 
 function monthNavHtml() {

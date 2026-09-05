@@ -120,7 +120,8 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .btn-diff.cancel{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
 
 .gridwrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:18px}
-.gridtable{border-collapse:collapse;font-size:10.5px}
+.gridtable{border-collapse:collapse;font-size:10.5px;width:100%}
+.gridtable tbody td.adjacent,.gridtable thead th.adjacent{opacity:.4}
 .gridtable thead th{position:sticky;top:0;background:var(--surface-2);color:var(--muted);font-family:var(--fh);font-weight:700;padding:5px 3px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border-soft);min-width:26px}
 .gridtable thead th.lbl{position:sticky;left:0;z-index:2;background:var(--surface-2);min-width:100px;text-align:left;padding-left:8px}
 .gridtable thead th.we{color:var(--faint)}
@@ -284,6 +285,7 @@ function render() {
     '<div class="pagehead"><h1>Plan produkcji <span class="cn">生产计划</span></h1><div class="sub">Dla stanowisk pracujących codziennie: wpisz jedną liczbę i kliknij "Kopiuj pon–pt". Dla nieregularnych (np. lutowanie w piecu): rozwiń "Dni" i wypełnij ręcznie tylko potrzebne dni.<br><span class="cn">对于每天生产的工位：输入一个数字并点击"复制周一至周五"。对于不规律的工位（如炉内钎焊）：展开"天数"，只需手动填写需要的日期。</span></div></div>' +
     '<div class="monthnav"><button id="prevMonth">&#8249;</button><div class="mlabel">' + MONTH_NAMES[m] + ' ' + y + '<span class="cn">' + MONTH_NAMES_CN[m] + '</span></div><button id="nextMonth">&#8250;</button></div>' +
     '<div class="legend"><span><i style="background:var(--sunday-bg);border:1px solid var(--border)"></i>Niedziela · <span class="cn">周日</span></span><span>"Kopiuj pon–pt" nigdy nie rusza soboty — wpisz ją ręcznie w rozwiniętych dniach, jeśli akurat pracujecie &#183; <span class="cn">"复制"不会填写周六 — 如有加班请在展开的天数中手动填写</span></span></div>' +
+    '<div id="shippingSectionTop"></div>' +
     '<div class="gridlegend"><span><i style="background:rgba(217,43,43,0.4);box-shadow:inset 0 0 0 1px var(--red)"></i>wartość odstająca od reszty wiersza &#183; <span class="cn">与该行其他数值不同</span></span></div>' +
     '<div class="gridwrap"><table class="gridtable" id="planGrid"></table></div>' +
     '<div id="planlist"></div>' +
@@ -338,7 +340,8 @@ function render() {
   // ten sam wzorzec "wpisz i zapisz" co reszta Planu, zeby nie trzeba bylo
   // recznie sledzic "kiedy zaktualizowalem forecast" (edycja jest zawsze
   // na biezaco/na zywo).
-  html += '<div class="stationgroup"><div class="stationgroup-name">Wysyłki <span class="cn">发运</span></div>' +
+  document.getElementById('shippingSectionTop').innerHTML =
+    '<div class="stationgroup"><div class="stationgroup-name">Wysyłki <span class="cn">发运</span></div>' +
     '<div class="excelimport">' +
       '<label class="btn-mini copy" style="display:inline-flex;align-items:center;cursor:pointer">Wgraj Excel od klienta<small>上传客户Excel文件</small><input type="file" id="shipExcelInput" accept=".xlsx,.xls" style="display:none"></label>' +
       '<span class="excelimport-hint">Wczytam plik, porównam z aktualnym planem wysyłek i pokażę różnice do zatwierdzenia — nic nie zapisze się automatycznie.<span class="cn">读取文件后与当前发运计划比较，显示差异供确认 — 不会自动保存。</span></span>' +
@@ -351,6 +354,12 @@ function render() {
   document.getElementById('planlist').innerHTML = html || '<div class="empty">Brak stanowisk. <span class="cn">无工位。</span></div>';
   document.getElementById('planlist').addEventListener('input', function(e) {
     if (e.target && e.target.matches('.daystrip input')) { markDirty(); refreshPlanGrid(); }
+  });
+  // Wysylki zyja teraz w osobnym kontenerze nad tabela planu (nie w
+  // #planlist), wiec potrzebuja wlasnego nasluchu — nie wplywaja na
+  // #planGrid (to tylko produkcja), wystarczy markDirty().
+  document.getElementById('shippingSectionTop').addEventListener('input', function(e) {
+    if (e.target && e.target.matches('.daystrip input')) markDirty();
   });
   applySaveButtonState(); // odtworz wizualny stan przycisku po re-renderze (np. po kopiowaniu)
 
@@ -397,32 +406,56 @@ function detectRowAnomalies(vals) {
   Object.keys(counts).forEach(function(k) { if (k !== mode) anomSet[k] = true; });
   return anomSet;
 }
+// Siatka pokazuje PELNE tygodnie (pon-nd), wlacznie z koncowka poprzedniego
+// i poczatkiem nastepnego miesiaca, jesli 1. lub ostatni dzien miesiaca nie
+// wypada akurat w poniedzialek/niedziele — tak samo jak tydzien w
+// Statystykach, zeby nie urywac ostatniego/pierwszego tygodnia w polowie.
+// Dni spoza biezacego miesiaca sa wizualnie przygaszone (.adjacent) i NIE
+// wliczaja sie do kolumny Suma (ta zawsze liczy tylko dni "tego" miesiaca).
+// Wartosci dla dni spoza miesiaca biezemy wprost z STATE.plan (juz
+// zaladowanego w calosci przy starcie), bo "entry" to tylko biezacy,
+// aktualnie edytowany miesiac.
+function mondayOf(d) { var x = new Date(d); var day = (x.getDay() + 6) % 7; x.setDate(x.getDate() - day); return x; }
+function planValueForIso(station, shift, iso, currentMk, entry) {
+  var mk = iso.slice(0, 7);
+  var monthObj = mk === currentMk ? entry : STATE.plan[mk];
+  var e = monthObj && monthObj[station] && monthObj[station][shift];
+  return e ? e[iso] : undefined;
+}
 function renderPlanGrid(y, m, nDays, entry) {
   var table = document.getElementById('planGrid');
   if (!table) return;
+  var currentMk = y + '-' + pad(m + 1);
+  var monthStartIso = dateISO(y, m, 1);
+  var monthEndIso = dateISO(y, m, nDays);
+  var gridStart = mondayOf(new Date(y, m, 1));
+  var gridEnd = mondayOf(new Date(y, m, nDays));
+  gridEnd.setDate(gridEnd.getDate() + 6);
+  var days = [];
+  var cursor = new Date(gridStart);
+  while (cursor <= gridEnd) { days.push(isoFromDateObj(cursor)); cursor.setDate(cursor.getDate() + 1); }
+
   var rows = [];
   STATE.stations.forEach(function(st) {
     if (st === 'OP40 OUT') return;
-    var stEntry = entry[st] || {};
     STATE.shiftLabels.forEach(function(sh) {
-      var shEntry = stEntry[sh] || {};
-      var vals = [];
-      for (var d = 1; d <= nDays; d++) {
-        var iso = dateISO(y, m, d);
-        var v = shEntry[iso];
-        vals.push(v !== undefined ? Number(v) : null);
-      }
+      var vals = days.map(function(iso) {
+        var v = planValueForIso(st, sh, iso, currentMk, entry);
+        return v !== undefined ? Number(v) : null;
+      });
       rows.push({ station: st, shift: sh, vals: vals });
     });
   });
   if (!rows.length) { table.innerHTML = ''; return; }
 
   var thead = '<thead><tr><th class="lbl">Stanowisko<span class="cn">工位</span></th>';
-  for (var d = 1; d <= nDays; d++) {
-    var wd = new Date(y, m, d).getDay();
+  days.forEach(function(iso) {
+    var dd = iso.split('-');
+    var wd = isoToDateObj(iso).getDay();
     var wi = (wd + 6) % 7;
-    thead += '<th class="' + (wd === 0 || wd === 6 ? 'we' : '') + '">' + d + '<br>' + WD_SHORT[wi] + '</th>';
-  }
+    var outside = iso < monthStartIso || iso > monthEndIso;
+    thead += '<th class="' + (wd === 0 || wd === 6 ? 'we ' : '') + (outside ? 'adjacent' : '') + '">' + Number(dd[2]) + '<br>' + WD_SHORT[wi] + '</th>';
+  });
   thead += '<th class="sum">Suma<span class="cn">总数</span></th></tr></thead>';
 
   var byStation = {};
@@ -440,12 +473,15 @@ function renderPlanGrid(y, m, nDays, entry) {
       body += '<td class="lbl">' + (ri === 0 ? '<b>' + st + '</b> ' : '') + '<span class="sh"><i style="background:' + shiftColor(r.shift) + '"></i>' + r.shift + '</span></td>';
       var sum = 0;
       r.vals.forEach(function(v, i) {
-        var wd = new Date(y, m, i + 1).getDay();
+        var iso = days[i];
+        var wd = isoToDateObj(iso).getDay();
         var we = wd === 0 || wd === 6;
-        if (v === null || v <= 0) { body += '<td class="' + (we ? 'we ' : '') + 'empty">&#183;</td>'; return; }
-        sum += v;
+        var outside = iso < monthStartIso || iso > monthEndIso;
+        var cls = (we ? 'we ' : '') + (outside ? 'adjacent ' : '');
+        if (v === null || v <= 0) { body += '<td class="' + cls + 'empty">&#183;</td>'; return; }
+        if (!outside) sum += v;
         var anom = anomSet[String(v)];
-        body += '<td class="' + (we ? 'we ' : '') + (anom ? 'anom' : '') + '">' + v + '</td>';
+        body += '<td class="' + cls + (anom ? 'anom' : '') + '">' + v + '</td>';
       });
       body += '<td class="sum">' + sum.toLocaleString('pl-PL') + '</td>';
       body += '</tr>';

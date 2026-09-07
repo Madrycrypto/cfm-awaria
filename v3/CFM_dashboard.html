@@ -84,6 +84,17 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .coverage-detail b{color:var(--text)}
 .coverage-source{font-size:11px;color:var(--faint);text-align:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
 .coverage-source b{color:var(--muted)}
+.shiplist{margin-top:12px;font-size:13px}
+.shiprow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border-soft)}
+.shiprow:last-child{border-bottom:none}
+.shiprow .d{color:var(--muted);flex-shrink:0}
+.shiprow .q{color:var(--text);font-weight:600;text-align:right;flex:1}
+.shiprow .status{font-family:var(--fh);font-weight:800;font-size:11.5px;letter-spacing:0.04em;flex-shrink:0;width:38px;text-align:right}
+.shiprow.ok .status{color:var(--green)}
+.shiprow.nok{background:rgba(217,43,43,0.1);margin:0 -8px;padding:7px 8px;border-radius:8px;border-bottom:none}
+.shiprow.nok .status{color:var(--red)}
+.shiprow .short{color:var(--red);font-size:11.5px;display:block;font-weight:600}
+.shipmore{font-size:11.5px;color:var(--faint);text-align:center;margin-top:8px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
 .card h2{font-family:var(--fh);font-weight:700;font-size:17px;margin-bottom:14px}
 .card h2 .cn{font-family:var(--fc);font-size:12.5px;font-weight:500;margin-left:6px;color:var(--faint)}
@@ -480,18 +491,6 @@ function renderDailyPlanBars(days) {
   el.innerHTML = any ? rowsHtml : '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
 }
 
-// Zasieg wysylek — projekcja W PRZOD liczona z SAMEGO bufora magazynowego:
-// kazdy kolejny dzien odejmuje planowana wysylke (Plan wysylek), BEZ
-// doliczania przyszlej produkcji — user chcial wiedziec ile realnie da rade
-// pokryc sam zapas na magazynie, gdyby produkcja stanela/nie nadazyla, a nie
-// optymistyczny scenariusz "plan produkcji sie uda". Zatrzymujemy sie na
-// ostatnim dniu dla ktorego mamy JAKIKOLWIEK jawny wpis w Planie wysylek —
-// dalej juz nie wiadomo co bedzie, wiec nie ma sensu udawac "pelnego pokrycia".
-function shippingPlanFor(dateIso) {
-  var mk = dateIso.slice(0, 7);
-  var v = STATE.shippingPlan[mk] && STATE.shippingPlan[mk][dateIso];
-  return v ? Number(v) : 0;
-}
 function shippingActualFor(dateIso) {
   var mk = dateIso.slice(0, 7);
   return (STATE.shippingActual[mk] && STATE.shippingActual[mk][dateIso]) ? Number(STATE.shippingActual[mk][dateIso]) : 0;
@@ -530,43 +529,67 @@ function loadStockLevel() {
     })
     .catch(function() {});
 }
+// Zasieg wysylek — licz TYLKO z bufora magazynowego (bez doliczania
+// przyszlej produkcji, to byloby optymistyczne "jesli plan sie uda") i
+// pokaz to jako liczbe KONKRETNYCH wysylek, nie abstrakcyjna date. Idziemy
+// po kolejnych wysylkach z Planu (nie po kazdym kalendarzowym dniu) i
+// odejmujemy je jedna po drugiej od dzisiejszego zapasu — pierwsza, ktorej
+// nie da sie juz pokryc, konczy liste (dalsze i tak zalezaloby od tego, co
+// stanie sie z ta pierwsza).
 function renderShipCoverage() {
   var el = document.getElementById('shipCoverage');
   if (!Object.keys(STATE.inventoryCounts).length) { el.innerHTML = '<div class="empty">Brak inwentaryzacji — wejdź w <b>Inwentarz</b>, żeby to policzyć. <span class="cn">尚无库存盘点。</span></div>'; return; }
   if (!STATE.stockLevel) { el.innerHTML = '<div class="empty">Obliczanie stanu magazynowego... <span class="cn">正在计算库存...</span></div>'; return; }
   var stockToday = STATE.stockLevel.balance;
-  // Ostatni dzien ze znanym planem wysylek — horyzont projekcji
-  var lastKnownShipDate = null;
+
+  // Lista KONKRETNYCH wysylek (dni z plan>0) od jutra w przod, po kolei —
+  // nie kazdy kalendarzowy dzien projekcji, tylko realne pozycje z Planu
+  // wysylek, zeby bylo widac ktora konkretnie wysylka jest/nie jest
+  // zapewniona, a nie abstrakcyjna date "zabraknie".
+  var todayISO = toISO(new Date());
+  var shipments = [];
   Object.keys(STATE.shippingPlan).forEach(function(mk) {
-    Object.keys(STATE.shippingPlan[mk]).forEach(function(d) { if (!lastKnownShipDate || d > lastKnownShipDate) lastKnownShipDate = d; });
+    Object.keys(STATE.shippingPlan[mk]).forEach(function(d) {
+      var qty = Number(STATE.shippingPlan[mk][d]) || 0;
+      if (qty > 0 && d > todayISO) shipments.push({ date: d, qty: qty });
+    });
   });
-  if (!lastKnownShipDate) { el.innerHTML = '<div class="empty">Brak Planu wysyłek — wejdź w <b>Plan</b>, żeby go uzupełnić. <span class="cn">尚无发运计划。</span></div>'; return; }
-  // Porownanie na SUROWYCH stringach ISO (nie obiektach Date) — cursor
-  // startuje z "new Date()" ktore niesie ze soba biezaca godzine, wiec
-  // porownanie Date<=Date moglo w zaleznosci od pory dnia bezsensownie
-  // urwac ostatni dzien projekcji (dzien+godzina > dzien+00:00).
-  var running = stockToday;
-  var cursor = addDays(new Date(), 1);
-  var shipmentsCovered = 0, daysCovered = 0, ranOutAt = null;
-  while (toISO(cursor) <= lastKnownShipDate) {
-    var iso = toISO(cursor);
-    var ship = shippingPlanFor(iso);
-    running -= ship;
-    daysCovered++;
-    if (ship > 0) shipmentsCovered++;
-    if (running < 0 && !ranOutAt) ranOutAt = iso;
-    cursor = addDays(cursor, 1);
+  if (!shipments.length) { el.innerHTML = '<div class="empty">Brak Planu wysyłek — wejdź w <b>Plan</b>, żeby go uzupełnić. <span class="cn">尚无发运计划。</span></div>'; return; }
+  shipments.sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+
+  var running = stockToday, covered = 0, rows = [], ranOut = false;
+  for (var i = 0; i < shipments.length; i++) {
+    var s = shipments[i];
+    if (running >= s.qty) {
+      covered++;
+      running -= s.qty;
+      rows.push({ date: s.date, qty: s.qty, ok: true });
+    } else {
+      rows.push({ date: s.date, qty: s.qty, ok: false, short: s.qty - running });
+      ranOut = true;
+      break;
+    }
   }
+  var remaining = 0;
+  var CAP = 8;
+  if (!ranOut && rows.length > CAP) { remaining = rows.length - CAP; rows = rows.slice(0, CAP); }
+
   var fmtD = function(iso) { var p = iso.split('-'); return p[2] + '/' + p[1]; };
   var sourceLine = (STATE.shippingPlanMeta && STATE.shippingPlanMeta.filename) ?
     '<div class="coverage-source">Plan wysyłek z pliku: <b>' + STATE.shippingPlanMeta.filename + '</b> &#183; wgrano ' + fmtD(STATE.shippingPlanMeta.importedAt) + ' <span class="cn">发运计划来自文件 &#183; 上传于' + fmtD(STATE.shippingPlanMeta.importedAt) + '</span></div>' : '';
-  if (ranOutAt) {
-    el.innerHTML = '<div class="coverage-hero"><span class="n" style="color:#ff7070">' + fmtD(ranOutAt) + '</span><span class="l">zabraknie zapasu z samego bufora magazynowego (bez doliczania przyszłej produkcji) <span class="cn">仅按现有库存计算，将在此日期缺货（未计入未来产量）</span></span></div>' +
-      '<div class="coverage-detail">Znany plan wysyłek sięga do <b>' + fmtD(lastKnownShipDate) + '</b> (' + shipmentsCovered + ' dni z wysyłką).</div>' + sourceLine;
-  } else {
-    el.innerHTML = '<div class="coverage-hero"><span class="n" style="color:#3fd17a">' + fmtD(lastKnownShipDate) + '</span><span class="l">bufor magazynowy pokrywa w pełni do tej daty <span class="cn">现有库存可完全覆盖至此日期</span></span></div>' +
-      '<div class="coverage-detail"><b>' + shipmentsCovered + '</b> zaplanowanych dni wysyłki pokrytych, zapas na koniec: <b>' + fmt(running) + '</b> szt.</div>' + sourceLine;
-  }
+
+  var listHtml = '<div class="shiplist">' + rows.map(function(r) {
+    if (r.ok) return '<div class="shiprow ok"><span class="d">' + fmtD(r.date) + '</span><span class="q">' + fmt(r.qty) + ' szt.</span><span class="status">OK</span></div>';
+    return '<div class="shiprow nok"><span class="d">' + fmtD(r.date) + '</span><span class="q">' + fmt(r.qty) + ' szt.<span class="short">brakuje ' + fmt(r.short) + ' szt. <span class="cn">缺' + fmt(r.short) + '件</span></span></span><span class="status">NOK</span></div>';
+  }).join('') + '</div>' +
+    (remaining > 0 ? '<div class="shipmore">+ ' + remaining + ' kolejnych w pełni pokrytych <span class="cn">另有' + remaining + '批全部覆盖</span></div>' : '');
+
+  var heroColor = ranOut ? '#ff7070' : '#3fd17a';
+  var heroLabel = ranOut
+    ? 'wysyłek zapewnionych z bufora magazynowego <span class="cn">现有库存可确保的批次数</span>'
+    : 'wysyłek zapewnionych — wszystkie znane pokryte <span class="cn">现有库存已覆盖全部已知发运</span>';
+
+  el.innerHTML = '<div class="coverage-hero"><span class="n" style="color:' + heroColor + '">' + covered + '</span><span class="l">' + heroLabel + '</span></div>' + listHtml + sourceLine;
 }
 
 // Aktywne awarie na zywo — duzy tykajacy zegar per otwarta awaria, zeby na

@@ -107,6 +107,12 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .card-head h2{margin-bottom:0}
 .card-select{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--fb);font-weight:600;font-size:13px;padding:7px 10px;outline:none}
 .chartsgrid-full{margin-bottom:22px}
+.weeknav{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.weeknav button{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:16px;padding:6px 14px;cursor:pointer;font-family:var(--fh);font-weight:700;line-height:1.4}
+.weeknav button:hover:not(:disabled){color:var(--text);background:var(--surface-2)}
+.weeknav button:disabled{opacity:.3;cursor:default}
+.weeknav .wlabel{font-family:var(--fh);font-weight:700;font-size:14px;color:var(--text)}
+.weeknav .wtoday{margin-left:auto;font-size:12px;color:var(--blue-soft);background:none;border:1px solid var(--blue-soft);border-radius:7px;padding:6px 12px;font-weight:700}
 .godz-window{margin-bottom:18px}
 .godz-window:last-child{margin-bottom:0}
 .godz-window-lbl{font-family:var(--fh);font-weight:700;font-size:12.5px;letter-spacing:0.03em;color:var(--blue-soft);text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border-soft)}
@@ -177,7 +183,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined, godzStation: localStorage.getItem('cfm_dash_godz_station') || null, godzRows: null };
+var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined, godzStation: localStorage.getItem('cfm_dash_godz_station') || null, godzRows: null, weekOffset: 0 };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -216,8 +222,13 @@ function loadSettings() {
 function init() {
   loadSettings().then(function() { loadData(); loadStockLevel(); loadGodzinny(); });
 
-  setInterval(function() { loadSettings().then(function() { loadData(true); loadStockLevel(); loadGodzinny(); }); }, 45000);
-  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadSettings().then(function() { loadData(true); loadStockLevel(); loadGodzinny(); }); loadActiveAwarie(); } });
+  // Przegladana MOZE nie byc biezacym tygodniem (patrz prevWeek/nextWeek) —
+  // dane historycznego tygodnia nie zmienia sie w kolko, wiec cykliczne
+  // odswiezanie STATYSTYKI ma sens tylko dla biezacego. Stan magazynowy i
+  // Raport godzinny dotycza zawsze "dzis", niezaleznie ktory tydzien jest
+  // akurat przegladany na wykresach ponizej.
+  setInterval(function() { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); }); }, 45000);
+  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); }); loadActiveAwarie(); } });
 
   // Aktywne awarie — pytamy serwer czesciej niz reszte danych (co 15s, nie
   // co 45s), bo "czy cos jest TERAZ zepsute" jest bardziej pilne niz reszta
@@ -230,11 +241,14 @@ function init() {
 }
 
 function currentWeekDays() {
-  var mon = mondayOf(new Date());
+  var mon = mondayOf(addDays(new Date(), (STATE.weekOffset || 0) * 7));
   var days = [];
   for (var i = 0; i < 7; i++) days.push(toISO(addDays(mon, i)));
   return days;
 }
+function prevWeek() { STATE.weekOffset = (STATE.weekOffset || 0) - 1; loadData(); }
+function nextWeek() { if ((STATE.weekOffset || 0) >= 0) return; STATE.weekOffset = (STATE.weekOffset || 0) + 1; loadData(); }
+function goToCurrentWeek() { STATE.weekOffset = 0; loadData(); }
 
 function loadData(silent) {
   var wh = getWH();
@@ -373,7 +387,13 @@ function render(days) {
   var stockHtml = renderStockKpi(countDates, days);
 
   app.innerHTML =
-    '<div class="pagehead"><h1>Dashboard produkcji <span class="cn">生产仪表盘</span></h1><div class="sub">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + ' &#183; GP12 = ostatnie stanowisko, liczy się do wykonania planu/jakości &#183; <span class="cn">第' + isoWeekNumber(days[0]) + '周 &#183; GP12=末端工位</span></div></div>' +
+    '<div class="pagehead"><h1>Dashboard produkcji <span class="cn">生产仪表盘</span></h1><div class="sub">GP12 = ostatnie stanowisko, liczy się do wykonania planu/jakości &#183; <span class="cn">GP12=末端工位</span></div></div>' +
+    '<div class="weeknav">' +
+      '<button type="button" onclick="prevWeek()">&#8592;</button>' +
+      '<span class="wlabel">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + ' <span class="cn">第' + isoWeekNumber(days[0]) + '周</span></span>' +
+      '<button type="button" onclick="nextWeek()"' + (STATE.weekOffset >= 0 ? ' disabled' : '') + '>&#8594;</button>' +
+      (STATE.weekOffset !== 0 ? '<button type="button" class="wtoday" onclick="goToCurrentWeek()">Ten tydzień &#183; 本周</button>' : '') +
+    '</div>' +
     '<div id="awarieBanner"></div>' +
     '<div class="kpis">' +
       kpiTile('Wykonanie planu (GP12)', '计划完成率', completion === null ? '&#8212;' : completion + '%', 'plan: ' + fmt(plan) + ' szt.', completion, completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)') +
@@ -572,8 +592,13 @@ function renderGodzinnyCard() {
     bars.innerHTML = '<div class="empty">Brak wpisów dziś dla stanowiska <b>' + STATE.godzStation + '</b>. Dziś są wpisy dla: <b>' + others.join(', ') + '</b> — wybierz z listy powyżej. <span class="cn">该工位今日无记录，今日有记录的工位见上方列表。</span></div>';
     return;
   }
+  // godzina przychodzi z serwera jako etykieta zakresu (np. "9:00-10:00",
+  // "23:00-0:00"), NIE goly numer — parseInt (nie Number!) wyciaga wiodaca
+  // liczbe i zatrzymuje sie na dwukropku, dajac poprawna godzine startu.
+  // Number('9:00-10:00') dawal NaN, wiec zaden wpis nie trafial do zadnego
+  // okna czasowego i cala karta wychodzila pusta mimo realnych danych.
   var byHour = {};
-  rows.forEach(function(r) { var h = Number(r.godzina); byHour[h] = (byHour[h] || 0) + (Number(r.qty) || 0); });
+  rows.forEach(function(r) { var h = parseInt(r.godzina, 10); byHour[h] = (byHour[h] || 0) + (Number(r.qty) || 0); });
   var maxQty = Math.max.apply(null, Object.keys(byHour).map(function(h) { return byHour[h]; }));
   bars.innerHTML = TIME_WINDOWS.map(function(win) {
     var present = win.hours.filter(function(h) { return byHour[h] !== undefined; });

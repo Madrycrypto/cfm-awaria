@@ -374,6 +374,20 @@ button{cursor:pointer;font-family:var(--fh)}
     </div>
   </div>
 
+  <div id="reworkDateBlock" style="display:none;">
+    <div class="field" style="margin-top:10px;font-size:12.5px;color:var(--muted);">
+      Przetwarzasz zaległość z: <span id="reworkDateDisplay" style="color:var(--text);font-weight:700;"></span>
+      &#183; <a href="#" onclick="toggleReworkDate();return false;" style="color:var(--blue);">Zmień dzień &#183; 修改日期</a>
+    </div>
+    <div id="reworkDateManual" style="display:none;margin-bottom:10px;">
+      <div class="lbl">Dzień przetworzenia (np. jeśli to zaległość z poprzedniego tygodnia) &#183; 处理日期（如为上周积压）</div>
+      <input type="date" id="reworkDateInput" onchange="setReworkDate()" style="width:100%;font-size:14px;padding:10px;margin-top:6px;">
+    </div>
+    <div id="reworkDateBanner" style="display:none;margin-bottom:10px;padding:8px 12px;background:rgba(217,119,6,0.16);border:1px solid rgba(240,160,48,0.35);border-radius:9px;font-size:11.5px;color:#f0a030;font-weight:700;text-align:center;">
+      &#9888; Przetworzenie zaksięguje się pod innym dniem (i tygodniem)! &#183; 处理记录将计入其他日期（及周）!
+    </div>
+  </div>
+
   <div class="div"></div>
 
   <div class="view-switch">
@@ -892,6 +906,38 @@ function setRaportDate() {
 }
 updateDateDisplay();
 
+// Data przetworzenia reworku — CELOWO NIEZALEZNA od currentRaportDate (Raport
+// zmiany/godzinny): przetwarzanie bufora reworku to osobna czynnosc "kiedy
+// wygodnie", nie powiazana z tym, ktorego dnia raport zmianowy akurat sie
+// wypelnia — dzielenie tej samej daty zmienialoby jedno przy zmianie
+// drugiego, co byloby zaskakujace. Bez tego kazde przetworzenie
+// zaladowanego dawniej bufora (np. "korekta zaleglosci z poprzedniego
+// tygodnia", patrz placeholder w Uwagach) zapisywalo sie pod DZISIEJSZA
+// data i znikalo z widoku poprzedniego tygodnia w Statystykach.
+var currentReworkDate = null; // null = dzisiaj
+function getReworkDate() { return currentReworkDate || localDateString(); }
+function updateReworkDateDisplay() {
+  var isToday = !currentReworkDate;
+  var d = formatDatePl(getReworkDate());
+  var el = document.getElementById('reworkDateDisplay');
+  if (el) el.textContent = d + (isToday ? ' (dziś)' : '');
+  var banner = document.getElementById('reworkDateBanner');
+  if (banner) banner.style.display = isToday ? 'none' : 'block';
+}
+function toggleReworkDate() {
+  var el = document.getElementById('reworkDateManual');
+  var open = el.style.display === 'block';
+  el.style.display = open ? 'none' : 'block';
+  if (!open) document.getElementById('reworkDateInput').value = getReworkDate();
+}
+function setReworkDate() {
+  var v = document.getElementById('reworkDateInput').value;
+  currentReworkDate = (v && v !== localDateString()) ? v : null;
+  updateReworkDateDisplay();
+  document.getElementById('reworkDateManual').style.display = 'none';
+}
+updateReworkDateDisplay();
+
 function switchView(v) {
   document.getElementById('viewBtnRaport').classList.toggle('sel', v === 'raport');
   document.getElementById('viewBtnRework').classList.toggle('sel', v === 'rework');
@@ -907,6 +953,7 @@ function switchView(v) {
   document.getElementById('hourBadgeWrap').style.display = v === 'godzinny' ? 'block' : 'none';
   document.getElementById('stationField').style.display = v === 'rework' ? 'none' : 'block';
   document.getElementById('opStationGrid').style.gridTemplateColumns = v === 'rework' ? '1fr' : '1fr 1fr';
+  document.getElementById('reworkDateBlock').style.display = v === 'rework' ? 'block' : 'none';
   if (v === 'godzinny') { updateHourDisplay(); odswiezHistorieGodzinnej(); }
   if (v === 'raport') { odswiezDzisiajWpisy(true); loadShiftComparison(); }
   if (v === 'awaria') { awariaRenderHistory(); awariaSyncActiveForStation(); }
@@ -1500,7 +1547,7 @@ function submitReworkProcessing() {
     zone: currentReworkZone,
     zone_label: zone.label,
     operator: operator,
-    date: localDateString(now),
+    date: getReworkDate(),
     processed: accounted,
     recovered: recoveredN,
     final_scrap: finalScrapN,

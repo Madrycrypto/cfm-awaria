@@ -149,7 +149,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, activeAwarie: undefined };
+var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, activeAwarie: undefined, stockLevel: undefined };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -158,9 +158,13 @@ function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
 var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
 
-function init() {
+// Ustawienia (w tym inwentaryzacja) pobieramy nie tylko raz przy starcie,
+// ale i co odswiezenie — Dashboard bywa otwarty caly dzien na duzym
+// ekranie, a nowa inwentaryzacja albo Plan wpisane w miedzyczasie na innej
+// karcie/urzadzeniu inaczej nigdy by sie nie pojawily bez recznego F5.
+function loadSettings() {
   var wh = getWH();
-  fetch(wh + '?event_type=GET_USTAWIENIA')
+  return fetch(wh + '?event_type=GET_USTAWIENIA')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var u = (data && data.ustawienia) || {};
@@ -177,11 +181,14 @@ function init() {
       try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
       try { STATE.shippingPlan = JSON.parse(u.cfm_shipping_plan || '{}'); } catch (e) { STATE.shippingPlan = {}; }
     })
-    .catch(function() {})
-    .then(loadData);
+    .catch(function() {});
+}
 
-  setInterval(function() { loadData(true); }, 45000);
-  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadData(true); loadActiveAwarie(); } });
+function init() {
+  loadSettings().then(function() { loadData(); loadStockLevel(); });
+
+  setInterval(function() { loadSettings().then(function() { loadData(true); loadStockLevel(); }); }, 45000);
+  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadSettings().then(function() { loadData(true); loadStockLevel(); }); loadActiveAwarie(); } });
 
   // Aktywne awarie — pytamy serwer czesciej niz reszte danych (co 15s, nie
   // co 45s), bo "czy cos jest TERAZ zepsute" jest bardziej pilne niz reszta
@@ -336,10 +343,8 @@ function render(days) {
   var countDates = Object.keys(STATE.inventoryCounts).sort();
   var stockHtml = renderStockKpi(countDates, days);
 
-  document.getElementById('lastUpdate').textContent += ' · Tydz. ' + isoWeekNumber(days[0]);
-
   app.innerHTML =
-    '<div class="pagehead"><h1>Dashboard produkcji <span class="cn">生产仪表盘</span></h1><div class="sub">Ten tydzień (' + fmtRange(days) + ') &#183; GP12 = ostatnie stanowisko, liczy się do wykonania planu/jakości &#183; <span class="cn">本周 &#183; GP12=末端工位</span></div></div>' +
+    '<div class="pagehead"><h1>Dashboard produkcji <span class="cn">生产仪表盘</span></h1><div class="sub">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + ' &#183; GP12 = ostatnie stanowisko, liczy się do wykonania planu/jakości &#183; <span class="cn">第' + isoWeekNumber(days[0]) + '周 &#183; GP12=末端工位</span></div></div>' +
     '<div id="awarieBanner"></div>' +
     '<div class="kpis">' +
       kpiTile('Wykonanie planu (GP12)', '计划完成率', completion === null ? '&#8212;' : completion + '%', 'plan: ' + fmt(plan) + ' szt.', completion, completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)') +
@@ -380,8 +385,8 @@ function kpiTile(lbl, lblCn, val, sub, barPct, color) {
 }
 function renderStockKpi(countDates, days) {
   if (!countDates.length) return kpiTile('Stan magazynowy', '库存', '&#8212;', 'brak inwentaryzacji', 0, 'var(--faint)');
-  var running = computeStockToday();
-  return kpiTile('Stan magazynowy', '库存', fmt(running), 'gotowe sztuki na dziś', 100, 'var(--blue)');
+  if (!STATE.stockLevel) return kpiTile('Stan magazynowy', '库存', '&#8230;', 'obliczanie...', 0, 'var(--faint)');
+  return kpiTile('Stan magazynowy', '库存', fmt(STATE.stockLevel.balance), 'gotowe sztuki na dziś', 100, 'var(--blue)');
 }
 
 // Donut jakosci — Zgodne/Scrap/Rework to znaczenie dobry/zly, wiec kolory
@@ -492,32 +497,49 @@ function planForGp12(dateIso) {
   });
   return sum;
 }
-function computeStockToday() {
+function shippingActualFor(dateIso) {
+  var mk = dateIso.slice(0, 7);
+  return (STATE.shippingActual[mk] && STATE.shippingActual[mk][dateIso]) ? Number(STATE.shippingActual[mk][dateIso]) : 0;
+}
+// Stan magazynowy potrzebuje produkcji GP12 od PIERWSZEJ inwentaryzacji do
+// dzisiaj — czesto to tygodnie/miesiace wstecz, czyli daleko poza zakres
+// biezacego tygodnia, ktory laduje do STATE.rows w loadData(). Dlatego
+// osobny, pelnozakresowy fetch (tak jak w Statystykach), zamiast liczyc na
+// STATE.rows — inaczej dni sprzed tego tygodnia wychodzily jako "brak
+// produkcji" i saldo bylo zanizone / nie widac bylo swiezej inwentaryzacji.
+function loadStockLevel() {
   var countDates = Object.keys(STATE.inventoryCounts).sort();
-  if (!countDates.length) return null;
+  if (!countDates.length) { STATE.stockLevel = null; return; }
   var firstDate = countDates[0];
   var todayISO = toISO(new Date());
-  var prodByDate = {};
-  STATE.rows.forEach(function(r) { if (r.station === 'GP12') prodByDate[r.date] = (prodByDate[r.date] || 0) + (Number(r.ok_count) || 0); });
-  var running = Number(STATE.inventoryCounts[firstDate]) || 0;
-  var cursor = new Date(Number(firstDate.slice(0,4)), Number(firstDate.slice(5,7)) - 1, Number(firstDate.slice(8,10)));
-  var end = new Date(Number(todayISO.slice(0,4)), Number(todayISO.slice(5,7)) - 1, Number(todayISO.slice(8,10)));
-  var idx = 0;
-  while (cursor <= end) {
-    var iso = toISO(cursor);
-    var ship = 0, mk = iso.slice(0, 7);
-    if (STATE.shippingActual[mk] && STATE.shippingActual[mk][iso]) ship = Number(STATE.shippingActual[mk][iso]);
-    if (idx > 0) running += (prodByDate[iso] || 0) - ship;
-    if (STATE.inventoryCounts[iso] !== undefined && idx > 0) running = Number(STATE.inventoryCounts[iso]);
-    cursor.setDate(cursor.getDate() + 1);
-    idx++;
-  }
-  return running;
+  var wh = getWH();
+  fetch(wh + '?event_type=STATYSTYKI&start=' + firstDate + '&end=' + todayISO)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') return;
+      var prodByDate = {};
+      (data.historia || []).forEach(function(r) { if (r.station === 'GP12') prodByDate[r.date] = (prodByDate[r.date] || 0) + (Number(r.ok_count) || 0); });
+      var running = Number(STATE.inventoryCounts[firstDate]) || 0;
+      var cursor = new Date(Number(firstDate.slice(0,4)), Number(firstDate.slice(5,7)) - 1, Number(firstDate.slice(8,10)));
+      var end = new Date(Number(todayISO.slice(0,4)), Number(todayISO.slice(5,7)) - 1, Number(todayISO.slice(8,10)));
+      var idx = 0;
+      while (cursor <= end) {
+        var iso = toISO(cursor);
+        if (idx > 0) running += (prodByDate[iso] || 0) - shippingActualFor(iso);
+        if (STATE.inventoryCounts[iso] !== undefined && idx > 0) running = Number(STATE.inventoryCounts[iso]);
+        cursor.setDate(cursor.getDate() + 1);
+        idx++;
+      }
+      STATE.stockLevel = { balance: running };
+      render(currentWeekDays());
+    })
+    .catch(function() {});
 }
 function renderShipCoverage() {
   var el = document.getElementById('shipCoverage');
-  var stockToday = computeStockToday();
-  if (stockToday === null) { el.innerHTML = '<div class="empty">Brak inwentaryzacji — wejdź w <b>Inwentarz</b>, żeby to policzyć. <span class="cn">尚无库存盘点。</span></div>'; return; }
+  if (!Object.keys(STATE.inventoryCounts).length) { el.innerHTML = '<div class="empty">Brak inwentaryzacji — wejdź w <b>Inwentarz</b>, żeby to policzyć. <span class="cn">尚无库存盘点。</span></div>'; return; }
+  if (!STATE.stockLevel) { el.innerHTML = '<div class="empty">Obliczanie stanu magazynowego... <span class="cn">正在计算库存...</span></div>'; return; }
+  var stockToday = STATE.stockLevel.balance;
   // Ostatni dzien ze znanym planem wysylek — horyzont projekcji
   var lastKnownShipDate = null;
   Object.keys(STATE.shippingPlan).forEach(function(mk) {

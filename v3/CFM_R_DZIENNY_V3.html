@@ -1165,7 +1165,7 @@ var QUALITY_REASON_DEFAULTS = {
 // JEDNORAZOWO PELNY RESET (nie doklejanie) swoich list scrap/rework do
 // swiezych wartosci z kodu i wyśle je na serwer — bez tego trzeba by
 // recznie usuwac stare zduplikowane wpisy na kazdym telefonie z osobna.
-var REASONS_VERSION = 2;
+var REASONS_VERSION = 3;
 function defaultReasonsMap() {
   var map = {};
   Object.keys(QUALITY_REASON_DEFAULTS).forEach(function(st) { map[st] = QUALITY_REASON_DEFAULTS[st].slice(); });
@@ -2999,6 +2999,16 @@ function loadSettingsFromServer(onDone) {
 // znikalyby przy kazdym starcie, zanim ktos nacisnie "Wyslij wszystkie
 // ustawienia do arkusza teraz". Dzieki temu obie strony tylko przybywaja,
 // nigdy nie tracimy przyczyn zeby przypadkiem.
+//
+// Filtrujemy jednak to, co przychodzi z serwera, do pozycji ktore
+// faktycznie sa w aktualnym QUALITY_REASON_DEFAULTS[station] (kod =
+// zrodlo prawdy, patrz komentarz przy ensureReasonsVersion) — bez tego
+// stary, zdublowany wpis lezacy na serwerze (np. sprzed dodania numeracji,
+// na urzadzeniu ktore jeszcze nie zrobilo pelnego resetu) wracalby tu
+// przy KAZDYM starcie apki, nawet po ensureReasonsVersion. Realny wlasny
+// dopisek admina spoza szablonu (dodany lokalnie, patrz Panel Admina ->
+// Przyczyny) nie jest tym dotkniety — ten filtr patrzy tylko na to co
+// PRZYCHODZI z serwera do zmergowania, nie rusza juz istniejacych lokalnych.
 function mergeReasonMapFromServer(key, serverVal) {
   var serverMap = {};
   try { serverMap = JSON.parse(serverVal); } catch (e) { return false; }
@@ -3006,8 +3016,10 @@ function mergeReasonMapFromServer(key, serverVal) {
   try { localMap = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
   var changed = false;
   Object.keys(serverMap).forEach(function(station) {
+    var known = QUALITY_REASON_DEFAULTS[station];
     if (!localMap[station]) { localMap[station] = []; changed = true; }
     (serverMap[station] || []).forEach(function(reason) {
+      if (known && known.indexOf(reason) < 0) return;
       if (localMap[station].indexOf(reason) < 0) { localMap[station].push(reason); changed = true; }
     });
   });

@@ -498,6 +498,12 @@ function awarieChipsHtml(entries, showDate) {
     return '<span class="reason-chip awaria">' + dateLbl + '<b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>';
   }).join('');
 }
+// Zwykly tekst (nie HTML) do atrybutu title — natywny tooltip przegladarki
+// pokazuje sie juz na SAM HOVER, bez klikania, w odroznieniu od reasonbox
+// ponizej (ten wymaga kliknieca, ale ma pelne, stylowane szczegoly).
+function awarieTitleText(entries) {
+  return entries.map(function(a) { return fmt(a.czas_min) + ' min' + (a.type ? ' — ' + a.type : ''); }).join('\n');
+}
 
 function render() {
   var app = document.getElementById('app');
@@ -980,6 +986,28 @@ function getPeriodPlan(station, shift, days) {
 // "586/630" na 2. dzien miesiaca faktycznie pokazywalo "586 z ~13 800
 // zaplanowanych na caly miesiac", a nie tylko z jednego dnia ktory akurat
 // mial raport.
+// OP51/52 i OP60/61 fizycznie zasilaja GP12 (ostatnie stanowisko) — ich
+// ilosc w danym okresie NIE MOZE sensownie przewyzszac tego co GP12
+// faktycznie zlozylo (GP12 jest zazwyczaj wolniejsze/waskim gardlem), wiec
+// procent wzgledem WLASNEGO planu tych dwoch stacji byl mylacy: zielony
+// "wykonano plan" mogl wyjsc nawet gdy stacja realnie zrobila WIECEJ niz
+// GP12 przez to zdazylo przyjac — co jest fizycznie niemozliwe/podejrzane
+// w skali calego okresu, a plan tych stacji jest ustawiany niezaleznie od
+// GP12. Dla tych dwoch stacji liczymy wiec % wzgledem AKTUALNEJ ilosci
+// GP12 w tym samym okresie (nie wzgledem wlasnego planu) — pozwala to od
+// razu zobaczyc, czy tempo tej stacji sie zgadza ze skala GP12.
+var RATIO_TO_GP12_STATIONS = ['OP51/52', 'OP60/61'];
+// Inna skala kolorow niz pctColor4: tutaj >105% to NIE sukces (fizycznie
+// podejrzane — stacja "zrobila wiecej niz GP12"), tylko sygnal do
+// sprawdzenia danych, wiec kolorujemy go tak samo ostrzegawczo jak spore
+// zaleglosci ponizej.
+function pctColorVsGp12(p) {
+  if (p === null) return 'var(--faint)';
+  if (p > 105) return 'var(--red)';
+  if (p >= 85) return 'var(--green)';
+  if (p >= 70) return 'var(--orange)';
+  return 'var(--red)';
+}
 function barsHtml(groups, days) {
   if (!groups.length) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
   var byStation = {};
@@ -1001,16 +1029,20 @@ function barsHtml(groups, days) {
       byStation[g.station].plan += getPeriodPlan(g.station, g.shift, days || []);
     }
   });
+  var gp12Actual = byStation['GP12'] ? byStation['GP12'].actual : 0;
   return order.map(function(name) {
     var s = byStation[name];
-    var pct = s.plan > 0 ? Math.round((s.actual / s.plan) * 100) : 0;
-    var color = pctColor4(pct);
+    var vsGp12 = RATIO_TO_GP12_STATIONS.indexOf(name) >= 0 && gp12Actual > 0;
+    var denom = vsGp12 ? gp12Actual : s.plan;
+    var pct = denom > 0 ? Math.round((s.actual / denom) * 100) : 0;
+    var color = vsGp12 ? pctColorVsGp12(pct) : pctColor4(pct);
     var barMax = 150;
     var barPct = Math.min(pct / barMax * 100, 100);
     var markerPct = 100 / barMax * 100;
+    var subText = fmt(s.actual) + '/' + fmt(denom) + (vsGp12 ? ' <span style="color:var(--faint)">(wzgl. GP12 <span class="cn">相对GP12</span>)</span>' : '');
     return '<div class="barrow"><div class="barrow-lbl">' + name + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + barPct + '%;background:' + color + '"></div><span class="gc-marker" style="left:' + markerPct + '%"></span></div>' +
-      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + fmt(s.actual) + '/' + fmt(s.plan) + '</div></div>';
+      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + subText + '</div></div>';
   }).join('');
 }
 function renderBars(groups) {
@@ -1070,8 +1102,16 @@ function dailyGridHtml(groups, dateIso) {
       var korekta = getWorktimeKorekta(stName, s, dateIso);
       var awarie = getAwarieForDay(stName, s, dateIso);
       var awarieMin = awarie.reduce(function(sum, a) { return sum + (Number(a.czas_min) || 0); }, 0);
+      // this.nextElementSibling byloby PUSTE — przycisk siedzi w
+      // .gc-textblock > .gc-sub, a reasonbox jest siostrą .gccell (dwa
+      // poziomy wyzej), wiec toggle w ogole nie trafial we wlasciwy box.
+      // closest('.gccell').nextElementSibling to faktyczny reasonbox.
+      // Dodatkowo title= daje natywny tooltip juz na sam hover, bez
+      // klikania — user nie chcial szukac tego w Statystykach, wiec ma to
+      // byc widoczne od razu przy najechaniu, a klikniecie dalej otwiera
+      // pelne, stylowane szczegoly ponizej.
       var awarieBtn = awarieMin > 0 ?
-        '<button type="button" class="gc-awariabtn" onclick="var b=this.nextElementSibling;b.classList.toggle(\'open\')">&#9888; ' + awarieMin + '&#8217;</button>' : '';
+        '<button type="button" class="gc-awariabtn" title="' + awarieTitleText(awarie).replace(/"/g, '&quot;') + '" onclick="this.closest(\'.gccell\').nextElementSibling.classList.toggle(\'open\')">&#9888; ' + awarieMin + '&#8217;</button>' : '';
       var awarieBox = awarieMin > 0 ? '<div class="reasonbox">' + awarieChipsHtml(awarie) + '</div>' : '';
       // Tekst (%, wykonanie/plan, czas, awaria) po LEWEJ, pasek po PRAWEJ —
       // obok siebie zamiast jedno pod drugim, zeby wiersz zajmowal jak

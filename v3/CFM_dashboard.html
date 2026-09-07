@@ -116,6 +116,9 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .godz-window{margin-bottom:18px}
 .godz-window:last-child{margin-bottom:0}
 .godz-window-lbl{font-family:var(--fh);font-weight:700;font-size:12.5px;letter-spacing:0.03em;color:var(--blue-soft);text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border-soft)}
+.godz-summary{display:flex;gap:24px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.godz-summary div{font-size:12px;color:var(--muted)}
+.godz-summary b{display:block;font-family:var(--fh);font-weight:800;font-size:26px;color:var(--text);margin-top:4px}
 
 .donutwrap{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center}
 .donutcenter{font-family:var(--fh)}
@@ -600,7 +603,17 @@ function renderGodzinnyCard() {
   var byHour = {};
   rows.forEach(function(r) { var h = parseInt(r.godzina, 10); byHour[h] = (byHour[h] || 0) + (Number(r.qty) || 0); });
   var maxQty = Math.max.apply(null, Object.keys(byHour).map(function(h) { return byHour[h]; }));
-  bars.innerHTML = TIME_WINDOWS.map(function(win) {
+
+  // Podsumowanie "ile juz zrobione dzis" — suma z WSZYSTKICH wpisanych
+  // godzin do tej pory, niezaleznie ktore okno akurat trwa. To samo co
+  // widac w "Suma zmiany" w Raporcie godzinnym w telefonie, tylko
+  // zsumowane na caly dzien (moze obejmowac wiecej niz jedna zmiane).
+  var sumQty = rows.reduce(function(s, r) { return s + (Number(r.qty) || 0); }, 0);
+  var sumRework = rows.reduce(function(s, r) { return s + (Number(r.rework) || 0); }, 0);
+  var summaryHtml = '<div class="godz-summary"><div>Suma dziś <span class="cn">今日合计</span><b>' + fmt(sumQty) + '</b> szt.</div>' +
+    '<div>Rework <span class="cn">返修</span><b' + (sumRework > 0 ? ' style="color:var(--orange)"' : '') + '>' + fmt(sumRework) + '</b></div></div>';
+
+  var windowsHtml = TIME_WINDOWS.map(function(win) {
     var present = win.hours.filter(function(h) { return byHour[h] !== undefined; });
     if (!present.length) return '';
     var rowsHtml = present.map(function(h) {
@@ -611,6 +624,8 @@ function renderGodzinnyCard() {
     }).join('');
     return '<div class="godz-window"><div class="godz-window-lbl">' + win.label + '</div>' + rowsHtml + '</div>';
   }).join('');
+
+  bars.innerHTML = summaryHtml + windowsHtml;
 }
 
 function shippingActualFor(dateIso) {

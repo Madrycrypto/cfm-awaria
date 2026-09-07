@@ -119,6 +119,14 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .godz-summary{display:flex;gap:24px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
 .godz-summary div{font-size:12px;color:var(--muted)}
 .godz-summary b{display:block;font-family:var(--fh);font-weight:800;font-size:26px;color:var(--text);margin-top:4px}
+.zonerow{margin-bottom:9px}
+.zonerow:last-child{margin-bottom:0}
+.zonerow-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}
+.zonerow-lbl{font-family:var(--fh);font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zonerow-pct{font-family:var(--fh);font-weight:800;font-size:12.5px;flex-shrink:0}
+.zonerow-track{height:4px;border-radius:2px;background:var(--border-soft);overflow:hidden}
+.zonerow-fill{height:100%;border-radius:2px}
+.zonerow-sub{font-size:10.5px;color:var(--faint);margin-top:3px}
 
 .donutwrap{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center}
 .donutcenter{font-family:var(--fh)}
@@ -670,11 +678,18 @@ function renderReworkTodayCard() {
     '<div>Odzyskano <span class="cn">已修复</span><b style="color:var(--green)">' + fmt(sumRecovered) + '</b></div>' +
     '<div>Złom <span class="cn">报废</span><b' + (sumScrap > 0 ? ' style="color:var(--red)"' : '') + '>' + fmt(sumScrap) + '</b></div></div>';
 
+  // Zonerow zamiast hbar-row: "odzysk N/N · złom N" nie miescilo sie w
+  // waskiej (90px) kolumnie na wartosc i zawijalo sie na 2 linie na
+  // telefonie. Etykieta+procent w jednej linii, cienki pasek pod spodem,
+  // szczegoly jako osobna linijka ponizej — kazda linia ma pelna szerokosc
+  // karty do dyspozycji, wiec nic sie juz nie zawija.
   var zoneRowsHtml = order.map(function(key) {
     var z = byZone[key];
     var pct = z.processed > 0 ? Math.round((z.recovered / z.processed) * 100) : 0;
     var color = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--orange)' : 'var(--red)';
-    return '<div class="hbar-row"><div class="hbar-lbl">' + z.label + '</div><div class="hbar-track"><div class="hbar-fill" style="background:' + color + ';width:' + Math.max(pct, 4) + '%"></div></div><div class="hbar-val">odzysk ' + fmt(z.recovered) + '/' + fmt(z.processed) + ' &#183; złom ' + fmt(z.finalScrap) + '</div></div>';
+    return '<div class="zonerow"><div class="zonerow-top"><span class="zonerow-lbl">' + z.label + '</span><span class="zonerow-pct" style="color:' + color + '">' + pct + '%</span></div>' +
+      '<div class="zonerow-track"><div class="zonerow-fill" style="background:' + color + ';width:' + Math.max(pct, 4) + '%"></div></div>' +
+      '<div class="zonerow-sub">odzysk ' + fmt(z.recovered) + '/' + fmt(z.processed) + ' &#183; złom ' + fmt(z.finalScrap) + '</div></div>';
   }).join('');
 
   el.innerHTML = summaryHtml + zoneRowsHtml;

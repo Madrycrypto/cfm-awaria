@@ -82,6 +82,8 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .coverage-hero .l{font-size:12px;color:var(--muted);margin-top:2px}
 .coverage-detail{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.6;margin-top:8px}
 .coverage-detail b{color:var(--text)}
+.coverage-source{font-size:11px;color:var(--faint);text-align:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
+.coverage-source b{color:var(--muted)}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
 .card h2{font-family:var(--fh);font-weight:700;font-size:17px;margin-bottom:14px}
 .card h2 .cn{font-family:var(--fc);font-size:12.5px;font-weight:500;margin-left:6px;color:var(--faint)}
@@ -149,7 +151,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, activeAwarie: undefined, stockLevel: undefined };
+var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -180,6 +182,7 @@ function loadSettings() {
       try { STATE.inventoryCounts = JSON.parse(u.cfm_inventory_counts || '{}'); } catch (e) { STATE.inventoryCounts = {}; }
       try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
       try { STATE.shippingPlan = JSON.parse(u.cfm_shipping_plan || '{}'); } catch (e) { STATE.shippingPlan = {}; }
+      try { STATE.shippingPlanMeta = JSON.parse(u.cfm_shipping_plan_meta || '{}'); } catch (e) { STATE.shippingPlanMeta = {}; }
     })
     .catch(function() {});
 }
@@ -477,25 +480,17 @@ function renderDailyPlanBars(days) {
   el.innerHTML = any ? rowsHtml : '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
 }
 
-// Zasieg wysylek — projekcja W PRZOD od dzisiejszego stanu magazynowego:
-// kazdy kolejny dzien dodaje planowana produkcje GP12 (Cel/Plan, jesli
-// jest) i odejmuje planowana wysylke (Plan wysylek, nie "wyslano
-// faktycznie" — to dopiero przyszlosc). Zatrzymujemy sie na ostatnim dniu
-// dla ktorego mamy JAKIKOLWIEK jawny wpis w Planie wysylek — dalej juz nie
-// wiadomo co bedzie, wiec nie ma sensu udawac "pelnego pokrycia".
+// Zasieg wysylek — projekcja W PRZOD liczona z SAMEGO bufora magazynowego:
+// kazdy kolejny dzien odejmuje planowana wysylke (Plan wysylek), BEZ
+// doliczania przyszlej produkcji — user chcial wiedziec ile realnie da rade
+// pokryc sam zapas na magazynie, gdyby produkcja stanela/nie nadazyla, a nie
+// optymistyczny scenariusz "plan produkcji sie uda". Zatrzymujemy sie na
+// ostatnim dniu dla ktorego mamy JAKIKOLWIEK jawny wpis w Planie wysylek —
+// dalej juz nie wiadomo co bedzie, wiec nie ma sensu udawac "pelnego pokrycia".
 function shippingPlanFor(dateIso) {
   var mk = dateIso.slice(0, 7);
   var v = STATE.shippingPlan[mk] && STATE.shippingPlan[mk][dateIso];
   return v ? Number(v) : 0;
-}
-function planForGp12(dateIso) {
-  var sum = 0;
-  STATE.shiftLabels.forEach(function(sh) {
-    var pf = effectivePlanEntry('GP12', sh, dateIso);
-    if (pf === null) pf = Number(STATE.stationTargets['GP12']) || 0;
-    sum += pf;
-  });
-  return sum;
 }
 function shippingActualFor(dateIso) {
   var mk = dateIso.slice(0, 7);
@@ -556,20 +551,21 @@ function renderShipCoverage() {
   while (toISO(cursor) <= lastKnownShipDate) {
     var iso = toISO(cursor);
     var ship = shippingPlanFor(iso);
-    var prod = planForGp12(iso);
-    running += prod - ship;
+    running -= ship;
     daysCovered++;
     if (ship > 0) shipmentsCovered++;
     if (running < 0 && !ranOutAt) ranOutAt = iso;
     cursor = addDays(cursor, 1);
   }
   var fmtD = function(iso) { var p = iso.split('-'); return p[2] + '/' + p[1]; };
+  var sourceLine = (STATE.shippingPlanMeta && STATE.shippingPlanMeta.filename) ?
+    '<div class="coverage-source">Plan wysyłek z pliku: <b>' + STATE.shippingPlanMeta.filename + '</b> &#183; wgrano ' + fmtD(STATE.shippingPlanMeta.importedAt) + ' <span class="cn">发运计划来自文件 &#183; 上传于' + fmtD(STATE.shippingPlanMeta.importedAt) + '</span></div>' : '';
   if (ranOutAt) {
-    el.innerHTML = '<div class="coverage-hero"><span class="n" style="color:#ff7070">' + fmtD(ranOutAt) + '</span><span class="l">zabraknie zapasu, jeśli produkcja nie przyspieszy <span class="cn">若产量不变将在此日期缺货</span></span></div>' +
-      '<div class="coverage-detail">Znany plan wysyłek sięga do <b>' + fmtD(lastKnownShipDate) + '</b> (' + shipmentsCovered + ' dni z wysyłką).</div>';
+    el.innerHTML = '<div class="coverage-hero"><span class="n" style="color:#ff7070">' + fmtD(ranOutAt) + '</span><span class="l">zabraknie zapasu z samego bufora magazynowego (bez doliczania przyszłej produkcji) <span class="cn">仅按现有库存计算，将在此日期缺货（未计入未来产量）</span></span></div>' +
+      '<div class="coverage-detail">Znany plan wysyłek sięga do <b>' + fmtD(lastKnownShipDate) + '</b> (' + shipmentsCovered + ' dni z wysyłką).</div>' + sourceLine;
   } else {
-    el.innerHTML = '<div class="coverage-hero"><span class="n" style="color:#3fd17a">' + fmtD(lastKnownShipDate) + '</span><span class="l">pokryte w pełni do tej daty <span class="cn">在此日期前完全覆盖</span></span></div>' +
-      '<div class="coverage-detail"><b>' + shipmentsCovered + '</b> zaplanowanych dni wysyłki pokrytych, zapas na koniec: <b>' + fmt(running) + '</b> szt.</div>';
+    el.innerHTML = '<div class="coverage-hero"><span class="n" style="color:#3fd17a">' + fmtD(lastKnownShipDate) + '</span><span class="l">bufor magazynowy pokrywa w pełni do tej daty <span class="cn">现有库存可完全覆盖至此日期</span></span></div>' +
+      '<div class="coverage-detail"><b>' + shipmentsCovered + '</b> zaplanowanych dni wysyłki pokrytych, zapas na koniec: <b>' + fmt(running) + '</b> szt.</div>' + sourceLine;
   }
 }
 

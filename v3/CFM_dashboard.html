@@ -29,10 +29,14 @@ body{padding-bottom:40px}
 .topbar-inner{max-width:1400px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
-.navlinks{display:flex;gap:4px;flex-wrap:wrap}
-.navlinks a{font-family:var(--fh);font-weight:700;font-size:12.5px;letter-spacing:0.02em;color:var(--muted);text-decoration:none;padding:7px 12px;border-radius:7px;white-space:nowrap}
-.navlinks a:hover{color:var(--text);background:var(--surface-2)}
-.navlinks a.on{color:#fff;background:var(--blue)}
+.navmenu-wrap{position:relative}
+.navmenu-btn{background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:16px;padding:3px 9px;cursor:pointer;line-height:1.6}
+.navmenu-btn:hover{color:var(--text)}
+.navmenu-dropdown{display:none;position:absolute;top:calc(100% + 6px);left:0;background:#161616;border:1px solid var(--border);border-radius:10px;padding:6px;min-width:180px;flex-direction:column;gap:2px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.navmenu-dropdown.open{display:flex}
+.navmenu-dropdown a{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:var(--muted);text-decoration:none;padding:9px 10px;border-radius:7px;white-space:nowrap}
+.navmenu-dropdown a:hover{color:var(--text);background:var(--surface-2)}
+.navmenu-dropdown a.on{color:#fff;background:var(--blue)}
 .topbar-right{margin-left:auto;font-size:12px;color:var(--faint);text-align:right;line-height:1.4;flex-shrink:0}
 .topbar-right .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:600}
 .topbar-right .live.off{color:var(--red)}
@@ -84,6 +88,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .coverage-detail b{color:var(--text)}
 .coverage-source{font-size:11px;color:var(--faint);text-align:center;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
 .coverage-source b{color:var(--muted)}
+.coverage-source>div+div{margin-top:4px}
 .shiplist{margin-top:12px;font-size:13px}
 .shiprow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border-soft)}
 .shiprow:last-child{border-bottom:none}
@@ -141,15 +146,18 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 <div class="topbar">
   <div class="topbar-inner">
     <div class="logo"><span class="dot"></span>CFM</div>
-    <div class="navlinks">
-      <a href="CFM_R_DZIENNY_V3.html">Raport dzienny · 日报</a>
-      <a href="CFM_dashboard.html" class="on">Dashboard · 仪表盘</a>
-      <a href="CFM_statystyki.html">Statystyki · 统计</a>
-      <a href="CFM_oee.html">OEE · 效率</a>
-      <a href="CFM_premie.html">Premie · 奖金</a>
-      <a href="CFM_plan.html">Plan · 计划</a>
-      <a href="CFM_obsada.html">Obsada · 排班</a>
-      <a href="CFM_inwentarz.html">Inwentarz · 库存</a>
+    <div class="navmenu-wrap">
+      <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
+      <div class="navmenu-dropdown" id="navmenuDropdown">
+      <a href="CFM_dashboard.html" class="on">&#128202; Dashboard · 仪表盘</a>
+      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny · 日报</a>
+      <a href="CFM_statystyki.html">&#128200; Statystyki · 统计</a>
+      <a href="CFM_oee.html">&#9881;&#65039; OEE · 效率</a>
+      <a href="CFM_premie.html">&#128176; Premie · 奖金</a>
+      <a href="CFM_plan.html">&#128197; Plan · 计划</a>
+      <a href="CFM_obsada.html">&#128101; Obsada · 排班</a>
+      <a href="CFM_inwentarz.html">&#128230; Inwentarz · 库存</a>
+      </div>
     </div>
     <div class="topbar-right">
       <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
@@ -600,16 +608,24 @@ function renderShipCoverage() {
   if (!STATE.stockLevel) { el.innerHTML = '<div class="empty">Obliczanie stanu magazynowego... <span class="cn">正在计算库存...</span></div>'; return; }
   var stockToday = STATE.stockLevel.balance;
 
-  // Lista KONKRETNYCH wysylek (dni z plan>0) od jutra w przod, po kolei —
-  // nie kazdy kalendarzowy dzien projekcji, tylko realne pozycje z Planu
+  // Lista KONKRETNYCH wysylek (dni z plan>0) OD DZISIAJ w przod (wlacznie)
+  // — nie kazdy kalendarzowy dzien projekcji, tylko realne pozycje z Planu
   // wysylek, zeby bylo widac ktora konkretnie wysylka jest/nie jest
-  // zapewniona, a nie abstrakcyjna date "zabraknie".
+  // zapewniona, a nie abstrakcyjna date "zabraknie". Dzisiejsza wysylka
+  // liczy sie do pokrycia dopoki faktycznie nie wyjedzie (Wyslano
+  // faktycznie < Plan na dzis) — po jej faktycznym wyslaniu naturalnie
+  // znika z listy, bo remaining spada do 0.
   var todayISO = toISO(new Date());
+  var lastKnownShipDate = null;
   var shipments = [];
   Object.keys(STATE.shippingPlan).forEach(function(mk) {
     Object.keys(STATE.shippingPlan[mk]).forEach(function(d) {
       var qty = Number(STATE.shippingPlan[mk][d]) || 0;
-      if (qty > 0 && d > todayISO) shipments.push({ date: d, qty: qty });
+      if (qty <= 0) return;
+      if (!lastKnownShipDate || d > lastKnownShipDate) lastKnownShipDate = d;
+      if (d < todayISO) return;
+      if (d === todayISO) qty -= shippingActualFor(d);
+      if (qty > 0) shipments.push({ date: d, qty: qty });
     });
   });
   if (!shipments.length) { el.innerHTML = '<div class="empty">Brak Planu wysyłek — wejdź w <b>Plan</b>, żeby go uzupełnić. <span class="cn">尚无发运计划。</span></div>'; return; }
@@ -633,8 +649,11 @@ function renderShipCoverage() {
   if (!ranOut && rows.length > CAP) { remaining = rows.length - CAP; rows = rows.slice(0, CAP); }
 
   var fmtD = function(iso) { var p = iso.split('-'); return p[2] + '/' + p[1]; };
-  var sourceLine = (STATE.shippingPlanMeta && STATE.shippingPlanMeta.filename) ?
-    '<div class="coverage-source">Plan wysyłek z pliku: <b>' + STATE.shippingPlanMeta.filename + '</b> &#183; wgrano ' + fmtD(STATE.shippingPlanMeta.importedAt) + ' <span class="cn">发运计划来自文件 &#183; 上传于' + fmtD(STATE.shippingPlanMeta.importedAt) + '</span></div>' : '';
+  var horizonLine = lastKnownShipDate ?
+    '<div>Plan od klienta sięga do: <b>' + fmtD(lastKnownShipDate) + '</b> <span class="cn">客户计划最远至' + fmtD(lastKnownShipDate) + '</span></div>' : '';
+  var fileLine = (STATE.shippingPlanMeta && STATE.shippingPlanMeta.filename) ?
+    '<div>Plik: <b>' + STATE.shippingPlanMeta.filename + '</b> &#183; wgrano ' + fmtD(STATE.shippingPlanMeta.importedAt) + ' <span class="cn">文件 &#183; 上传于' + fmtD(STATE.shippingPlanMeta.importedAt) + '</span></div>' : '';
+  var sourceLine = (horizonLine || fileLine) ? '<div class="coverage-source">' + horizonLine + fileLine + '</div>' : '';
 
   var listHtml = '<div class="shiplist">' + rows.map(function(r) {
     if (r.ok) return '<div class="shiprow ok"><span class="d">' + fmtD(r.date) + '</span><span class="q">' + fmt(r.qty) + ' szt.</span><span class="status">OK</span></div>';
@@ -694,6 +713,14 @@ function tickActiveClocks() {
 }
 
 init();
+
+function toggleNavMenu() {
+  document.getElementById('navmenuDropdown').classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  var wrap = document.querySelector('.navmenu-wrap');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('navmenuDropdown').classList.remove('open');
+});
 </script>
 </body>
 </html>

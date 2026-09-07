@@ -134,6 +134,14 @@ tbody tr.grouphead td{padding-top:16px}
 .barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
 .barrow-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);white-space:nowrap}
 .barrow-pct b{font-family:var(--fh);font-size:12.5px;font-weight:800}
+.zonerow{margin-bottom:9px}
+.zonerow:last-child{margin-bottom:0}
+.zonerow-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}
+.zonerow-lbl{font-family:var(--fh);font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zonerow-pct{font-family:var(--fh);font-weight:800;font-size:12.5px;flex-shrink:0}
+.zonerow-track{height:4px;border-radius:2px;background:var(--border-soft);overflow:hidden}
+.zonerow-fill{height:100%;border-radius:2px}
+.zonerow-sub{font-size:10.5px;color:var(--faint);margin-top:3px}
 .wtinput{box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:10.5px;text-align:center;padding:5px 1px}
 .wtinput:focus{outline:none;border-color:var(--blue)}
 .wtinput::placeholder{color:var(--faint);font-weight:600}
@@ -1184,13 +1192,17 @@ function renderReworkBalance(days) {
     var z = byZone[r.zone];
     z.processed += r.processed; z.recovered += r.recovered; z.finalScrap += r.final_scrap;
   });
+  // Zonerow zamiast barrow: "odzysk N/N · złom N" nie miescilo sie w
+  // waskiej (84px) kolumnie na wartosc na telefonie. Etykieta+procent w
+  // jednej linii, cienki pasek pod spodem, szczegoly jako osobna linijka
+  // ponizej — kazda linia ma pelna szerokosc karty, wiec nic sie nie zawija.
   el.innerHTML = order.map(function(key) {
     var z = byZone[key];
     var pct = z.processed > 0 ? Math.round((z.recovered / z.processed) * 100) : 0;
     var color = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--orange)' : 'var(--red)';
-    return '<div class="barrow"><div class="barrow-lbl">' + z.label + '</div>' +
-      '<div class="bartrack"><div class="barfill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div>' +
-      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;odzysk ' + fmt(z.recovered) + '/' + fmt(z.processed) + ' &#183; złom ' + fmt(z.finalScrap) + '</div></div>';
+    return '<div class="zonerow"><div class="zonerow-top"><span class="zonerow-lbl">' + z.label + '</span><span class="zonerow-pct" style="color:' + color + '">' + pct + '%</span></div>' +
+      '<div class="zonerow-track"><div class="zonerow-fill" style="background:' + color + ';width:' + Math.max(Math.min(pct, 100), 4) + '%"></div></div>' +
+      '<div class="zonerow-sub">odzysk ' + fmt(z.recovered) + '/' + fmt(z.processed) + ' &#183; złom ' + fmt(z.finalScrap) + '</div></div>';
   }).join('');
 }
 

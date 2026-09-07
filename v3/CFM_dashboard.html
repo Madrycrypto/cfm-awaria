@@ -186,7 +186,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined, godzStation: localStorage.getItem('cfm_dash_godz_station') || null, godzRows: null, weekOffset: 0 };
+var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined, godzStation: localStorage.getItem('cfm_dash_godz_station') || null, godzRows: null, weekOffset: 0, reworkTodayRows: null };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -223,15 +223,15 @@ function loadSettings() {
 }
 
 function init() {
-  loadSettings().then(function() { loadData(); loadStockLevel(); loadGodzinny(); });
+  loadSettings().then(function() { loadData(); loadStockLevel(); loadGodzinny(); loadReworkToday(); });
 
   // Przegladana MOZE nie byc biezacym tygodniem (patrz prevWeek/nextWeek) —
   // dane historycznego tygodnia nie zmienia sie w kolko, wiec cykliczne
-  // odswiezanie STATYSTYKI ma sens tylko dla biezacego. Stan magazynowy i
-  // Raport godzinny dotycza zawsze "dzis", niezaleznie ktory tydzien jest
-  // akurat przegladany na wykresach ponizej.
-  setInterval(function() { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); }); }, 45000);
-  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); }); loadActiveAwarie(); } });
+  // odswiezanie STATYSTYKI ma sens tylko dla biezacego. Stan magazynowy,
+  // Raport godzinny i Rework dzisiaj dotycza zawsze "dzis", niezaleznie
+  // ktory tydzien jest akurat przegladany na wykresach ponizej.
+  setInterval(function() { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); loadReworkToday(); }); }, 45000);
+  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); loadReworkToday(); }); loadActiveAwarie(); } });
 
   // Aktywne awarie — pytamy serwer czesciej niz reszte danych (co 15s, nie
   // co 45s), bo "czy cos jest TERAZ zepsute" jest bardziej pilne niz reszta
@@ -409,6 +409,9 @@ function render(days) {
       '<div class="card"><h2>Awarie wg stanowiska <span class="cn">故障 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
     '</div>' +
     '<div class="chartsgrid-full">' +
+      '<div class="card"><h2>Rework &#183; dziś <span class="cn">返修处理&#183;今日</span></h2><div id="reworkTodayCard"></div></div>' +
+    '</div>' +
+    '<div class="chartsgrid-full">' +
       '<div class="card"><div class="card-head"><h2>Raport godzinny &#183; dziś <span class="cn">小时报表&#183;今日</span></h2>' +
         '<select class="card-select" id="godzStationSel" onchange="onGodzStationChange()"></select></div>' +
         '<div id="godzBars"></div></div>' +
@@ -424,6 +427,7 @@ function render(days) {
   renderShipCoverage();
   renderAwarieBanner();
   renderGodzinnyCard();
+  renderReworkTodayCard();
 }
 
 function isoWeekNumber(dateIso) {
@@ -626,6 +630,54 @@ function renderGodzinnyCard() {
   }).join('');
 
   bars.innerHTML = summaryHtml + windowsHtml;
+}
+
+// Rework "dzisiaj" — CELOWO osobny, jednodniowy fetch (nie STATE.reworkRows
+// z loadData, ktory jest scopowany do przegladanego TYGODNIA, patrz
+// prevWeek/nextWeek) — przetworzenie reworku to czynnosc "co dzis
+// faktycznie zlomowano/odzyskano", sensowna do ogladania zawsze na
+// biezaco, niezaleznie ktory tydzien jest akurat wybrany na wykresach
+// ponizej (tak samo jak Stan magazynowy i Raport godzinny).
+function loadReworkToday() {
+  var wh = getWH();
+  var todayISO = toISO(new Date());
+  fetch(wh + '?event_type=STATYSTYKI&start=' + todayISO + '&end=' + todayISO)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') return;
+      STATE.reworkTodayRows = data.rework_historia || [];
+      renderReworkTodayCard();
+    })
+    .catch(function() {});
+}
+function renderReworkTodayCard() {
+  var el = document.getElementById('reworkTodayCard');
+  if (!el) return;
+  if (STATE.reworkTodayRows === null) { el.innerHTML = '<div class="empty">Wczytywanie... <span class="cn">加载中...</span></div>'; return; }
+  var rows = STATE.reworkTodayRows;
+  if (!rows.length) { el.innerHTML = '<div class="empty">Dziś nie przetworzono jeszcze żadnego reworku. <span class="cn">今日尚未处理任何返修。</span></div>'; return; }
+
+  var byZone = {}, order = [];
+  var sumProcessed = 0, sumRecovered = 0, sumScrap = 0;
+  rows.forEach(function(r) {
+    if (!byZone[r.zone]) { byZone[r.zone] = { label: r.zone_label || r.zone, processed: 0, recovered: 0, finalScrap: 0 }; order.push(r.zone); }
+    var z = byZone[r.zone];
+    z.processed += r.processed; z.recovered += r.recovered; z.finalScrap += r.final_scrap;
+    sumProcessed += r.processed; sumRecovered += r.recovered; sumScrap += r.final_scrap;
+  });
+
+  var summaryHtml = '<div class="godz-summary"><div>Przetworzono <span class="cn">已处理</span><b>' + fmt(sumProcessed) + '</b> szt.</div>' +
+    '<div>Odzyskano <span class="cn">已修复</span><b style="color:var(--green)">' + fmt(sumRecovered) + '</b></div>' +
+    '<div>Złom <span class="cn">报废</span><b' + (sumScrap > 0 ? ' style="color:var(--red)"' : '') + '>' + fmt(sumScrap) + '</b></div></div>';
+
+  var zoneRowsHtml = order.map(function(key) {
+    var z = byZone[key];
+    var pct = z.processed > 0 ? Math.round((z.recovered / z.processed) * 100) : 0;
+    var color = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--orange)' : 'var(--red)';
+    return '<div class="hbar-row"><div class="hbar-lbl">' + z.label + '</div><div class="hbar-track"><div class="hbar-fill" style="background:' + color + ';width:' + Math.max(pct, 4) + '%"></div></div><div class="hbar-val">odzysk ' + fmt(z.recovered) + '/' + fmt(z.processed) + ' &#183; złom ' + fmt(z.finalScrap) + '</div></div>';
+  }).join('');
+
+  el.innerHTML = summaryHtml + zoneRowsHtml;
 }
 
 function shippingActualFor(dateIso) {

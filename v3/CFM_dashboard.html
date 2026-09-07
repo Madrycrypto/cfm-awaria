@@ -98,6 +98,10 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
 .card h2{font-family:var(--fh);font-weight:700;font-size:17px;margin-bottom:14px}
 .card h2 .cn{font-family:var(--fc);font-size:12.5px;font-weight:500;margin-left:6px;color:var(--faint)}
+.card-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.card-head h2{margin-bottom:0}
+.card-select{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--fb);font-weight:600;font-size:13px;padding:7px 10px;outline:none}
+.chartsgrid-full{margin-bottom:22px}
 
 .donutwrap{display:flex;align-items:center;gap:22px;flex-wrap:wrap;justify-content:center}
 .donutcenter{font-family:var(--fh)}
@@ -162,7 +166,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined };
+var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined, godzStation: localStorage.getItem('cfm_dash_godz_station') || null, godzRows: null };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -199,10 +203,10 @@ function loadSettings() {
 }
 
 function init() {
-  loadSettings().then(function() { loadData(); loadStockLevel(); });
+  loadSettings().then(function() { loadData(); loadStockLevel(); loadGodzinny(); });
 
-  setInterval(function() { loadSettings().then(function() { loadData(true); loadStockLevel(); }); }, 45000);
-  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadSettings().then(function() { loadData(true); loadStockLevel(); }); loadActiveAwarie(); } });
+  setInterval(function() { loadSettings().then(function() { loadData(true); loadStockLevel(); loadGodzinny(); }); }, 45000);
+  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadSettings().then(function() { loadData(true); loadStockLevel(); loadGodzinny(); }); loadActiveAwarie(); } });
 
   // Aktywne awarie — pytamy serwer czesciej niz reszte danych (co 15s, nie
   // co 45s), bo "czy cos jest TERAZ zepsute" jest bardziej pilne niz reszta
@@ -370,6 +374,11 @@ function render(days) {
       '<div class="card"><h2>Jakość (GP12) <span class="cn">质量</span></h2><div id="qualityDonut"></div></div>' +
       '<div class="card"><h2>Awarie wg stanowiska <span class="cn">故障 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
     '</div>' +
+    '<div class="chartsgrid-full">' +
+      '<div class="card"><div class="card-head"><h2>Raport godzinny &#183; dziś <span class="cn">小时报表&#183;今日</span></h2>' +
+        '<select class="card-select" id="godzStationSel" onchange="onGodzStationChange()"></select></div>' +
+        '<div id="godzBars"></div></div>' +
+    '</div>' +
     '<div class="chartsgrid2">' +
       '<div class="card"><h2>Wykonanie planu &#183; dzień po dniu (GP12) <span class="cn">计划完成率 &#183; 逐日</span></h2><div id="dailyPlanBars"></div></div>' +
       '<div class="card"><h2>Zasięg wysyłek <span class="cn">发运覆盖天数</span></h2><div id="shipCoverage"></div></div>' +
@@ -380,6 +389,7 @@ function render(days) {
   renderDailyPlanBars(days);
   renderShipCoverage();
   renderAwarieBanner();
+  renderGodzinnyCard();
 }
 
 function isoWeekNumber(dateIso) {
@@ -489,6 +499,54 @@ function renderDailyPlanBars(days) {
     return '<div class="dailybar-row"><div class="dailybar-lbl" style="' + (d === todayISO ? 'color:var(--blue-soft)' : '') + '">' + label + '</div><div class="dailybar-track"><div class="dailybar-fill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div><div class="dailybar-val" style="color:' + color + '">' + pct + '%</div></div>';
   }).join('');
   el.innerHTML = any ? rowsHtml : '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
+}
+
+// Raport godzinny — jedyne miejsce z faktyczna godzina (RaportGodzinny to
+// osobny arkusz od STATYSTYKI, patrz CFM_state_webhook.gs), wiec osobny
+// fetch. HISTORIA_GODZINNA nie ma zakresu dat (tylko jeden dzien), a i tak
+// to WLASNIE dzisiejsza, na-biezaco zmiana ma tu sens ogladac na
+// dashboardzie — pobieramy WSZYSTKIE stanowiska naraz (bez filtra
+// stanowisko), zeby przelaczanie stacji w selektorze nie robilo kolejnego
+// fetcha za kazdym razem.
+var HOUR_ORDER = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5];
+function loadGodzinny() {
+  var wh = getWH();
+  var todayISO = toISO(new Date());
+  fetch(wh + '?event_type=HISTORIA_GODZINNA&date=' + todayISO)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') return;
+      STATE.godzRows = data.historia || [];
+      renderGodzinnyCard();
+    })
+    .catch(function() {});
+}
+function onGodzStationChange() {
+  STATE.godzStation = document.getElementById('godzStationSel').value;
+  localStorage.setItem('cfm_dash_godz_station', STATE.godzStation);
+  renderGodzinnyCard();
+}
+function renderGodzinnyCard() {
+  var sel = document.getElementById('godzStationSel');
+  var bars = document.getElementById('godzBars');
+  if (!sel || !bars) return;
+  if (!STATE.stations.length) { bars.innerHTML = '<div class="empty">Brak skonfigurowanych stanowisk. <span class="cn">未配置工位。</span></div>'; return; }
+  if (!STATE.godzStation || STATE.stations.indexOf(STATE.godzStation) < 0) STATE.godzStation = STATE.stations.indexOf('GP12') >= 0 ? 'GP12' : STATE.stations[0];
+  sel.innerHTML = STATE.stations.map(function(st) { return '<option value="' + st + '"' + (st === STATE.godzStation ? ' selected' : '') + '>' + st + '</option>'; }).join('');
+
+  if (STATE.godzRows === null) { bars.innerHTML = '<div class="empty">Wczytywanie... <span class="cn">加载中...</span></div>'; return; }
+  var rows = STATE.godzRows.filter(function(r) { return r.station === STATE.godzStation; });
+  if (!rows.length) { bars.innerHTML = '<div class="empty">Brak wpisów godzinowych dziś dla tego stanowiska. <span class="cn">今日该工位尚无小时记录。</span></div>'; return; }
+  var byHour = {};
+  rows.forEach(function(r) { var h = Number(r.godzina); byHour[h] = (byHour[h] || 0) + (Number(r.qty) || 0); });
+  var present = HOUR_ORDER.filter(function(h) { return byHour[h] !== undefined; });
+  var maxQty = Math.max.apply(null, present.map(function(h) { return byHour[h]; }));
+  bars.innerHTML = present.map(function(h) {
+    var qty = byHour[h];
+    var pct = maxQty > 0 ? Math.round((qty / maxQty) * 100) : 0;
+    var hLabel = pad(h) + ':00-' + pad((h + 1) % 24) + ':00';
+    return '<div class="hbar-row"><div class="hbar-lbl">' + hLabel + '</div><div class="hbar-track"><div class="hbar-fill" style="background:var(--blue);width:' + Math.max(pct, 4) + '%"></div></div><div class="hbar-val">' + fmt(qty) + ' szt.</div></div>';
+  }).join('');
 }
 
 function shippingActualFor(dateIso) {

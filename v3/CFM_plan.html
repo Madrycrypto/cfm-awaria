@@ -186,7 +186,7 @@ var WD = ['pn','wt','śr','cz','pt','so','nd'];
 var STATE = {
   viewMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   stations: [], shiftLabels: ['A', 'B', 'C'], targets: {}, plan: {},
-  shippingPlan: {}, shippingActual: {}, dirty: false
+  shippingPlan: {}, shippingActual: {}, shippingPlanMeta: {}, dirty: false
 };
 
 // applySaveButtonState maluje przycisk wg AKTUALNEGO STATE.dirty,
@@ -213,6 +213,7 @@ window.addEventListener('beforeunload', function(e) {
 function pad(n) { return String(n).padStart(2, '0'); }
 function monthKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
 function dateISO(y, m, day) { return y + '-' + pad(m + 1) + '-' + pad(day); }
+function fmtDDMM(iso) { if (!iso) return '&#8212;'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
 function daysInMonth(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
 function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
 
@@ -246,6 +247,7 @@ function init() {
       try { STATE.plan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.plan = {}; }
       try { STATE.shippingPlan = JSON.parse(u.cfm_shipping_plan || '{}'); } catch (e) { STATE.shippingPlan = {}; }
       try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
+      try { STATE.shippingPlanMeta = JSON.parse(u.cfm_shipping_plan_meta || '{}'); } catch (e) { STATE.shippingPlanMeta = {}; }
       if (!STATE.stations.length) { showConnError('Brak skonfigurowanych stanowisk · 未配置工位'); return; }
       liveEl.className = 'live';
       liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
@@ -359,6 +361,8 @@ function render() {
       '<label class="btn-mini copy" style="display:inline-flex;align-items:center;cursor:pointer">Wgraj Excel od klienta<small>上传客户Excel文件</small><input type="file" id="shipExcelInput" accept=".xlsx,.xls" style="display:none"></label>' +
       '<span class="excelimport-hint">Wczytam plik, porównam z aktualnym planem wysyłek i pokażę różnice do zatwierdzenia — nic nie zapisze się automatycznie.<span class="cn">读取文件后与当前发运计划比较，显示差异供确认 — 不会自动保存。</span></span>' +
     '</div>' +
+    (STATE.shippingPlanMeta && STATE.shippingPlanMeta.filename ?
+      '<div class="excelimport-hint" style="margin-top:6px">Ostatni wgrany plik: <b>' + STATE.shippingPlanMeta.filename + '</b> &#183; wgrano ' + fmtDDMM(STATE.shippingPlanMeta.importedAt) + ' <span class="cn">最近上传文件 &#183; 上传于' + fmtDDMM(STATE.shippingPlanMeta.importedAt) + '</span></div>' : '') +
     '<div id="shipDiffPanel"></div>' +
     renderShippingRow('plan', 'Plan wysyłek', '发运计划', y, m, nDays, STATE.shippingPlan[mk] || {}) +
     renderShippingRow('actual', 'Wysłano (faktycznie)', '实际发货数量', y, m, nDays, STATE.shippingActual[mk] || {}) +
@@ -679,6 +683,7 @@ function parseShippingExcelFromAOA(rows) {
   return result;
 }
 
+var pendingShipPlanFilename = null;
 function handleShipExcelFile(file) {
   if (typeof XLSX === 'undefined') { showToast('Biblioteka do czytania Excela nie wczytała się — sprawdź połączenie internetowe i odśwież stronę · Excel读取库未加载', 'err'); return; }
   var reader = new FileReader();
@@ -691,6 +696,7 @@ function handleShipExcelFile(file) {
       newPlan = parseShippingExcelFromAOA(aoa);
     }
     if (!newPlan || !Object.keys(newPlan).length) { showToast('Nie rozpoznano układu pliku (brak "Ship Date"/"UoM") · 无法识别文件格式', 'err'); return; }
+    pendingShipPlanFilename = file.name;
     showShipDiff(newPlan);
   };
   reader.readAsArrayBuffer(file);
@@ -743,7 +749,9 @@ function approveShipDiff() {
     if (!STATE.shippingPlan[mk]) STATE.shippingPlan[mk] = {};
     Object.keys(pendingShipPlan[mk]).forEach(function(iso) { STATE.shippingPlan[mk][iso] = pendingShipPlan[mk][iso]; });
   });
+  if (pendingShipPlanFilename) STATE.shippingPlanMeta = { filename: pendingShipPlanFilename, importedAt: isoFromDateObj(new Date()) };
   pendingShipPlan = null;
+  pendingShipPlanFilename = null;
   document.getElementById('shipDiffPanel').innerHTML = '';
   markDirty();
   render();
@@ -751,6 +759,7 @@ function approveShipDiff() {
 }
 function cancelShipDiff() {
   pendingShipPlan = null;
+  pendingShipPlanFilename = null;
   document.getElementById('shipDiffPanel').innerHTML = '';
 }
 
@@ -786,13 +795,15 @@ function savePlan() {
   localStorage.setItem('cfm_monthly_plan', JSON.stringify(STATE.plan));
   localStorage.setItem('cfm_shipping_plan', JSON.stringify(STATE.shippingPlan));
   localStorage.setItem('cfm_shipping_actual', JSON.stringify(STATE.shippingActual));
+  localStorage.setItem('cfm_shipping_plan_meta', JSON.stringify(STATE.shippingPlanMeta));
   clearDirty();
 
   var wh = getWH();
   Promise.all([
     fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_monthly_plan', wartosc: JSON.stringify(STATE.plan) }) }),
     fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_plan', wartosc: JSON.stringify(STATE.shippingPlan) }) }),
-    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_actual', wartosc: JSON.stringify(STATE.shippingActual) }) })
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_actual', wartosc: JSON.stringify(STATE.shippingActual) }) }),
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_plan_meta', wartosc: JSON.stringify(STATE.shippingPlanMeta) }) })
   ]).then(function() {
     showToast('Plan zapisany! · 计划已保存!', 'ok');
   }).catch(function() {

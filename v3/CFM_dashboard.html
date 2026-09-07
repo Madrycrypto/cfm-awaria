@@ -75,7 +75,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 
 .chartsgrid{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;margin-bottom:22px}
 .chartsgrid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
-.dailybar-row{display:grid;grid-template-columns:56px 1fr 44px;align-items:center;gap:8px;margin-bottom:8px}
+.dailybar-row{display:grid;grid-template-columns:56px 1fr 44px;align-items:center;gap:8px;margin-bottom:8px;max-width:420px}
 .dailybar-row:last-child{margin-bottom:0}
 .dailybar-lbl{font-family:var(--fh);font-weight:700;font-size:12px;color:var(--muted)}
 .dailybar-track{height:12px;border-radius:4px;background:var(--border-soft);overflow:hidden}
@@ -106,7 +106,6 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .card-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px}
 .card-head h2{margin-bottom:0}
 .card-select{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--fb);font-weight:600;font-size:13px;padding:7px 10px;outline:none}
-.chartsgrid-full{margin-bottom:22px}
 .weeknav{display:flex;align-items:center;gap:12px;margin-bottom:18px}
 .weeknav button{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:16px;padding:6px 14px;cursor:pointer;font-family:var(--fh);font-weight:700;line-height:1.4}
 .weeknav button:hover:not(:disabled){color:var(--text);background:var(--surface-2)}
@@ -119,7 +118,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .godz-summary{display:flex;gap:24px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border)}
 .godz-summary div{font-size:12px;color:var(--muted)}
 .godz-summary b{display:block;font-family:var(--fh);font-weight:800;font-size:26px;color:var(--text);margin-top:4px}
-.zonerow{margin-bottom:9px}
+.zonerow{margin-bottom:9px;max-width:420px}
 .zonerow:last-child{margin-bottom:0}
 .zonerow-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}
 .zonerow-lbl{font-family:var(--fh);font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -137,7 +136,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .donutlegend .sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
 .donutlegend b{font-family:var(--fh);font-size:14px;margin-left:auto;padding-left:14px;font-variant-numeric:tabular-nums}
 
-.hbar-row{display:grid;grid-template-columns:84px 1fr 90px;align-items:center;gap:10px;margin-bottom:10px}
+.hbar-row{display:grid;grid-template-columns:84px 1fr 90px;align-items:center;gap:10px;margin-bottom:10px;max-width:440px}
 .hbar-row:last-child{margin-bottom:0}
 .hbar-lbl{font-family:var(--fh);font-weight:700;font-size:13px}
 .hbar-track{height:14px;border-radius:4px;background:var(--border-soft);overflow:hidden}
@@ -416,10 +415,8 @@ function render(days) {
       '<div class="card"><h2>Jakość (GP12) <span class="cn">质量</span></h2><div id="qualityDonut"></div></div>' +
       '<div class="card"><h2>Awarie wg stanowiska <span class="cn">故障 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
     '</div>' +
-    '<div class="chartsgrid-full">' +
+    '<div class="chartsgrid2">' +
       '<div class="card"><h2>Rework &#183; dziś <span class="cn">返修处理&#183;今日</span></h2><div id="reworkTodayCard"></div></div>' +
-    '</div>' +
-    '<div class="chartsgrid-full">' +
       '<div class="card"><div class="card-head"><h2>Raport godzinny &#183; dziś <span class="cn">小时报表&#183;今日</span></h2>' +
         '<select class="card-select" id="godzStationSel" onchange="onGodzStationChange()"></select></div>' +
         '<div id="godzBars"></div></div>' +

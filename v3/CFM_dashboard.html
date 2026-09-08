@@ -103,6 +103,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
 .card h2{font-family:var(--fh);font-weight:700;font-size:17px;margin-bottom:14px}
 .card h2 .cn{font-family:var(--fc);font-size:12.5px;font-weight:500;margin-left:6px;color:var(--faint)}
+.card h2 .datebadge{font-family:var(--fb);font-size:11.5px;font-weight:600;color:var(--muted);margin-left:8px}
 .card-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px}
 .card-head h2{margin-bottom:0}
 .card-select{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--fb);font-weight:600;font-size:13px;padding:7px 10px;outline:none}
@@ -413,7 +414,7 @@ function render(days) {
     '</div>' +
     '<div class="chartsgrid">' +
       '<div class="card"><h2>Jakość (GP12) <span class="cn">质量</span></h2><div id="qualityDonut"></div></div>' +
-      '<div class="card"><h2>Awarie wg stanowiska <span class="cn">故障 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
+      '<div class="card"><h2>Awarie wg stanowiska <span class="datebadge">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + '</span><span class="cn">故障 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
     '</div>' +
     '<div class="chartsgrid2">' +
       '<div class="card"><h2>Rework &#183; dziś <span class="cn">返修处理&#183;今日</span></h2><div id="reworkTodayCard"></div></div>' +

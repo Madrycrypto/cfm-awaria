@@ -1032,7 +1032,14 @@ function barsHtml(groups, days) {
   var order = [];
   groups.forEach(function(g) {
     if (!byStation[g.station]) { byStation[g.station] = { actual: 0, plan: 0 }; order.push(g.station); }
-    Object.keys(g.byDate).forEach(function(d) { byStation[g.station].actual += g.byDate[d].qty; });
+    // Filtrowanie po "days" jest tu KONIECZNE, nie kosmetyczne — Bilans
+    // miesieczny dostaje "groups" zbudowane z CALEGO STATE.rows (pelny
+    // zakres pobranych tygodni, ktory na brzegach miesiaca wystaje poza
+    // jego granice, patrz komentarz przy loadMonth), wiec bez tego filtra
+    // "actual" liczylby tez kilka dni z sasiedniego miesiaca — a to
+    // dokladnie ten sam mianownik, ktorego uzywa teraz tez stosunek do
+    // GP12 (gp12Actual), wiec musi byc scisle ograniczony do "days".
+    Object.keys(g.byDate).forEach(function(d) { if ((days || []).indexOf(d) < 0) return; byStation[g.station].actual += g.byDate[d].qty; });
     // Doliczamy plan (wlacznie z fallbackiem Cele x dni robocze) TYLKO
     // jesli ta zmiana ma jakikolwiek slad — raport w tym okresie LUB
     // jawny wpis w Planie. Bez tego zmiany, ktore dla danego stanowiska

@@ -127,6 +127,12 @@ tbody tr.grouphead td{padding-top:16px}
 .weekblock:last-child{margin-bottom:0}
 .weekblock-head{font-family:var(--fh);font-weight:700;font-size:12px;color:var(--muted);margin-bottom:6px;padding-left:2px}
 .weekblock .barsgrid{padding:10px 12px;gap:6px}
+/* Bilans tygodniowy — kilka tygodni obok siebie zamiast jeden pod drugim,
+   zeby porownac je bez przewijania. 3 na raz to tyle, ile mieszczy sie
+   czytelnie z paskami ograniczonymi do 420px (patrz .barrow max-width) —
+   na wezszych ekranach spada do 1 kolumny (patrz media query nizej). */
+.weekgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.weekgrid .weekblock{margin-bottom:0}
 .barrow{display:grid;grid-template-columns:64px 1fr 84px;align-items:center;gap:8px;max-width:420px}
 #shiftComparison .barrow{grid-template-columns:96px 1fr 110px}
 .barrow-lbl{font-family:var(--fh);font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -171,9 +177,13 @@ tbody tr.grouphead td{padding-top:16px}
 .empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
 .empty a{color:var(--blue-soft)}
 
+@media (max-width:1100px){
+  .weekgrid{grid-template-columns:repeat(2,1fr)}
+}
 @media (max-width:760px){
   .kpis{grid-template-columns:repeat(2,1fr)}
   h1{font-size:24px}
+  .weekgrid{grid-template-columns:1fr}
   .barrow{grid-template-columns:52px 1fr 70px;gap:6px}
   #shiftComparison .barrow{grid-template-columns:74px 1fr 90px}
   #shiftComparison .barrow-pct{white-space:normal;line-height:1.5}
@@ -1060,10 +1070,10 @@ function renderBars(groups) {
 function renderWeeklyBalance() {
   var el = document.getElementById('weeklyBalance');
   if (!STATE.weeks.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
-  el.innerHTML = STATE.weeks.map(function(w) {
+  el.innerHTML = '<div class="weekgrid">' + STATE.weeks.map(function(w) {
     var weekGroups = buildGroups(STATE.rows.filter(function(r) { return r.date >= w.start && r.date <= w.end; }));
     return '<div class="weekblock"><div class="weekblock-head">' + fmtWeekRange(w) + '</div><div class="barsgrid">' + barsHtml(weekGroups, w.days) + '</div></div>';
-  }).join('');
+  }).join('') + '</div>';
 }
 
 // Siatka stanowisko x zmiana dla POJEDYNCZEGO dnia — stanowiska jako

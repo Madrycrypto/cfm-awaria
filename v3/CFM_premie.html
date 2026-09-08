@@ -117,9 +117,40 @@ table.results tbody tr:last-child td{border-bottom:none}
 .techbtn:active{transform:scale(0.95)}
 
 .empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
+
+/* Brama PINem — te 4 strony (Premie, Plan, Obsada, Inwentarz) sa mniej
+   zaufane niz Raport dzienny (dane place/kadrowe/magazynowe), wiec
+   wymagaja tego samego PIN-u co Panel Admina (localStorage cfm_pin,
+   domyslnie 1234, zmienialny w Panelu Admina w Raporcie dziennym).
+   Overlay jest WIDOCZNY DOMYSLNIE (nie odwrotnie jak w Panelu Admina) —
+   zeby nie bylo widac tresci strony nawet na uamek sekundy zanim JS
+   zdazy go pokazac. sessionStorage (nie localStorage) — odblokowanie
+   trzyma sie tylko do zamkniecia karty/przegladarki, nie na stale. */
+.pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:500;display:flex;align-items:center;justify-content:center}
+.pin-overlay.hidden{display:none}
+.pin-dialog{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 22px;width:300px;max-width:90vw;text-align:center}
+.pin-dialog-title{font-family:var(--fh);font-size:22px;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px}
+.pin-dialog-sub{font-size:12px;color:var(--muted);margin-bottom:18px;font-family:var(--fb)}
+.pin-dialog-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fh);font-size:28px;letter-spacing:0.25em;text-align:center;padding:14px;margin-bottom:14px}
+.pin-dialog-err{display:none;color:var(--red);font-size:12px;margin-bottom:10px}
+.pin-dialog-ok{width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:18px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;padding:13px;cursor:pointer}
+.pin-dialog-back{display:block;margin-top:14px;font-size:12px;color:var(--muted);text-decoration:none}
+.pin-dialog-back:hover{color:var(--text)}
 </style>
 </head>
 <body>
+<div class="pin-overlay" id="pinGateOverlay">
+  <div class="pin-dialog">
+    <div class="pin-dialog-title">&#128274; DOSTĘP</div>
+    <div class="pin-dialog-sub">Podaj PIN, żeby wejść &#183; 请输入PIN进入</div>
+    <input class="pin-dialog-input" type="password" id="pinGateInput" placeholder="&#8226;&#8226;&#8226;&#8226;" maxlength="8" onkeydown="if(event.key==='Enter')pinGateConfirm()">
+    <div class="pin-dialog-err" id="pinGateErr">Błędny PIN &#183; PIN错误</div>
+    <button class="pin-dialog-ok" onclick="pinGateConfirm()">WEJDŹ &#183; 进入</button>
+    <a href="CFM_R_DZIENNY_V3.html" class="pin-dialog-back">&#8592; Wróć do Raportu dziennego &#183; 返回日报</a>
+  </div>
+</div>
+<script>if(sessionStorage.getItem('cfm_page_unlocked')==='1'){document.getElementById('pinGateOverlay').classList.add('hidden');}</script>
+
 
 <div class="topbar">
   <div class="topbar-inner">
@@ -594,7 +625,19 @@ function exportToExcel() {
   URL.revokeObjectURL(a.href);
 }
 
-init();
+function pinGateConfirm() {
+  var p = document.getElementById('pinGateInput').value;
+  var sp = localStorage.getItem('cfm_pin') || '1234';
+  var err = document.getElementById('pinGateErr');
+  if (p !== sp) { err.style.display = 'block'; document.getElementById('pinGateInput').value = ''; return; }
+  err.style.display = 'none';
+  sessionStorage.setItem('cfm_page_unlocked', '1');
+  document.getElementById('pinGateOverlay').classList.add('hidden');
+  init();
+}
+
+if (sessionStorage.getItem('cfm_page_unlocked') === '1') { init(); }
+else { setTimeout(function() { var el = document.getElementById('pinGateInput'); if (el) el.focus(); }, 100); }
 
 function toggleNavMenu() {
   document.getElementById('navmenuDropdown').classList.toggle('open');

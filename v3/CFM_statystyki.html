@@ -69,12 +69,13 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .reasonbtn:hover{color:var(--text);border-color:var(--faint)}
 .reasonbox{display:none;margin-top:8px;flex-wrap:wrap;gap:6px}
 .reasonbox.open{display:flex}
-.reason-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--text);white-space:normal}
+.reason-chip{display:inline-flex;flex-direction:column;gap:1px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 9px;font-size:10px;color:var(--text);white-space:normal;max-width:280px}
 .reason-chip b{font-family:var(--fh);color:var(--blue-soft)}
 .reason-chip.scrap b{color:#ff7070}
 .reason-chip.rework b{color:#f0a030}
 .reason-chip.off{color:var(--faint)}
 .reason-chip.awaria b{color:var(--red)}
+.reason-chip .cn-line{font-family:var(--fc);color:var(--faint);font-size:9px}
 
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
@@ -88,6 +89,9 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .kpi-inv b{font-family:var(--fh);font-size:15px}
 
 .section{margin-bottom:30px}
+.twosectiongrid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.twosectiongrid .section{margin-bottom:0}
+@media (max-width:860px){.twosectiongrid{grid-template-columns:1fr;gap:30px}}
 .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;gap:12px;flex-wrap:wrap}
 .section-head h2{font-family:var(--fh);font-weight:700;font-size:19px;letter-spacing:0.2px}
 .section-head h2 .cn{font-family:var(--fc);font-size:13px;font-weight:500;margin-left:6px}
@@ -145,8 +149,8 @@ tbody tr.grouphead td{padding-top:16px}
 .zonerow-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}
 .zonerow-lbl{font-family:var(--fh);font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .zonerow-pct{font-family:var(--fh);font-weight:800;font-size:12.5px;flex-shrink:0}
-.zonerow-track{height:4px;border-radius:2px;background:var(--border-soft);overflow:hidden}
-.zonerow-fill{height:100%;border-radius:2px}
+.zonerow-track{height:11px;border-radius:5px;background:var(--border-soft);overflow:hidden}
+.zonerow-fill{height:100%;border-radius:5px}
 .zonerow-sub{font-size:10.5px;color:var(--faint);margin-top:3px}
 .wtinput{box-sizing:border-box;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:10.5px;text-align:center;padding:5px 1px}
 .wtinput:focus{outline:none;border-color:var(--blue)}
@@ -460,6 +464,7 @@ function pctClass(p) { if (p === null) return 'off'; if (p >= 95) return 'good';
 // odcienia dla ">=110%", zeby nie mnozyc kolorow bez potrzeby.
 function pctColor4(p) { return p === null ? 'var(--faint)' : p >= 95 ? 'var(--green)' : p >= 80 ? 'var(--orange)' : 'var(--red)'; }
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
+function escapeHtml_(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
 function monthDays(monthDate) {
   var r = monthRange(monthDate);
@@ -513,14 +518,20 @@ function awarieChipsHtml(entries, showDate) {
   return entries.map(function(a) {
     var dateLbl = '';
     if (showDate && a.date) { var dd = a.date.split('-'); dateLbl = dd[2] + '/' + dd[1] + ' &#183; '; }
-    return '<span class="reason-chip awaria">' + dateLbl + '<b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>';
+    var cnLine = a.type_cn ? '<span class="cn-line">' + a.type_cn + '</span>' : '';
+    return '<span class="reason-chip awaria"><span>' + dateLbl + '<b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>' + cnLine + '</span>';
   }).join('');
 }
 // Zwykly tekst (nie HTML) do atrybutu title — natywny tooltip przegladarki
 // pokazuje sie juz na SAM HOVER, bez klikania, w odroznieniu od reasonbox
-// ponizej (ten wymaga kliknieca, ale ma pelne, stylowane szczegoly).
+// ponizej (ten wymaga kliknieca, ale ma pelne, stylowane szczegoly). Druga
+// linia to tlumaczenie na chinski zapisane przy zamknieciu awarii (patrz
+// type_cn w CFM_state_webhook.gs) - gotowe, bez tlumaczenia "na zywo".
 function awarieTitleText(entries) {
-  return entries.map(function(a) { return fmt(a.czas_min) + ' min' + (a.type ? ' — ' + a.type : ''); }).join('\n');
+  return entries.map(function(a) {
+    var line = fmt(a.czas_min) + ' min' + (a.type ? ' — ' + a.type : '');
+    return a.type_cn ? line + '\n' + a.type_cn : line;
+  }).join('\n');
 }
 
 function render() {
@@ -551,8 +562,10 @@ function render() {
     '<div class="section"><div class="section-head"><h2>Bilans dzienny<span class="cn">每日计划平衡</span></h2></div><div id="dailyBalance"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Bilans tygodniowy<span class="cn">每周计划平衡</span></h2></div><div id="weeklyBalance"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Awarie &#183; przestoje w okresie<span class="cn">故障 &#183; 本期停机</span></h2></div><div class="barsgrid" id="awarieSummary"></div></div>';
+    '<div class="twosectiongrid">' +
+      '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>' +
+      '<div class="section"><div class="section-head"><h2>Awarie &#183; przestoje w okresie<span class="cn">故障 &#183; 本期停机</span></h2></div><div class="barsgrid" id="awarieSummary"></div></div>' +
+    '</div>';
 
   wireMonthNav();
   renderWeekPicker();
@@ -617,9 +630,10 @@ function exportToExcel() {
   var title = 'Plan vs. wykonanie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear();
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="UTF-8">' +
-    '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
-    '<x:Name>Plan vs wykonanie</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>' +
-    '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
+    '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>' +
+    '<x:ExcelWorksheet><x:Name>Plan vs wykonanie</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>' +
+    '<x:ExcelWorksheet><x:Name>Awarie</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>' +
+    '</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
     '<style>' +
     'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}' +
     'th,td{border:1px solid #999999;padding:3px 6px;text-align:center;white-space:nowrap;mso-number-format:"@"}' +
@@ -627,6 +641,8 @@ function exportToExcel() {
     '.station{background:#e8eef7;font-weight:bold;text-align:left;vertical-align:middle}' +
     '.lbl{text-align:left;font-weight:bold;background:#f2f2f2}' +
     '.crit{background:#ffb3b3}.warn{background:#ffe1a8}.good{background:#c9f0d6}' +
+    '.txtcell{text-align:left;white-space:normal}' +
+    '.cn{font-family:"Microsoft YaHei",SimSun,Calibri,Arial,sans-serif}' +
     'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
     '</style></head><body>' +
     '<h1>' + title + '</h1><table>';
@@ -660,6 +676,21 @@ function exportToExcel() {
     });
   });
 
+  html += '</table>';
+
+  // Drugi arkusz w tym samym pliku — pelna lista awarii z tego samego
+  // okresu (miesiac), z tlumaczeniem na chinski zapisanym przy zamknieciu
+  // awarii (type_cn, patrz CFM_state_webhook.gs) - gotowe, bez tlumaczenia
+  // "na zywo" w przegladarce.
+  var awarieRows = STATE.awarieRows.filter(function(r) { return days.indexOf(r.date) >= 0; })
+    .slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  html += '<h1>Awarie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + '</h1><table>' +
+    '<tr><th>Data</th><th>Stanowisko</th><th>Zmiana</th><th>Czas (min)</th><th>Typ (PL)</th><th>类型 (中文)</th></tr>';
+  awarieRows.forEach(function(r) {
+    var dd = r.date.split('-');
+    html += '<tr><td>' + dd[2] + '/' + dd[1] + '</td><td>' + escapeHtml_(r.station) + '</td><td>' + escapeHtml_(r.shift) + '</td><td>' + fmt(r.czas_min) + '</td>' +
+      '<td class="txtcell">' + escapeHtml_(r.type) + '</td><td class="txtcell cn">' + escapeHtml_(r.type_cn) + '</td></tr>';
+  });
   html += '</table></body></html>';
 
   var blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });

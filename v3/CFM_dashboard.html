@@ -65,6 +65,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .awarie-active-clock.crit{color:#ff7070}
 
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.kpirowlbl{font-family:var(--fh);font-weight:700;font-size:12.5px;letter-spacing:0.03em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
 .kpi-lbl{font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:700;margin-bottom:8px}
 .kpi-lbl .cn{display:block;text-transform:none;font-size:11px;margin-top:2px}
@@ -367,12 +368,18 @@ function computeOee(g, days) {
   return { oee: oee };
 }
 
-function render(days) {
-  var app = document.getElementById('app');
+// Wyodrebnione z render() zeby policzyc TE SAME 3 wskazniki (wykonanie
+// planu/pass rate/OEE) dla DOWOLNEGO zakresu dni — uzywane raz dla
+// przegladanego tygodnia, raz dla samego "dzis" (patrz kpis-today w
+// render()). Dziala na STATE.rows/STATE.awarieRows tak jak wczesniej —
+// dla "dzis" poprawnie pokazuje dane TYLKO gdy dzisiejszy dzien miesci
+// sie w aktualnie zaladowanym tygodniu (czyli gdy STATE.weekOffset===0);
+// przy przegladaniu innego tygodnia karta "Dzis" pokazuje "brak danych",
+// co jest uczciwe (nie ma tam skad wziac dzisiejszych liczb bez
+// dodatkowego zapytania — do rozwazenia pozniej, jesli okaze sie potrzebne).
+function computeGp12KpiSet(days) {
   var groups = buildGroups(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
   var gp12 = groups.filter(function(g) { return g.station === 'GP12'; });
-
-  // KPI: wykonanie planu + pass rate + zgodnych, wszystko z GP12 (jak w Statystykach)
   var actual = 0, plan = 0, ok = 0, scrap = 0, rework = 0;
   gp12.forEach(function(g) {
     var hasData = Object.keys(g.byDate).length > 0;
@@ -385,13 +392,22 @@ function render(days) {
       actual += r.qty; ok += r.ok_count; scrap += r.scrap; rework += r.rework;
     });
   });
-  var recovered = STATE.reworkRows.filter(function(r) { return days.indexOf(r.date) >= 0; }).reduce(function(s, r) { return s + (Number(r.recovered) || 0); }, 0);
   var completion = plan > 0 ? Math.round((actual / plan) * 100) : null;
   var passRate = actual > 0 ? ((ok / actual) * 100).toFixed(1) : null;
-
-  // OEE calej linii, srednia rowna ze wszystkich stanowisk (jak w Statystykach/OEE)
   var oeeResults = groups.map(function(g) { return computeOee(g, days); }).filter(function(r) { return r && r.oee !== null; });
   var oeeAvg = oeeResults.length ? Math.round((oeeResults.reduce(function(s, r) { return s + r.oee; }, 0) / oeeResults.length) * 100) : null;
+  return { completion: completion, passRate: passRate, plan: plan, ok: ok, scrap: scrap, rework: rework, oeeAvg: oeeAvg };
+}
+
+function render(days) {
+  var app = document.getElementById('app');
+  var week = computeGp12KpiSet(days);
+  var completion = week.completion, passRate = week.passRate, plan = week.plan, ok = week.ok, scrap = week.scrap, rework = week.rework, oeeAvg = week.oeeAvg;
+  var groups = buildGroups(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
+  var recovered = STATE.reworkRows.filter(function(r) { return days.indexOf(r.date) >= 0; }).reduce(function(s, r) { return s + (Number(r.recovered) || 0); }, 0);
+
+  var todayISO = toISO(new Date());
+  var today = computeGp12KpiSet([todayISO]);
 
   // Stan magazynowy (jak w Inwentarz/Statystyki) — na dzisiaj
   var countDates = Object.keys(STATE.inventoryCounts).sort();
@@ -406,10 +422,18 @@ function render(days) {
       (STATE.weekOffset !== 0 ? '<button type="button" class="wtoday" onclick="goToCurrentWeek()">Ten tydzień &#183; 本周</button>' : '') +
     '</div>' +
     '<div id="awarieBanner"></div>' +
+    '<div class="kpirowlbl">Ten tydzień <span class="cn">本周</span></div>' +
     '<div class="kpis">' +
       kpiTile('Wykonanie planu (GP12)', '计划完成率', completion === null ? '&#8212;' : completion + '%', 'plan: ' + fmt(plan) + ' szt.', completion, completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)') +
       kpiTile('Pass rate (GP12)', '合格率', passRate === null ? '&#8212;' : passRate + '%', (scrap + rework) + ' szt. braków', passRate || 0, 'var(--blue)') +
       kpiTile('OEE (cała linia)', 'OEE 全线', oeeAvg === null ? '&#8212;' : oeeAvg + '%', 'śr. ze wszystkich stanowisk', oeeAvg, oeeAvg === null ? 'var(--faint)' : oeeAvg >= 85 ? 'var(--green)' : oeeAvg >= 60 ? 'var(--orange)' : 'var(--red)') +
+      stockHtml +
+    '</div>' +
+    '<div class="kpirowlbl">Dziś <span class="cn">今日</span></div>' +
+    '<div class="kpis">' +
+      kpiTile('Wykonanie planu (GP12)', '计划完成率', today.completion === null ? '&#8212;' : today.completion + '%', 'plan: ' + fmt(today.plan) + ' szt.', today.completion, today.completion === null ? 'var(--faint)' : today.completion >= 95 ? 'var(--green)' : today.completion >= 80 ? 'var(--orange)' : 'var(--red)') +
+      kpiTile('Pass rate (GP12)', '合格率', today.passRate === null ? '&#8212;' : today.passRate + '%', (today.scrap + today.rework) + ' szt. braków', today.passRate || 0, 'var(--blue)') +
+      kpiTile('OEE (cała linia)', 'OEE 全线', today.oeeAvg === null ? '&#8212;' : today.oeeAvg + '%', 'śr. ze wszystkich stanowisk', today.oeeAvg, today.oeeAvg === null ? 'var(--faint)' : today.oeeAvg >= 85 ? 'var(--green)' : today.oeeAvg >= 60 ? 'var(--orange)' : 'var(--red)') +
       stockHtml +
     '</div>' +
     '<div class="chartsgrid">' +

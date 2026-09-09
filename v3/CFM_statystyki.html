@@ -1031,7 +1031,7 @@ function barsHtml(groups, days) {
   var byStation = {};
   var order = [];
   groups.forEach(function(g) {
-    if (!byStation[g.station]) { byStation[g.station] = { actual: 0, plan: 0 }; order.push(g.station); }
+    if (!byStation[g.station]) { byStation[g.station] = { actual: 0, plan: 0, byDate: {} }; order.push(g.station); }
     // Filtrowanie po "days" jest tu KONIECZNE, nie kosmetyczne — Bilans
     // miesieczny dostaje "groups" zbudowane z CALEGO STATE.rows (pelny
     // zakres pobranych tygodni, ktory na brzegach miesiaca wystaje poza
@@ -1039,7 +1039,13 @@ function barsHtml(groups, days) {
     // "actual" liczylby tez kilka dni z sasiedniego miesiaca — a to
     // dokladnie ten sam mianownik, ktorego uzywa teraz tez stosunek do
     // GP12 (gp12Actual), wiec musi byc scisle ograniczony do "days".
-    Object.keys(g.byDate).forEach(function(d) { if ((days || []).indexOf(d) < 0) return; byStation[g.station].actual += g.byDate[d].qty; });
+    // byDate (per dzien, nie tylko suma) potrzebne ponizej do stosunku
+    // wzgledem GP12 "tylko dni ktore GP12 tez ma" — patrz komentarz nizej.
+    Object.keys(g.byDate).forEach(function(d) {
+      if ((days || []).indexOf(d) < 0) return;
+      byStation[g.station].actual += g.byDate[d].qty;
+      byStation[g.station].byDate[d] = (byStation[g.station].byDate[d] || 0) + g.byDate[d].qty;
+    });
     // Doliczamy plan (wlacznie z fallbackiem Cele x dni robocze) TYLKO
     // jesli ta zmiana ma jakikolwiek slad — raport w tym okresie LUB
     // jawny wpis w Planie. Bez tego zmiany, ktore dla danego stanowiska
@@ -1055,16 +1061,26 @@ function barsHtml(groups, days) {
     }
   });
   var gp12Actual = byStation['GP12'] ? byStation['GP12'].actual : 0;
+  // GP12 (ostatnie stanowisko) czesto ma OPOZNIONE raportowanie wzgledem
+  // OP51/52 i OP60/61 (fizycznie konczy dzien pozniej w linii) — jesli w
+  // ogladanym okresie GP12 zdazylo zaraportowac MNIEJ dni niz stacja
+  // porownywana, samo zsumowanie "caly okres" vs "caly okres" jest
+  // nieuczciwe (rozne zakresy dat pod spodem), i dawalo sztucznie wysoki
+  // % (np. 108%) mimo ze to nie produkcja wyprzedza GP12, tylko GP12
+  // jeszcze nie nadrobil wpisow. Dlatego liczymy licznik TYLKO z dni,
+  // ktore GP12 faktycznie ma w tym okresie — apple-to-apple porownanie.
+  var gp12Dates = byStation['GP12'] ? Object.keys(byStation['GP12'].byDate) : [];
   return order.map(function(name) {
     var s = byStation[name];
     var vsGp12 = RATIO_TO_GP12_STATIONS.indexOf(name) >= 0 && gp12Actual > 0;
+    var numerator = vsGp12 ? gp12Dates.reduce(function(sum, d) { return sum + (s.byDate[d] || 0); }, 0) : s.actual;
     var denom = vsGp12 ? gp12Actual : s.plan;
-    var pct = denom > 0 ? Math.round((s.actual / denom) * 100) : 0;
+    var pct = denom > 0 ? Math.round((numerator / denom) * 100) : 0;
     var color = vsGp12 ? pctColorVsGp12(pct) : pctColor4(pct);
     var barMax = 150;
     var barPct = Math.min(pct / barMax * 100, 100);
     var markerPct = 100 / barMax * 100;
-    var subText = fmt(s.actual) + '/' + fmt(denom) + (vsGp12 ? ' <span style="color:var(--faint)">(wzgl. GP12 <span class="cn">相对GP12</span>)</span>' : '');
+    var subText = fmt(numerator) + '/' + fmt(denom) + (vsGp12 ? ' <span style="color:var(--faint)">(wzgl. GP12, te same dni <span class="cn">相对GP12，同一天</span>)</span>' : '');
     return '<div class="barrow"><div class="barrow-lbl">' + name + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + barPct + '%;background:' + color + '"></div><span class="gc-marker" style="left:' + markerPct + '%"></span></div>' +
       '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + subText + '</div></div>';

@@ -139,6 +139,8 @@ tbody tr.grouphead td{padding-top:16px}
 .weekgrid .weekblock{margin-bottom:0}
 .barrow{display:grid;grid-template-columns:64px 1fr 84px;align-items:center;gap:8px;max-width:420px}
 #shiftComparison .barrow{grid-template-columns:96px 1fr 110px}
+#reworkBalance .barrow{grid-template-columns:100px 1fr 140px}
+#reworkBalance .barrow-pct{white-space:normal;line-height:1.4}
 .barrow-lbl{font-family:var(--fh);font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bartrack{position:relative;height:11px;background:var(--border-soft);border-radius:5px;overflow:hidden}
 .barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
@@ -1247,17 +1249,17 @@ function renderReworkBalance(days) {
     var z = byZone[r.zone];
     z.processed += r.processed; z.recovered += r.recovered; z.finalScrap += r.final_scrap;
   });
-  // Zonerow zamiast barrow: "odzysk N/N · złom N" nie miescilo sie w
-  // waskiej (84px) kolumnie na wartosc na telefonie. Etykieta+procent w
-  // jednej linii, cienki pasek pod spodem, szczegoly jako osobna linijka
-  // ponizej — kazda linia ma pelna szerokosc karty, wiec nic sie nie zawija.
+  // Ten sam barrow co Awarie obok (etykieta | pasek | wartosc w jednej
+  // linii) - zamiast zonerow (3 linijki: etykieta+procent, pasek, "odzysk
+  // N/N" osobno) - jedna linia na strefe zajmuje mniej wysokosci i pasek
+  // jest blizej etykiety, spojnie z kolumna Awarie.
   el.innerHTML = order.map(function(key) {
     var z = byZone[key];
     var pct = z.processed > 0 ? Math.round((z.recovered / z.processed) * 100) : 0;
     var color = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--orange)' : 'var(--red)';
-    return '<div class="zonerow"><div class="zonerow-top"><span class="zonerow-lbl">' + z.label + '</span><span class="zonerow-pct" style="color:' + color + '">' + pct + '%</span></div>' +
-      '<div class="zonerow-track"><div class="zonerow-fill" style="background:' + color + ';width:' + Math.max(Math.min(pct, 100), 4) + '%"></div></div>' +
-      '<div class="zonerow-sub">odzysk ' + fmt(z.recovered) + '/' + fmt(z.processed) + ' &#183; złom ' + fmt(z.finalScrap) + '</div></div>';
+    return '<div class="barrow"><div class="barrow-lbl">' + z.label + '</div>' +
+      '<div class="bartrack"><div class="barfill" style="width:' + Math.max(Math.min(pct, 100), 3) + '%;background:' + color + '"></div></div>' +
+      '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;odzysk ' + fmt(z.recovered) + '/' + fmt(z.processed) + ' &#183; złom ' + fmt(z.finalScrap) + '</div></div>';
   }).join('');
 }
 

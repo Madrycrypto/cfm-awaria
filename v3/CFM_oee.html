@@ -73,10 +73,11 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .reasonbtn:hover{color:var(--text);border-color:var(--faint)}
 .reasonbox{display:none;margin-top:8px;flex-wrap:wrap;gap:6px}
 .reasonbox.open{display:flex}
-.reason-chip{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--text);white-space:normal}
+.reason-chip{display:inline-flex;flex-direction:column;gap:1px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;padding:3px 9px;font-size:10px;color:var(--text);white-space:normal;max-width:280px}
 .reason-chip b{font-family:var(--fh);color:var(--blue-soft)}
 .reason-chip.off{color:var(--faint)}
 .reason-chip.awaria b{color:var(--red)}
+.reason-chip .cn-line{font-family:var(--fc);color:var(--faint);font-size:9px}
 
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
@@ -342,7 +343,8 @@ function awarieChipsHtml(entries, showDate) {
   return entries.map(function(a) {
     var dateLbl = '';
     if (showDate && a.date) { var dd = a.date.split('-'); dateLbl = dd[2] + '/' + dd[1] + ' &#183; '; }
-    return '<span class="reason-chip awaria">' + dateLbl + '<b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>';
+    var cnLine = a.type_cn ? '<span class="cn-line">' + a.type_cn + '</span>' : '';
+    return '<span class="reason-chip awaria"><span>' + dateLbl + '<b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>' + cnLine + '</span>';
   }).join('');
 }
 

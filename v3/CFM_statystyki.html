@@ -1007,27 +1007,16 @@ function getPeriodPlan(station, shift, days) {
 // zaplanowanych na caly miesiac", a nie tylko z jednego dnia ktory akurat
 // mial raport.
 // OP51/52 i OP60/61 fizycznie zasilaja GP12 (ostatnie stanowisko) — ich
-// ilosc w danym okresie NIE MOZE sensownie przewyzszac tego co GP12
-// faktycznie zlozylo (GP12 jest zazwyczaj wolniejsze/waskim gardlem), wiec
-// procent wzgledem WLASNEGO planu tych dwoch stacji byl mylacy: zielony
-// "wykonano plan" mogl wyjsc nawet gdy stacja realnie zrobila WIECEJ niz
-// GP12 przez to zdazylo przyjac — co jest fizycznie niemozliwe/podejrzane
-// w skali calego okresu, a plan tych stacji jest ustawiany niezaleznie od
-// GP12. Dla tych dwoch stacji liczymy wiec % wzgledem AKTUALNEJ ilosci
-// GP12 w tym samym okresie (nie wzgledem wlasnego planu) — pozwala to od
-// razu zobaczyc, czy tempo tej stacji sie zgadza ze skala GP12.
+// wlasny plan jest ustawiany niezaleznie od GP12, wiec liczenie % wzgledem
+// WLASNEGO planu dawalo dla nich zupelnie inna skale niz dla reszty linii
+// (np. zielone 100%+ podczas gdy GP12 tego samego tygodnia ledwo dobija do
+// 40% swojego planu) — myaco sugerowalo, ze te dwie stacje "radza sobie
+// dobrze", mimo ze realnie sa ograniczone tym samym waskim gardlem co GP12.
+// Dla tych dwoch stacji liczymy wiec % wzgledem PLANU GP12 (ten sam
+// mianownik co pasek GP12 obok) — pasek pokazuje wiec bezposrednio "jaka
+// czesc planu CALEJ LINII zrobila ta stacja", tej samej wielkosci co pasek
+// GP12, zamiast wlasnego, niezaleznego celu.
 var RATIO_TO_GP12_STATIONS = ['OP51/52', 'OP60/61'];
-// Inna skala kolorow niz pctColor4: tutaj >105% to NIE sukces (fizycznie
-// podejrzane — stacja "zrobila wiecej niz GP12"), tylko sygnal do
-// sprawdzenia danych, wiec kolorujemy go tak samo ostrzegawczo jak spore
-// zaleglosci ponizej.
-function pctColorVsGp12(p) {
-  if (p === null) return 'var(--faint)';
-  if (p > 105) return 'var(--red)';
-  if (p >= 85) return 'var(--green)';
-  if (p >= 70) return 'var(--orange)';
-  return 'var(--red)';
-}
 function barsHtml(groups, days) {
   if (!groups.length) return '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
   var byStation = {};
@@ -1062,27 +1051,27 @@ function barsHtml(groups, days) {
       byStation[g.station].plan += getPeriodPlan(g.station, g.shift, days || []);
     }
   });
-  var gp12Actual = byStation['GP12'] ? byStation['GP12'].actual : 0;
+  var gp12Plan = byStation['GP12'] ? byStation['GP12'].plan : 0;
   // GP12 (ostatnie stanowisko) czesto ma OPOZNIONE raportowanie wzgledem
   // OP51/52 i OP60/61 (fizycznie konczy dzien pozniej w linii) — jesli w
   // ogladanym okresie GP12 zdazylo zaraportowac MNIEJ dni niz stacja
   // porownywana, samo zsumowanie "caly okres" vs "caly okres" jest
-  // nieuczciwe (rozne zakresy dat pod spodem), i dawalo sztucznie wysoki
-  // % (np. 108%) mimo ze to nie produkcja wyprzedza GP12, tylko GP12
-  // jeszcze nie nadrobil wpisow. Dlatego liczymy licznik TYLKO z dni,
-  // ktore GP12 faktycznie ma w tym okresie — apple-to-apple porownanie.
+  // nieuczciwe (rozne zakresy dat pod spodem). Dlatego licznik liczymy
+  // TYLKO z dni, ktore GP12 faktycznie ma w tym okresie — apple-to-apple
+  // porownanie (mianownik, plan GP12, jest niezalezny od tego ile dni GP12
+  // juz zaraportowalo, wiec nie ma tu tego problemu).
   var gp12Dates = byStation['GP12'] ? Object.keys(byStation['GP12'].byDate) : [];
   return order.map(function(name) {
     var s = byStation[name];
-    var vsGp12 = RATIO_TO_GP12_STATIONS.indexOf(name) >= 0 && gp12Actual > 0;
+    var vsGp12 = RATIO_TO_GP12_STATIONS.indexOf(name) >= 0 && gp12Plan > 0;
     var numerator = vsGp12 ? gp12Dates.reduce(function(sum, d) { return sum + (s.byDate[d] || 0); }, 0) : s.actual;
-    var denom = vsGp12 ? gp12Actual : s.plan;
+    var denom = vsGp12 ? gp12Plan : s.plan;
     var pct = denom > 0 ? Math.round((numerator / denom) * 100) : 0;
-    var color = vsGp12 ? pctColorVsGp12(pct) : pctColor4(pct);
+    var color = pctColor4(pct);
     var barMax = 150;
     var barPct = Math.min(pct / barMax * 100, 100);
     var markerPct = 100 / barMax * 100;
-    var subText = fmt(numerator) + '/' + fmt(denom) + (vsGp12 ? ' <span style="color:var(--faint)">(wzgl. GP12, te same dni <span class="cn">相对GP12，同一天</span>)</span>' : '');
+    var subText = fmt(numerator) + '/' + fmt(denom);
     return '<div class="barrow"><div class="barrow-lbl">' + name + '</div>' +
       '<div class="bartrack"><div class="barfill" style="width:' + barPct + '%;background:' + color + '"></div><span class="gc-marker" style="left:' + markerPct + '%"></span></div>' +
       '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + subText + '</div></div>';

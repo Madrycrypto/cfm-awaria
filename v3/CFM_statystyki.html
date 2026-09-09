@@ -622,6 +622,35 @@ function wireMonthNav() {
 // bezposrednio (dziala offline, bez zadnej biblioteki/CDN, spojnie z
 // reszta apki). Przy otwarciu Excel moze zapytac o potwierdzenie formatu
 // — to normalne przy tej metodzie, wystarczy kliknac "Tak".
+var XLS_STYLE_ = 'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}' +
+  'th,td{border:1px solid #999999;padding:3px 6px;text-align:center;white-space:nowrap;mso-number-format:"@"}' +
+  'th{background:#1A6ED8;color:#ffffff;font-weight:bold}' +
+  '.station{background:#e8eef7;font-weight:bold;text-align:left;vertical-align:middle}' +
+  '.lbl{text-align:left;font-weight:bold;background:#f2f2f2}' +
+  '.crit{background:#ffb3b3}.warn{background:#ffe1a8}.good{background:#c9f0d6}' +
+  '.txtcell{text-align:left;white-space:normal}' +
+  '.cn{font-family:"Microsoft YaHei",SimSun,Calibri,Arial,sans-serif}' +
+  'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}';
+// Kazdy plik .xls to WLASNY, samodzielny dokument HTML z jedna tabela —
+// proba upakowania dwoch tabel w jeden plik jako "dwa arkusze" (przez
+// metadane <x:ExcelWorksheet>) nie dziala niezawodnie przy otwieraniu w
+// Google Sheets (obie tabele ladowaly sie na JEDNA zakladke, druga
+// zostawala pusta) - stad dwa OSOBNE pobrania zamiast dwoch zakladek w
+// jednym pliku.
+function downloadXls_(title, bodyHtml, filename) {
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta charset="UTF-8"><style>' + XLS_STYLE_ + '</style></head><body>' +
+    '<h1>' + title + '</h1>' + bodyHtml + '</body></html>';
+  var blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
 function exportToExcel() {
   if (!STATE.rows.length) { return; }
   var days = monthDays(STATE.monthDate);
@@ -629,25 +658,9 @@ function exportToExcel() {
   var byStation = {}, stationOrder = [];
   groups.forEach(function(g) { if (!byStation[g.station]) { byStation[g.station] = []; stationOrder.push(g.station); } byStation[g.station].push(g); });
 
+  var monthTag = toISO(STATE.monthDate).slice(0, 7);
   var title = 'Plan vs. wykonanie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear();
-  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
-    '<head><meta charset="UTF-8">' +
-    '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>' +
-    '<x:ExcelWorksheet><x:Name>Plan vs wykonanie</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>' +
-    '<x:ExcelWorksheet><x:Name>Awarie</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>' +
-    '</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
-    '<style>' +
-    'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}' +
-    'th,td{border:1px solid #999999;padding:3px 6px;text-align:center;white-space:nowrap;mso-number-format:"@"}' +
-    'th{background:#1A6ED8;color:#ffffff;font-weight:bold}' +
-    '.station{background:#e8eef7;font-weight:bold;text-align:left;vertical-align:middle}' +
-    '.lbl{text-align:left;font-weight:bold;background:#f2f2f2}' +
-    '.crit{background:#ffb3b3}.warn{background:#ffe1a8}.good{background:#c9f0d6}' +
-    '.txtcell{text-align:left;white-space:normal}' +
-    '.cn{font-family:"Microsoft YaHei",SimSun,Calibri,Arial,sans-serif}' +
-    'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
-    '</style></head><body>' +
-    '<h1>' + title + '</h1><table>';
+  var html = '<table>';
 
   html += '<tr><th rowspan="2">Stanowisko</th><th rowspan="2">Zmiana</th><th rowspan="2">Wska&#378;nik</th>';
   days.forEach(function(d) { var dd = d.split('-'); html += '<th>' + dd[2] + '/' + dd[1] + '</th>'; });
@@ -662,7 +675,15 @@ function exportToExcel() {
       var sumPlan = 0, sumActual = 0;
       days.forEach(function(d) {
         var rec = g.byDate[d];
-        var plan = rec ? rec.plan : 0, actual = rec ? rec.qty : 0;
+        // Plan ZAWSZE z zywego Planu miesiecznego (effectivePlanEntry),
+        // NIGDY z rec.plan — ta wartosc to tylko migawka zapisana w
+        // wierszu w momencie wyslania raportu, nieaktualna jesli plan
+        // zostal pozniej poprawiony w CFM_plan.html (ten sam blad juz
+        // wczesniej naprawiony w renderPivot/dailyGridHtml/barsHtml -
+        // eksport Excel po prostu go jeszcze nie mial).
+        var plan = effectivePlanEntry(stName, g.shift, d);
+        if (plan === null) plan = Number(STATE.stationTargets[stName]) || 0;
+        var actual = rec ? rec.qty : 0;
         sumPlan += plan; sumActual += actual;
         var pct = plan > 0 ? Math.round((actual / plan) * 100) : null;
         var cls = pct === null ? '' : (pct >= 95 ? 'good' : pct >= 80 ? 'warn' : 'crit');
@@ -679,30 +700,23 @@ function exportToExcel() {
   });
 
   html += '</table>';
+  downloadXls_(title, html, 'CFM_Plan_vs_Wykonanie_' + monthTag + '.xls');
 
-  // Drugi arkusz w tym samym pliku — pelna lista awarii z tego samego
-  // okresu (miesiac), z tlumaczeniem na chinski zapisanym przy zamknieciu
-  // awarii (type_cn, patrz CFM_state_webhook.gs) - gotowe, bez tlumaczenia
-  // "na zywo" w przegladarce.
+  // Osobny plik — pelna lista awarii z tego samego okresu (miesiac), z
+  // tlumaczeniem na chinski zapisanym przy zamknieciu awarii (type_cn,
+  // patrz CFM_state_webhook.gs) - gotowe, bez tlumaczenia "na zywo" w
+  // przegladarce.
   var awarieRows = STATE.awarieRows.filter(function(r) { return days.indexOf(r.date) >= 0; })
     .slice().sort(function(a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-  html += '<h1>Awarie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + '</h1><table>' +
-    '<tr><th>Data</th><th>Stanowisko</th><th>Zmiana</th><th>Czas (min)</th><th>Typ (PL)</th><th>类型 (中文)</th></tr>';
+  var awarieTitle = 'Awarie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear();
+  var awarieHtml = '<table><tr><th>Data</th><th>Stanowisko</th><th>Zmiana</th><th>Czas (min)</th><th>Typ (PL)</th><th>类型 (中文)</th></tr>';
   awarieRows.forEach(function(r) {
     var dd = r.date.split('-');
-    html += '<tr><td>' + dd[2] + '/' + dd[1] + '</td><td>' + escapeHtml_(r.station) + '</td><td>' + escapeHtml_(r.shift) + '</td><td>' + fmt(r.czas_min) + '</td>' +
+    awarieHtml += '<tr><td>' + dd[2] + '/' + dd[1] + '</td><td>' + escapeHtml_(r.station) + '</td><td>' + escapeHtml_(r.shift) + '</td><td>' + fmt(r.czas_min) + '</td>' +
       '<td class="txtcell">' + escapeHtml_(r.type) + '</td><td class="txtcell cn">' + escapeHtml_(r.type_cn) + '</td></tr>';
   });
-  html += '</table></body></html>';
-
-  var blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'CFM_Plan_vs_Wykonanie_' + toISO(STATE.monthDate).slice(0, 7) + '.xls';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
+  awarieHtml += '</table>';
+  downloadXls_(awarieTitle, awarieHtml, 'CFM_Awarie_' + monthTag + '.xls');
 }
 
 // Lista rozwijana zamiast rzedu przyciskow — na telefonie 5 przyciskow +

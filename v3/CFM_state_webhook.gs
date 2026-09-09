@@ -43,6 +43,30 @@ var REWORK_ZONES = {
   'OP51_52': ['OP51/52'],
 };
 
+// ── FEISHU BOT (powiadomienia na grupe) ────────────────────────────────
+// Osobne od integracji z Feishu Base (arkusz danych) — to "custom bot"
+// webhook do WYSYLANIA WIADOMOSCI na konkretna grupe czatu Feishu. Wysylane
+// z backendu (UrlFetchApp), NIE z przegladarki — webhooki bota Feishu nie
+// pozwalaja na wywolania z poziomu przegladarki (CORS), a tutaj i tak
+// potrzebujemy tego wylacznie przy zdarzeniach juz obslugiwanych po
+// stronie serwera (start/koniec awarii, codzienne podsumowanie).
+var FEISHU_BOT_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/4c3cb956-3022-4e95-adbd-eaead7efedaa';
+function round1_(n) { return Math.round(n * 10) / 10; }
+function sendFeishuBotMessage_(text) {
+  if (!FEISHU_BOT_WEBHOOK) return;
+  try {
+    UrlFetchApp.fetch(FEISHU_BOT_WEBHOOK, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ msg_type: 'text', content: { text: text } }),
+      muteHttpExceptions: true
+    });
+  } catch (e) {
+    // Nie przerywamy glownej operacji (start/koniec awarii) tylko dlatego
+    // ze powiadomienie na czat sie nie udalo.
+  }
+}
+
 function doGet(e) {
   var p = (e && e.parameter) || {};
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -56,6 +80,7 @@ function doGet(e) {
       case 'KONIEC': return handleAwariaEnd(ss, p);
       case 'SPRAWDZ': return handleAwariaCheck(ss, p);
       case 'AWARIA_HISTORIA': return handleAwariaHistoria(ss, p);
+      case 'AWARIE_OTWARTE': return handleAwarieOtwarte(ss, p);
       case 'EDIT_AWARIA_DURATION': return handleEditAwariaDuration(ss, p);
       case 'DELETE_AWARIA': return handleDeleteAwaria(ss, p);
       case 'REWORK_PROCESSING': return handleReworkProcessing(ss, p);
@@ -527,6 +552,7 @@ function handleAwariaStart(ss, p) {
   var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
   ensureColumns_(sheet, AWARIE_HEADERS);
   sheet.appendRow([p.timestamp || '', p.stanowisko || '', p.typ || '', '', '', 'OTWARTA', p.operator || '', p.shift || '']);
+  sendFeishuBotMessage_('🔧 BREAKDOWN START / 故障开始\n' + (p.stanowisko || '?') + ' · ' + (p.typ || 'Awaria') + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
   return jsonResponse({ status: 'ok' });
 }
 
@@ -534,15 +560,18 @@ function handleAwariaEnd(ss, p) {
   var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
   ensureColumns_(sheet, AWARIE_HEADERS);
   var data = sheet.getDataRange().getValues();
+  var czasMin = Number(p.czas_min) || 0;
   for (var i = data.length - 1; i >= 1; i--) {
     var row = data[i];
     if (row[0] === p.start_timestamp && row[1] === p.stanowisko && row[5] === 'OTWARTA') {
-      sheet.getRange(i + 1, 3, 1, 4).setValues([[p.typ || row[2], p.koniec_timestamp || '', Number(p.czas_min) || 0, 'ZAMKNIETA']]);
+      sheet.getRange(i + 1, 3, 1, 4).setValues([[p.typ || row[2], p.koniec_timestamp || '', czasMin, 'ZAMKNIETA']]);
+      sendFeishuBotMessage_('✅ BREAKDOWN END / 故障结束\n' + (p.stanowisko || '?') + ' · ' + (p.typ || row[2]) + '\nDuration / 时长: ' + czasMin + ' min');
       return jsonResponse({ status: 'ok' });
     }
   }
   // Nie znaleziono otwartego wiersza (np. reset stanu w aplikacji) — dopisz kompletny wiersz.
-  sheet.appendRow([p.start_timestamp || '', p.stanowisko || '', p.typ || '', p.koniec_timestamp || '', Number(p.czas_min) || 0, 'ZAMKNIETA', p.operator || '', p.shift || '']);
+  sheet.appendRow([p.start_timestamp || '', p.stanowisko || '', p.typ || '', p.koniec_timestamp || '', czasMin, 'ZAMKNIETA', p.operator || '', p.shift || '']);
+  sendFeishuBotMessage_('✅ BREAKDOWN END / 故障结束\n' + (p.stanowisko || '?') + ' · ' + (p.typ || 'Awaria') + '\nDuration / 时长: ' + czasMin + ' min');
   return jsonResponse({ status: 'ok' });
 }
 
@@ -559,6 +588,23 @@ function handleAwariaCheck(ss, p) {
     }
   }
   return jsonResponse({ open: false });
+}
+
+// Wszystkie AKTUALNIE otwarte awarie naraz (nie jedno stanowisko jak
+// handleAwariaCheck) — do zywego panelu na Dashboardzie (duzy zegar per
+// otwarta awaria, tykajacy w przegladarce bez dopytywania serwera co
+// sekunde — tutaj tylko poczatkowy stan + station/typ/kto/zmiana).
+function handleAwarieOtwarte(ss, p) {
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return jsonResponse({ status: 'ok', otwarte: [] });
+  var data = sheet.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    if (r[5] !== 'OTWARTA') continue;
+    out.push({ station: r[1], type: r[2], start_timestamp: r[0], operator: r[6] || '', shift: r[7] || '' });
+  }
+  return jsonResponse({ status: 'ok', otwarte: out });
 }
 
 // Historia Awarii pobierana na zywo (nie z pamieci telefonu) — kazdy
@@ -733,4 +779,83 @@ function handleGetUstawienia(ss, p) {
     ustawienia[data[i][0]] = data[i][1];
   }
   return jsonResponse({ status: 'ok', ustawienia: ustawienia });
+}
+
+// ── PODSUMOWANIE DNIA (Feishu, co rano) ──────────────────────────────
+// Odpalane przez trigger czasowy (patrz ustawTriggerPodsumowania ponizej,
+// uruchom RECZNIE JEDEN RAZ z edytora Apps Script, zeby zainstalowac
+// codzienne wywolanie) — podsumowuje WCZORAJSZY dzien: wykonanie planu +
+// pass rate na GP12 (ta sama metoda co Statystyki/Premie — plan z ZYWEGO
+// cfm_monthly_plan, nie z migawki w wierszu) oraz Awarie (ile, ile minut,
+// z podzialem na stanowisko).
+function wyslijPodsumowanieDnia() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var wczoraj = new Date();
+  wczoraj.setDate(wczoraj.getDate() - 1);
+  var dateIso = Utilities.formatDate(wczoraj, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+
+  var monthlyPlan = {}, stationTargets = {};
+  var ustSheet = ss.getSheetByName('Ustawienia');
+  if (ustSheet) {
+    var udata = ustSheet.getDataRange().getValues();
+    for (var u = 1; u < udata.length; u++) {
+      if (udata[u][0] === 'cfm_monthly_plan') { try { monthlyPlan = JSON.parse(udata[u][1] || '{}'); } catch (e) {} }
+      if (udata[u][0] === 'cfm_station_targets') { try { stationTargets = JSON.parse(udata[u][1] || '{}'); } catch (e) {} }
+    }
+  }
+
+  var actual = 0, ok = 0, plan = 0, ngCount = 0;
+  var sheet = ss.getSheetByName('RaportDzienny');
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    var seenShifts = {};
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i];
+      if (normalizeDate_(r[1]) !== dateIso || r[3] !== 'GP12') continue;
+      actual += Number(r[5]) || 0;
+      ok += Number(r[9]) || 0;
+      ngCount += (Number(r[6]) || 0) + (Number(r[7]) || 0);
+      var key = r[3] + '||' + r[2];
+      if (!seenShifts[key]) { seenShifts[key] = true; plan += planForDate_(monthlyPlan, stationTargets, r[3], r[2], dateIso); }
+    }
+  }
+  var completion = plan > 0 ? Math.round((actual / plan) * 100) : null;
+  var passRate = actual > 0 ? ((ok / actual) * 100).toFixed(1) : null;
+
+  var awSheet = ss.getSheetByName('Awarie');
+  var awarieCount = 0, awarieMin = 0, byStation = {};
+  if (awSheet) {
+    var adata = awSheet.getDataRange().getValues();
+    for (var j = 1; j < adata.length; j++) {
+      var ar = adata[j];
+      if (ar[5] !== 'ZAMKNIETA' || normalizeDate_(ar[0]).slice(0, 10) !== dateIso) continue;
+      awarieCount++;
+      var min = Number(ar[4]) || 0;
+      awarieMin += min;
+      byStation[ar[1]] = (byStation[ar[1]] || 0) + min;
+    }
+  }
+  // round1_ obcina blad zmiennoprzecinkowy przy sumowaniu ulamkowych minut
+  // (bez tego np. 226.90000000000003 min trafialoby wprost na Feishu).
+  var awarieLines = Object.keys(byStation).sort(function(a, b) { return byStation[b] - byStation[a]; })
+    .map(function(st) { return '  ' + st + ': ' + round1_(byStation[st]) + ' min'; }).join('\n');
+
+  var dd = dateIso.split('-');
+  var text = '☀️ DAILY SUMMARY / 日总结 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + ' (GP12)\n\n' +
+    'Plan completion / 计划完成率: ' + (completion === null ? '—' : completion + '%') + ' (' + actual + '/' + plan + ' pcs / 件)\n' +
+    'Pass rate / 合格率: ' + (passRate === null ? '—' : passRate + '%') + ' (' + ngCount + ' defects / 件不良品)\n\n' +
+    'Breakdowns / 故障: ' + awarieCount + ' (total / 总计 ' + round1_(awarieMin) + ' min)' + (awarieLines ? '\n' + awarieLines : '');
+  sendFeishuBotMessage_(text);
+}
+
+// Uruchom TĘ funkcję RĘCZNIE JEDEN RAZ z edytora Apps Script (wybierz z
+// listy funkcji u góry, kliknij Uruchom), żeby zainstalować codzienny
+// trigger o 6:00 wysyłający podsumowanie na Feishu. Bezpieczne uruchomić
+// wielokrotnie — najpierw usuwa stare triggery tej samej funkcji, żeby
+// nie zdublować wysyłki.
+function ustawTriggerPodsumowania() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'wyslijPodsumowanieDnia') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('wyslijPodsumowanieDnia').timeBased().atHour(6).everyDays(1).create();
 }

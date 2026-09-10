@@ -182,7 +182,7 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, stationTargets: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null };
+var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -223,7 +223,6 @@ function init() {
       try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
       try { STATE.solderInventoryCounts = JSON.parse(u.cfm_solder_inventory_counts || '{}'); } catch (e) { STATE.solderInventoryCounts = {}; }
       try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
-      try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
       // cfm_solder_config synchronizowany jak reszta ustawien (zapisywany
       // lokalnie od razu przy zapisie, ale przy STARCIE trzeba go tez
       // pobrac z serwera - inaczej inne urzadzenie/przegladarka nigdy by
@@ -400,28 +399,25 @@ function monthDays(monthDate) {
   while (d.getMonth() === m) { days.push(toISO(d)); d.setDate(d.getDate() + 1); }
   return days;
 }
-// Suma jawnych wpisow w Planie (wszystkie zmiany) dla stanowiska/dnia;
-// jesli BRAK jawnego wpisu na TEN dzien:
-//   - w tygodniu (pon-pt): Cel stanowiska, zawsze (to prognoza, nie ocena
-//     wykonania planu, wiec potrzebuje zalozenia "normalny dzien pracy").
-//   - w weekend (sob/ndz): 0, NIE Cel — sobota/niedziela to dni DORAZNE,
-//     nie standardowa praca, wiec bez jawnego wpisu zakladamy ze nic sie
-//     nie dzieje (a nie "normalny Cel", co przeszacowywaloby bufor).
+// Suma jawnych wpisow w Planie (wszystkie zmiany) dla stanowiska/dnia.
+// Bez fallbacku na Cel: lutowanie (i podobne stanowiska) NIE pracuje
+// kazdego dnia roboczego, wiec zakladanie "normalny dzien = Cel" byloby
+// falszywe (przeszacowywaloby bufor w dni, ktore w ogole nie sa
+// zaplanowane). Brak jawnego wpisu w Planie na dany dzien = 0, kropka —
+// wowczas bufor odzwierciedla DOKLADNIE to, co admin faktycznie
+// zaplanowal w CFM_plan, a nie domysl.
 function planSumForDay(station, dateIso) {
   station = String(station || '').trim();
   var mk = dateIso.slice(0, 7);
   var stPlan = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station];
-  var sum = 0, hasAny = false;
+  var sum = 0;
   if (stPlan) {
     Object.keys(stPlan).forEach(function(shift) {
       var v = stPlan[shift] && stPlan[shift][dateIso];
-      if (v) { sum += Number(v) || 0; hasAny = true; }
+      if (v) sum += Number(v) || 0;
     });
   }
-  if (hasAny) return sum;
-  var wd = isoToDate(dateIso).getDay(); // 0=niedz, 6=sob
-  if (wd === 0 || wd === 6) return 0;
-  return Number(STATE.stationTargets[station]) || 0;
+  return sum;
 }
 // Suma actual (wszystkie zmiany) dla stanowiska/dnia z podanych wierszy;
 // null = brak jakiegokolwiek raportu tego dnia dla tej stacji (dzien

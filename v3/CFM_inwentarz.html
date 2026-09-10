@@ -406,7 +406,7 @@ function saveInventoryCount() {
 // prawdziwy raport, dzien automatycznie zamienia sie z "plan" na "actual".
 function getSolderConfig() {
   var s = localStorage.getItem('cfm_solder_config');
-  var d = { produkcja: 'Lutowanie', zuzycie: 'GP12' };
+  var d = { produkcja: 'Lutowanie', zuzycie: 'GP12', batchMin: 0, batchMax: 0 };
   if (!s) return d;
   try { return Object.assign(d, JSON.parse(s)); } catch (e) { return d; }
 }
@@ -490,36 +490,73 @@ function renderSolderNoBaseline() {
 function computeSolderWalk(firstDate, endIso, cfg) {
   var todayISO = toISO(new Date());
   var days = enumerateDays(firstDate, endIso);
+
+  // Krok 1: potrzeba (zuzycie) kazdego dnia — niezalezna od decyzji o
+  // produkcji, wiec liczymy ja najpierw w calosci (potrzebna do
+  // zaplanowania partii lutowania z wyprzedzeniem w Kroku 2).
+  var useByDate = {}, aProdByDate = {}, isActualByDate = {};
+  days.forEach(function(d) {
+    var aProd = actualSumForDay(STATE.solderRows, cfg.produkcja, d);
+    var aUse = actualSumForDay(STATE.solderRows, cfg.zuzycie, d);
+    aProdByDate[d] = aProd;
+    isActualByDate[d] = aProd !== null || aUse !== null;
+    var shipPlan = shipPlanForDay(d);
+    var use = aUse !== null ? aUse : (STATE.chainMode ? shipPlan : planSumForDay(cfg.zuzycie, d));
+    var ov = STATE.solderOverrides[d];
+    if (ov && ov.zuzycie !== undefined) use = ov.zuzycie;
+    useByDate[d] = use;
+  });
+
+  // Krok 2: jesli stacja produkcji leje TYLKO pelnymi partiami (batchMin
+  // skonfigurowany), lutowanie NIE moze po prostu kopiowac potrzeby
+  // GP12 1:1 (np. "potrzeba 900" jest fizycznie niewykonalne, jesli
+  // partia to zawsze 2500-2700). Zamiast tego symulujemy bufor UZYWAJAC
+  // TYLKO zuzycia i planujemy pelna partie (ostroznie: dolny kraniec
+  // zakresu, zeby nie obiecywac bufora ktorego moze nie byc) na kazdy
+  // dzien, w ktorym brak produkcji zepchnalby bufor ponizej zera
+  // NASTEPNEGO dnia (dokladnie ta sama logika "dzis wplywa na jutro" co
+  // ponizej w Kroku 3).
+  var batchProdByDate = {};
+  if (STATE.chainMode && cfg.batchMin > 0) {
+    var simRunning = Number(STATE.solderInventoryCounts[firstDate]) || 0;
+    var simPrevProd = null, simPrevUse = null;
+    days.forEach(function(d, idx) {
+      if (idx > 0) simRunning += simPrevProd - simPrevUse;
+      var countToday = STATE.solderInventoryCounts[d] !== undefined ? Number(STATE.solderInventoryCounts[d]) : null;
+      if (countToday !== null && idx > 0) simRunning = countToday;
+      var qty = (simRunning - useByDate[d]) < 0 ? cfg.batchMin : 0;
+      batchProdByDate[d] = qty;
+      simPrevProd = qty; simPrevUse = useByDate[d];
+    });
+  }
+
+  // Krok 3: wlasciwy walk saldа — identyczny mechanizm jak wyzej, tym
+  // razem z ostatecznymi wartosciami produkcji/zuzycia (uwzgledniajac
+  // partie i reczne nadpisania "co jesli").
   var running = Number(STATE.solderInventoryCounts[firstDate]) || 0;
   var out = [];
   var wentNegativeAt = null;
   var prevProd = null, prevUse = null;
   days.forEach(function(d, idx) {
-    var aProd = actualSumForDay(STATE.solderRows, cfg.produkcja, d);
-    var aUse = actualSumForDay(STATE.solderRows, cfg.zuzycie, d);
-    var isActual = aProd !== null || aUse !== null;
-    var shipPlan = shipPlanForDay(d);
-    // Tryb lancucha: Wysylki sa wyrocznia dla GP12 (ile trzeba
-    // wyprodukowac, zeby wyslac tyle ile planuje logistyka), a potrzeba
-    // GP12 jest z kolei wyrocznia dla lutowania (ile chlodnic trzeba
-    // wczesniej wylutowac). Zastepuje to WLASNE wpisy w Planie GP12/OP40
-    // IN jako zrodlo prognozy — Plan tych stacji nadal dziala jak zwykle
-    // poza tym trybem (Statystyki/Premie/OEE go nie widza, to tylko ten
-    // podglad).
-    var use = aUse !== null ? aUse : (STATE.chainMode ? shipPlan : planSumForDay(cfg.zuzycie, d));
-    var prod = aProd !== null ? aProd : (STATE.chainMode ? use : planSumForDay(cfg.produkcja, d));
-    // Reczna symulacja "co jesli" nadpisuje wszystko inne (actual/plan) —
-    // to celowo lokalny "co by bylo gdyby", niezalezny od Planu/raportow.
+    var isActual = isActualByDate[d];
+    var use = useByDate[d];
+    var prod;
+    if (aProdByDate[d] !== null) prod = aProdByDate[d];
+    else if (STATE.chainMode && cfg.batchMin > 0) prod = batchProdByDate[d];
+    else if (STATE.chainMode) prod = use;
+    else prod = planSumForDay(cfg.produkcja, d);
+    // Reczna symulacja "co jesli" nadpisuje wszystko inne (actual/plan/
+    // partia) — to celowo lokalny "co by bylo gdyby", niezalezny od
+    // Planu/raportow.
     var ov = STATE.solderOverrides[d];
     var overrideProd = ov && ov.produkcja !== undefined;
     var overrideUse = ov && ov.zuzycie !== undefined;
     if (overrideProd) prod = ov.produkcja;
-    if (overrideUse) use = ov.zuzycie;
     if (idx > 0) running += prevProd - prevUse;
     var countToday = STATE.solderInventoryCounts[d] !== undefined ? Number(STATE.solderInventoryCounts[d]) : null;
     if (countToday !== null && idx > 0) running = countToday;
     if (wentNegativeAt === null && running < 0 && d > todayISO) wentNegativeAt = d;
-    out.push({ date: d, produkcja: prod, zuzycie: use, shipPlan: shipPlan, balance: running, isActual: idx === 0 ? true : isActual, isToday: d === todayISO, overrideProd: overrideProd, overrideUse: overrideUse });
+    out.push({ date: d, produkcja: prod, zuzycie: use, shipPlan: shipPlanForDay(d), balance: running, isActual: idx === 0 ? true : isActual, isToday: d === todayISO, overrideProd: overrideProd, overrideUse: overrideUse });
     prevProd = prod; prevUse = use;
   });
   return { rows: out, wentNegativeAt: wentNegativeAt };
@@ -528,8 +565,10 @@ function solderConfigHtml(cfg) {
   return '<div class="configrow">' +
     '<div class="field"><label>Stanowisko - produkcja (lutowanie) &#183; 生产工位（焊接）</label><input type="text" id="cfgProdukcja" value="' + cfg.produkcja + '"></div>' +
     '<div class="field"><label>Stanowisko - zużycie (montaż) &#183; 消耗工位（装配）</label><input type="text" id="cfgZuzycie" value="' + cfg.zuzycie + '"></div>' +
+    '<div class="field"><label>Partia produkcji — min &#183; 批量最小值</label><input type="number" min="0" id="cfgBatchMin" value="' + (cfg.batchMin || '') + '" placeholder="np. 2500"></div>' +
+    '<div class="field"><label>Partia produkcji — max &#183; 批量最大值</label><input type="number" min="0" id="cfgBatchMax" value="' + (cfg.batchMax || '') + '" placeholder="np. 2700"></div>' +
     '<button type="button" class="btn-save" id="btnSaveSolderCfg">Zapisz nazwy<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存名称</small></button>' +
-    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan &#183; 请输入与管理面板中完全一致的工位名称</div>' +
+    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan &#183; 请输入与管理面板中完全一致的工位名称<br>Partia produkcji (opcjonalnie): jeśli stanowisko produkcji lutuje TYLKO pełnymi partiami (np. 2500&#8211;2700 szt., nigdy mniej), wpisz tu ten zakres — tryb "Licz potrzebę od Wysyłek" będzie wtedy planował całe partie zamiast dowolnych ilości. Puste = bez ograniczenia. &#183; 生产批量（可选）：如果生产工位只能整批生产（如2500&#8211;2700件，不能更少），请在此填写范围 — "按发运计算需求"模式将按整批规划，而非任意数量。留空表示不限制。</div>' +
   '</div>';
 }
 function solderFormHtml() {
@@ -546,6 +585,8 @@ function wireSolderConfig() {
     var cfg = {
       produkcja: document.getElementById('cfgProdukcja').value.trim() || 'Lutowanie',
       zuzycie: document.getElementById('cfgZuzycie').value.trim() || 'GP12',
+      batchMin: Number(document.getElementById('cfgBatchMin').value) || 0,
+      batchMax: Number(document.getElementById('cfgBatchMax').value) || 0,
     };
     saveSolderConfig(cfg);
     showToast('Nazwy zapisane! &#183; 名称已保存!', 'ok');
@@ -640,10 +681,8 @@ function renderSolderSection(firstDate) {
         var label = DAY_LABELS[(wd + 6) % 7] + ' ' + dd[2] + '/' + dd[1] + (r.isToday ? ' &#183; dziś' : '') +
           (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual' : 'plan') + '</span>');
         var balCls = r.balance < 0 ? 'neg' : 'ok';
-        var prodCell = r.date === firstDate ? fmt(r.produkcja) :
-          '<input type="number" class="cellinput' + (r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
-        var useCell = r.date === firstDate ? fmt(r.zuzycie) :
-          '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
+        var prodCell = '<input type="number" class="cellinput' + (r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
+        var useCell = '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
         var shipCell = chain ? '<td class="shipcell">' + fmt(r.shipPlan) + '</td>' : '';
         return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td>' + shipCell + '<td>' + useCell + '</td><td>' + prodCell + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
       }).join('') : '<tr><td colspan="' + (chain ? 5 : 4) + '" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora &#183; 该月早于第一次盘点</td></tr>') +

@@ -50,12 +50,34 @@ var REWORK_ZONES = {
 // pozwalaja na wywolania z poziomu przegladarki (CORS), a tutaj i tak
 // potrzebujemy tego wylacznie przy zdarzeniach juz obslugiwanych po
 // stronie serwera (start/koniec awarii, codzienne podsumowanie).
-var FEISHU_BOT_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/4c3cb956-3022-4e95-adbd-eaead7efedaa';
+var FEISHU_BOT_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/4c3cb956-3022-4e95-adbd-eaead7efedaa'; // glowna grupa (m.in. szefowie) - awaria start/koniec, podsumowanie dnia, eskalacja 1h+
+var FEISHU_BOT_WEBHOOK_TECHNICY = ''; // TODO: wklej webhook bota z grupy technikow - uzywany przez eskalacje 15 min (patrz checkAwariaEscalations)
 function round1_(n) { return Math.round(n * 10) / 10; }
-function sendFeishuBotMessage_(text) {
-  if (!FEISHU_BOT_WEBHOOK) return;
+// Typ/opis awarii to DOWOLNY wolny tekst po polsku wpisywany przez
+// operatora (np. "Awaria maszyny: Brak zasilania - inspekcja niemozliwa
+// na stanowisku op74") - zadna sztywna lista slownikowa go nie obejmie,
+// wiec tlumaczymy automatycznie wbudowanym LanguageApp (dostepny w Apps
+// Script bez wlaczania Advanced Services). Przy bledzie tlumaczenia
+// (limit, brak sieci) zostaje oryginalny tekst - lepsze to niz pusta
+// wiadomosc.
+// Tlumaczy RAZ na oba jezyki (zamiast osobnych wywolan dla wiadomosci
+// Feishu i dla kolumny type_cn w arkuszu) - jedno wywolanie LanguageApp na
+// jezyk, wynik uzywany w obu miejscach ponizej.
+function translateType_(text) {
+  text = text || 'Awaria';
+  var en = text, cn = text;
+  try { en = LanguageApp.translate(text, 'pl', 'en'); } catch (e) {}
+  try { cn = LanguageApp.translate(text, 'pl', 'zh-CN'); } catch (e) {}
+  return { en: en, cn: cn };
+}
+// webhookUrl opcjonalny - domyslnie glowna grupa (FEISHU_BOT_WEBHOOK), ale
+// eskalacja 15-min wysyla jawnie na FEISHU_BOT_WEBHOOK_TECHNICY (patrz
+// checkAwariaEscalations).
+function sendFeishuBotMessage_(text, webhookUrl) {
+  var url = webhookUrl || FEISHU_BOT_WEBHOOK;
+  if (!url) return;
   try {
-    UrlFetchApp.fetch(FEISHU_BOT_WEBHOOK, {
+    UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
       payload: JSON.stringify({ msg_type: 'text', content: { text: text } }),
@@ -93,6 +115,8 @@ function doGet(e) {
       case 'DELETE_RAPORT_GODZINNY': return handleDeleteRaportGodzinny(ss, p);
       case 'GET_USTAWIENIA': return handleGetUstawienia(ss, p);
       case 'PREMIA': return handlePremia(ss, p);
+      case 'ZGLOS_WYPADEK': return handleZglosWypadek(ss, p);
+      case 'WYPADKI_HISTORIA': return handleWypadkiHistoria(ss, p);
       case 'TEST': return jsonResponse({ status: 'ok', msg: 'polaczenie dziala' });
       default: return jsonResponse({ status: 'error', msg: 'nieznany event_type: ' + p.event_type });
     }
@@ -306,14 +330,15 @@ function handleStatystyki(ss, p) {
   var awarieHistoria = [];
   var awSheet = ss.getSheetByName('Awarie');
   if (awSheet) {
+    var awMap = awarieHeaderMap_(awSheet);
     var adata = awSheet.getDataRange().getValues();
     for (var k = 1; k < adata.length; k++) {
-      var ar = adata[k];
-      if (ar[5] !== 'ZAMKNIETA') continue;
-      var ad = normalizeDate_(ar[0]).slice(0, 10);
+      var ar = awarieRowToObj_(adata[k], awMap);
+      if (ar.status !== 'ZAMKNIETA') continue;
+      var ad = normalizeDate_(ar.start_timestamp).slice(0, 10);
       if (p.start && ad < p.start) continue;
       if (p.end && ad > p.end) continue;
-      awarieHistoria.push({ date: ad, station: ar[1], type: ar[2], shift: ar[7] || '', czas_min: Number(ar[4]) || 0 });
+      awarieHistoria.push({ date: ad, station: ar.station, type: ar.type, shift: ar.shift || '', czas_min: Number(ar.czas_min) || 0, type_cn: ar.type_cn || '' });
     }
   }
   return jsonResponse({ status: 'ok', historia: historia, rework_historia: reworkHistoria, awarie_historia: awarieHistoria });
@@ -354,25 +379,20 @@ function enumerateDays_(startIso, endIso) {
   return days;
 }
 // Pelny zaplanowany wolumen CALEGO okresu (start..end) dla stanowiska+
-// zmiany — TA SAMA logika co getPeriodPlan w CFM_statystyki.html (jesli w
-// Planie jest chociaz jeden jawny wpis w tym okresie, licz WYLACZNIE jawne
-// wpisy — dni bez wpisu = 0; w przeciwnym razie Cel x dni robocze). Bez
-// tego (poprzednia wersja liczyla plan TYLKO za dni z juz zlozonym
-// raportem) niezaraportowany dzien roboczy znikal z mianownika zamiast
-// obnizyc %, przez co Premie i Statystyki dla tego samego stanowiska/
-// zmiany/okresu pokazywaly rozne procenty.
-function getPeriodPlan_(monthlyPlan, targets, station, shift, startIso, endIso) {
+// zmiany — TA SAMA logika co getPeriodPlan w CFM_statystyki.html: per
+// dzien, jawny wpis w Planie jesli istnieje, inaczej Cel stanowiska TYLKO
+// jesli tego dnia faktycznie zlozono raport (byDate[d]) - realna praca
+// bez wpisanego z gory planu (np. niezaplanowana wczesniej sobota) liczy
+// sie wzgledem Celu zamiast znikac/wygladac jak porazka; dzien bez wpisu
+// I bez raportu (stacja normalnie tu nie pracuje) nie dolicza sie wcale.
+function getPeriodPlan_(monthlyPlan, targets, station, shift, startIso, endIso, byDate) {
   var days = enumerateDays_(startIso, endIso);
-  var hasAnyEntry = days.some(function(d) { return planEntryFor_(monthlyPlan, station, shift, d) !== null; });
-  if (hasAnyEntry) {
-    return days.reduce(function(sum, d) { return sum + (planEntryFor_(monthlyPlan, station, shift, d) || 0); }, 0);
-  }
-  var weekdays = days.filter(function(d) {
-    var parts = d.split('-');
-    var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
-    return wd !== 0 && wd !== 6;
-  }).length;
-  return weekdays * (Number(targets[station]) || 0);
+  return days.reduce(function(sum, d) {
+    var explicit = planEntryFor_(monthlyPlan, station, shift, d);
+    if (explicit !== null) return sum + explicit;
+    if (byDate && byDate[d]) return sum + (Number(targets[station]) || 0);
+    return sum;
+  }, 0);
 }
 function handlePremia(ss, p) {
   var monthlyPlan = {}, stationTargets = {};
@@ -395,10 +415,11 @@ function handlePremia(ss, p) {
       if (p.start && d < p.start) continue;
       if (p.end && d > p.end) continue;
       var key = r[3] + '||' + r[2];
-      if (!byKey[key]) byKey[key] = { station: r[3], shift: r[2], sumQty: 0, sumOk: 0, sumPlan: 0, count: 0 };
+      if (!byKey[key]) byKey[key] = { station: r[3], shift: r[2], sumQty: 0, sumOk: 0, sumPlan: 0, count: 0, byDate: {} };
       byKey[key].sumQty += Number(r[5]) || 0;
       byKey[key].sumOk += Number(r[9]) || 0;
       byKey[key].count += 1;
+      byKey[key].byDate[d] = true;
     }
   }
   // Plan CALEGO okresu (start..end), nie tylko dni z juz zlozonym
@@ -408,7 +429,7 @@ function handlePremia(ss, p) {
   if (p.start && p.end) {
     Object.keys(byKey).forEach(function(key) {
       var g = byKey[key];
-      g.sumPlan = getPeriodPlan_(monthlyPlan, stationTargets, g.station, g.shift, p.start, p.end);
+      g.sumPlan = getPeriodPlan_(monthlyPlan, stationTargets, g.station, g.shift, p.start, p.end, g.byDate);
     });
   }
 
@@ -421,15 +442,16 @@ function handlePremia(ss, p) {
   var downtimeByKey = {};
   var awSheet = ss.getSheetByName('Awarie');
   if (awSheet) {
+    var awMap = awarieHeaderMap_(awSheet);
     var adata = awSheet.getDataRange().getValues();
     for (var j = 1; j < adata.length; j++) {
-      var ar = adata[j];
-      if (ar[5] !== 'ZAMKNIETA') continue;
-      var ad = normalizeDate_(ar[0]).slice(0, 10);
+      var ar = awarieRowToObj_(adata[j], awMap);
+      if (ar.status !== 'ZAMKNIETA') continue;
+      var ad = normalizeDate_(ar.start_timestamp).slice(0, 10);
       if (p.start && ad < p.start) continue;
       if (p.end && ad > p.end) continue;
-      var dtKey = ar[1] + '||' + (ar[7] || '');
-      downtimeByKey[dtKey] = (downtimeByKey[dtKey] || 0) + (Number(ar[4]) || 0);
+      var dtKey = ar.station + '||' + (ar.shift || '');
+      downtimeByKey[dtKey] = (downtimeByKey[dtKey] || 0) + (Number(ar.czas_min) || 0);
     }
   }
 
@@ -538,53 +560,113 @@ function handleHistoriaGodzinna(ss, p) {
 }
 
 // ── AWARIE ──────────────────────────────────────────────────────────
-// start_timestamp | station | type | koniec_timestamp | czas_min | status | operator | shift
-// (shift dopisany NA KONCU — zmiana to tozsamosc grupy A/B/C operatora w
-// momencie zgloszenia awarii, potrzebna do poprawnego przypisania
-// przestoju do wlasciwej grupy w wyliczeniu premii; zapisywana tylko przy
-// START, KONIEC jej nie nadpisuje. Type NATOMIAST jest teraz nadpisywany
-// przy KONCU — opis przyczyny przenosi sie z app-side ze startu na koniec
-// (operator startujacy awarie czesto jeszcze nie wie co dokladnie sie
-// stalo; dopiero KONIEC niesie ostateczny typ+opis), START zapisuje na razie
-// tylko sama kategorie bez opisu.)
-var AWARIE_HEADERS = ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator', 'shift'];
+// start_timestamp | station | type | koniec_timestamp | czas_min | status | operator | shift | type_cn
+// (shift i type_cn dopisane NA KONCU listy ponizej, ale UWAGA: to NIE
+// znaczy, ze sa na koncu w samym arkuszu! Zywy arkusz ma miedzy "operator"
+// a "shift" jeszcze dwie kolumny alert_15min_sent/alert_1h_sent, dodane
+// przez funkcje checkAwariaEscalations spoza tego pliku (trigger czasowy,
+// patrz nizej) - ensureColumns_ dopisuje kazdy NOWY naglowek na sam koniec
+// istniejacych kolumn W MOMENCIE jego pierwszego dodania, wiec kolejnosc w
+// arkuszu odzwierciedla KIEDY dana funkcja pierwszy raz zostala wdrozona,
+// nie kolejnosc w tej liscie. appendRow() z gotowa tablica wartosci pisze
+// pozycyjnie od kolumny A, wiec przy takim rozjezdzie kolejnosci nadpisywal
+// cudze kolumny (shift trafial w alert_15min_sent, type_cn w alert_1h_sent)
+// - stad WSZYSTKIE funkcje ponizej czytaja/pisza po NAZWIE naglowka
+// (awarieHeaderMap_/awarieRowToObj_/awarieAppendRow_/awarieSetField_), nie
+// po sztywnej pozycji - bezpieczne niezaleznie od tego, jakie jeszcze inne
+// kolumny ktos kiedys dopisze z zewnatrz.
+var AWARIE_HEADERS = ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator', 'shift', 'type_cn'];
+function awarieHeaderMap_(sheet) {
+  var lastCol = sheet.getLastColumn();
+  var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  var map = {};
+  headers.forEach(function (h, i) { map[h] = i; });
+  return map;
+}
+function awarieRowToObj_(row, map) {
+  function g(name) { return map.hasOwnProperty(name) ? row[map[name]] : ''; }
+  return {
+    start_timestamp: g('start_timestamp'), station: g('station'), type: g('type'),
+    koniec_timestamp: g('koniec_timestamp'), czas_min: g('czas_min'), status: g('status'),
+    operator: g('operator'), shift: g('shift'), type_cn: g('type_cn'),
+    alert_15min_sent: g('alert_15min_sent'), alert_1h_sent: g('alert_1h_sent'),
+  };
+}
+// Dopisuje nowy wiersz jako obiekt {naglowek: wartosc} zamiast tablicy
+// pozycyjnej - kazde pole trafia do kolumny o tej nazwie niezaleznie od
+// jej faktycznej pozycji w arkuszu; nazwy nieobecne w arkuszu sa pomijane.
+function awarieAppendRow_(sheet, map, fields) {
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var row = new Array(lastCol).fill('');
+  Object.keys(fields).forEach(function (k) {
+    if (map.hasOwnProperty(k)) row[map[k]] = fields[k];
+  });
+  sheet.appendRow(row);
+}
+function awarieSetField_(sheet, map, rowIndex1based, fieldName, value) {
+  if (!map.hasOwnProperty(fieldName)) return;
+  sheet.getRange(rowIndex1based, map[fieldName] + 1).setValue(value);
+}
 function handleAwariaStart(ss, p) {
   var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
   ensureColumns_(sheet, AWARIE_HEADERS);
-  sheet.appendRow([p.timestamp || '', p.stanowisko || '', p.typ || '', '', '', 'OTWARTA', p.operator || '', p.shift || '']);
-  sendFeishuBotMessage_('🔧 BREAKDOWN START / 故障开始\n' + (p.stanowisko || '?') + ' · ' + (p.typ || 'Awaria') + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
+  var tr = translateType_(p.typ || 'Awaria');
+  var map = awarieHeaderMap_(sheet);
+  awarieAppendRow_(sheet, map, {
+    start_timestamp: p.timestamp || '', station: p.stanowisko || '', type: p.typ || '',
+    status: 'OTWARTA', operator: p.operator || '', shift: p.shift || '', type_cn: tr.cn,
+  });
+  sendFeishuBotMessage_('🔧 BREAKDOWN START / 故障开始\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
   return jsonResponse({ status: 'ok' });
 }
 
 function handleAwariaEnd(ss, p) {
   var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
   ensureColumns_(sheet, AWARIE_HEADERS);
+  var map = awarieHeaderMap_(sheet);
   var data = sheet.getDataRange().getValues();
-  var czasMin = Number(p.czas_min) || 0;
+  // Zaokraglone do pelnych minut PRZY ZAPISIE (nie tylko przy wyswietlaniu)
+  // - awaria trwajaca np. 61 min 20 s liczona jako roznica timestampow
+  // dawala 61.333... min, co pokazywalo sie jako "61.3 min" wszedzie
+  // (podsumowanie dnia, Statystyki, Excel). Zaokraglenie w jednym miejscu
+  // (tu, przy zapisie) usuwa ulamki wszedzie na raz.
+  var czasMin = Math.round(Number(p.czas_min) || 0);
   for (var i = data.length - 1; i >= 1; i--) {
-    var row = data[i];
-    if (row[0] === p.start_timestamp && row[1] === p.stanowisko && row[5] === 'OTWARTA') {
-      sheet.getRange(i + 1, 3, 1, 4).setValues([[p.typ || row[2], p.koniec_timestamp || '', czasMin, 'ZAMKNIETA']]);
-      sendFeishuBotMessage_('✅ BREAKDOWN END / 故障结束\n' + (p.stanowisko || '?') + ' · ' + (p.typ || row[2]) + '\nDuration / 时长: ' + czasMin + ' min');
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.start_timestamp === p.start_timestamp && obj.station === p.stanowisko && obj.status === 'OTWARTA') {
+      var tr = translateType_(p.typ || obj.type);
+      var rowIdx = i + 1;
+      awarieSetField_(sheet, map, rowIdx, 'type', p.typ || obj.type);
+      awarieSetField_(sheet, map, rowIdx, 'koniec_timestamp', p.koniec_timestamp || '');
+      awarieSetField_(sheet, map, rowIdx, 'czas_min', czasMin);
+      awarieSetField_(sheet, map, rowIdx, 'status', 'ZAMKNIETA');
+      awarieSetField_(sheet, map, rowIdx, 'type_cn', tr.cn);
+      sendFeishuBotMessage_('✅ BREAKDOWN END / 故障结束\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + '\nDuration / 时长: ' + czasMin + ' min');
       return jsonResponse({ status: 'ok' });
     }
   }
   // Nie znaleziono otwartego wiersza (np. reset stanu w aplikacji) — dopisz kompletny wiersz.
-  sheet.appendRow([p.start_timestamp || '', p.stanowisko || '', p.typ || '', p.koniec_timestamp || '', czasMin, 'ZAMKNIETA', p.operator || '', p.shift || '']);
-  sendFeishuBotMessage_('✅ BREAKDOWN END / 故障结束\n' + (p.stanowisko || '?') + ' · ' + (p.typ || 'Awaria') + '\nDuration / 时长: ' + czasMin + ' min');
+  var tr2 = translateType_(p.typ || 'Awaria');
+  awarieAppendRow_(sheet, map, {
+    start_timestamp: p.start_timestamp || '', station: p.stanowisko || '', type: p.typ || '',
+    koniec_timestamp: p.koniec_timestamp || '', czas_min: czasMin, status: 'ZAMKNIETA',
+    operator: p.operator || '', shift: p.shift || '', type_cn: tr2.cn,
+  });
+  sendFeishuBotMessage_('✅ BREAKDOWN END / 故障结束\n' + (p.stanowisko || '?') + ' · ' + tr2.en + ' / ' + tr2.cn + '\nDuration / 时长: ' + czasMin + ' min');
   return jsonResponse({ status: 'ok' });
 }
 
 function handleAwariaCheck(ss, p) {
   var sheet = ss.getSheetByName('Awarie');
   if (!sheet) return jsonResponse({ open: false });
+  var map = awarieHeaderMap_(sheet);
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
-    var row = data[i];
-    if (row[1] === p.stanowisko && row[5] === 'OTWARTA') {
-      var startIso = row[0];
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.station === p.stanowisko && obj.status === 'OTWARTA') {
+      var startIso = obj.start_timestamp;
       var diffMin = Math.round((new Date() - new Date(startIso)) / 60000);
-      return jsonResponse({ open: true, awaria: { typ: row[2], start: startIso, startIso: startIso, diffMin: diffMin, operator: row[6] } });
+      return jsonResponse({ open: true, awaria: { typ: obj.type, start: startIso, startIso: startIso, diffMin: diffMin, operator: obj.operator } });
     }
   }
   return jsonResponse({ open: false });
@@ -597,12 +679,13 @@ function handleAwariaCheck(ss, p) {
 function handleAwarieOtwarte(ss, p) {
   var sheet = ss.getSheetByName('Awarie');
   if (!sheet) return jsonResponse({ status: 'ok', otwarte: [] });
+  var map = awarieHeaderMap_(sheet);
   var data = sheet.getDataRange().getValues();
   var out = [];
   for (var i = 1; i < data.length; i++) {
-    var r = data[i];
-    if (r[5] !== 'OTWARTA') continue;
-    out.push({ station: r[1], type: r[2], start_timestamp: r[0], operator: r[6] || '', shift: r[7] || '' });
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.status !== 'OTWARTA') continue;
+    out.push({ station: obj.station, type: obj.type, start_timestamp: obj.start_timestamp, operator: obj.operator || '', shift: obj.shift || '' });
   }
   return jsonResponse({ status: 'ok', otwarte: out });
 }
@@ -613,13 +696,14 @@ function handleAwarieOtwarte(ss, p) {
 function handleAwariaHistoria(ss, p) {
   var sheet = ss.getSheetByName('Awarie');
   if (!sheet) return jsonResponse({ status: 'ok', historia: [] });
+  var map = awarieHeaderMap_(sheet);
   var data = sheet.getDataRange().getValues();
   var rows = [];
   for (var i = 1; i < data.length; i++) {
-    var r = data[i];
-    if (r[5] !== 'ZAMKNIETA') continue;
-    if (p.stanowisko && r[1] !== p.stanowisko) continue;
-    rows.push({ station: r[1], type: r[2], start_timestamp: r[0], koniec_timestamp: r[3], czas_min: Number(r[4]) || 0, operator: r[6] || '' });
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.status !== 'ZAMKNIETA') continue;
+    if (p.stanowisko && obj.station !== p.stanowisko) continue;
+    rows.push({ station: obj.station, type: obj.type, start_timestamp: obj.start_timestamp, koniec_timestamp: obj.koniec_timestamp, czas_min: Number(obj.czas_min) || 0, operator: obj.operator || '' });
   }
   rows.sort(function (a, b) { return new Date(b.koniec_timestamp) - new Date(a.koniec_timestamp); });
   return jsonResponse({ status: 'ok', historia: rows.slice(0, 20) });
@@ -631,11 +715,12 @@ function handleAwariaHistoria(ss, p) {
 function handleEditAwariaDuration(ss, p) {
   var sheet = ss.getSheetByName('Awarie');
   if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var map = awarieHeaderMap_(sheet);
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
-    var r = data[i];
-    if (r[0] === p.start_timestamp && r[1] === p.stanowisko && r[2] === p.typ && r[5] === 'ZAMKNIETA') {
-      sheet.getRange(i + 1, 5).setValue(Number(p.czas_min) || 0);
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.start_timestamp === p.start_timestamp && obj.station === p.stanowisko && obj.type === p.typ && obj.status === 'ZAMKNIETA') {
+      awarieSetField_(sheet, map, i + 1, 'czas_min', Math.round(Number(p.czas_min) || 0));
       return jsonResponse({ status: 'ok', updated: true });
     }
   }
@@ -645,15 +730,114 @@ function handleEditAwariaDuration(ss, p) {
 function handleDeleteAwaria(ss, p) {
   var sheet = ss.getSheetByName('Awarie');
   if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var map = awarieHeaderMap_(sheet);
   var data = sheet.getDataRange().getValues();
   for (var i = data.length - 1; i >= 1; i--) {
-    var r = data[i];
-    if (r[0] === p.start_timestamp && r[1] === p.stanowisko && r[2] === p.typ) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.start_timestamp === p.start_timestamp && obj.station === p.stanowisko && obj.type === p.typ) {
       sheet.deleteRow(i + 1);
       return jsonResponse({ status: 'ok', deleted: true });
     }
   }
   return jsonResponse({ status: 'ok', deleted: false });
+}
+
+// Uruchom RECZNIE JEDEN RAZ (z listy funkcji w edytorze), zeby dopisac
+// chinskie tlumaczenie (type_cn) do WSZYSTKICH juz istniejacych awarii,
+// ktore powstaly PRZED wdrozeniem automatycznego tlumaczenia - inaczej
+// stare wpisy (tooltip nad &#9888;, chipsy, eksport Excel) na zawsze
+// zostalyby bez chinskiego tekstu, bo translateType_ liczy sie tylko przy
+// START/KONIEC nowej awarii. Bezpiecznie uruchomic wielokrotnie - pomija
+// wiersze, ktore juz maja wypelnione type_cn.
+// Uruchom RECZNIE JEDEN RAZ, PRZED backfillTypeCn - naprawia skutki
+// wczesniejszej kolizji kolumn. Zanim istnienie alert_15min_sent/
+// alert_1h_sent bylo mi znane, appendRow()/getRange() z ta funkcja
+// pisaly POZYCYJNIE, wiec wartosc "shift" ladowala sie fizycznie w
+// kolumnie podpisanej "alert_15min_sent", a "type_cn" w
+// "alert_1h_sent" - dla WSZYSTKICH awarii zapisanych PRZED naprawa tej
+// kolizji (patrz awarieHeaderMap_ wyzej). Teraz kod czyta "shift"/
+// "type_cn" po nazwie z ich prawdziwych (pustych dla tych starych
+// wierszy) kolumn, wiec te awarie znikaly z filtrow po zmianie
+// (np. wykrzyknik w Statystykach przestawal sie pokazywac).
+// Heurystyka: prawdziwa flaga alertu to zawsze puste albo `true` - jesli
+// w alert_15min_sent/alert_1h_sent siedzi COKOLWIEK INNEGO (litera zmiany,
+// tekst po chinsku), to na 99% ta zagubiona wartosc - przenosimy ja do
+// wlasciwej kolumny i czyscimy zrodlowa.
+function migrateAwarieColumns() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return;
+  var map = awarieHeaderMap_(sheet);
+  if (!map.hasOwnProperty('shift') || !map.hasOwnProperty('alert_15min_sent')) return;
+  function looksLikeStrayValue(v) {
+    if (!v && v !== 0) return false;
+    if (v === true || String(v).toUpperCase() === 'TRUE') return false;
+    return true;
+  }
+  var data = sheet.getDataRange().getValues();
+  var migratedShift = 0, migratedCn = 0;
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var rowIdx = i + 1;
+    var curShift = row[map['shift']];
+    var alert15 = row[map['alert_15min_sent']];
+    if (!curShift && looksLikeStrayValue(alert15)) {
+      awarieSetField_(sheet, map, rowIdx, 'shift', alert15);
+      awarieSetField_(sheet, map, rowIdx, 'alert_15min_sent', '');
+      migratedShift++;
+    }
+    if (map.hasOwnProperty('type_cn') && map.hasOwnProperty('alert_1h_sent')) {
+      var curCn = row[map['type_cn']];
+      var alert1h = row[map['alert_1h_sent']];
+      if (!curCn && looksLikeStrayValue(alert1h)) {
+        awarieSetField_(sheet, map, rowIdx, 'type_cn', alert1h);
+        awarieSetField_(sheet, map, rowIdx, 'alert_1h_sent', '');
+        migratedCn++;
+      }
+    }
+  }
+  Logger.log('migrateAwarieColumns: shift=' + migratedShift + ', type_cn=' + migratedCn);
+}
+
+function backfillTypeCn() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return;
+  ensureColumns_(sheet, AWARIE_HEADERS);
+  var map = awarieHeaderMap_(sheet);
+  var data = sheet.getDataRange().getValues();
+  var updated = 0;
+  for (var i = 1; i < data.length; i++) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (!obj.type || obj.type_cn) continue;
+    awarieSetField_(sheet, map, i + 1, 'type_cn', translateType_(obj.type).cn);
+    updated++;
+  }
+  Logger.log('backfillTypeCn: zaktualizowano ' + updated + ' wierszy');
+}
+
+// Uruchom RECZNIE JEDEN RAZ - zaokragla juz istniejace czas_min z ulamkami
+// (np. 61.333 min) do pelnych minut. Nowe awarie od teraz zapisuja sie juz
+// zaokraglone (patrz handleAwariaEnd/handleEditAwariaDuration), ale stare
+// wpisy w arkuszu nadal maja ulamki, dopoki nie uruchomi sie tej migracji.
+function roundCzasMin() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return;
+  var map = awarieHeaderMap_(sheet);
+  if (!map.hasOwnProperty('czas_min')) return;
+  var data = sheet.getDataRange().getValues();
+  var updated = 0;
+  for (var i = 1; i < data.length; i++) {
+    var raw = data[i][map['czas_min']];
+    var n = Number(raw);
+    if (raw === '' || isNaN(n)) continue;
+    var rounded = Math.round(n);
+    if (rounded === n) continue;
+    awarieSetField_(sheet, map, i + 1, 'czas_min', rounded);
+    updated++;
+  }
+  Logger.log('roundCzasMin: zaokraglono ' + updated + ' wierszy');
 }
 
 // ── REWORK PROCESSING (bufor per strefa) ────────────────────────────
@@ -804,23 +988,37 @@ function wyslijPodsumowanieDnia() {
     }
   }
 
-  var actual = 0, ok = 0, plan = 0, ngCount = 0;
+  // Per-stanowisko (nie tylko GP12) - kazde stanowisko, ktore mialo
+  // JAKIKOLWIEK raport tego dnia, dostaje wlasna linijke wykonania planu +
+  // pass rate. Agregacja PRZEZ WSZYSTKIE zmiany stanowiska naraz (tak jak
+  // wczesniej dla samego GP12), nie osobno per zmiana - inaczej wiadomosc
+  // zrobilaby sie za dluga przy kilku zmianach na stanowisko.
+  var byStationPlan = {};
+  var stationOrder = [];
   var sheet = ss.getSheetByName('RaportDzienny');
   if (sheet) {
     var data = sheet.getDataRange().getValues();
     var seenShifts = {};
     for (var i = 1; i < data.length; i++) {
       var r = data[i];
-      if (normalizeDate_(r[1]) !== dateIso || r[3] !== 'GP12') continue;
-      actual += Number(r[5]) || 0;
-      ok += Number(r[9]) || 0;
-      ngCount += (Number(r[6]) || 0) + (Number(r[7]) || 0);
-      var key = r[3] + '||' + r[2];
-      if (!seenShifts[key]) { seenShifts[key] = true; plan += planForDate_(monthlyPlan, stationTargets, r[3], r[2], dateIso); }
+      if (normalizeDate_(r[1]) !== dateIso) continue;
+      var st = r[3];
+      if (!byStationPlan[st]) { byStationPlan[st] = { actual: 0, ok: 0, plan: 0, ngCount: 0 }; stationOrder.push(st); }
+      var sObj = byStationPlan[st];
+      sObj.actual += Number(r[5]) || 0;
+      sObj.ok += Number(r[9]) || 0;
+      sObj.ngCount += (Number(r[6]) || 0) + (Number(r[7]) || 0);
+      var key = st + '||' + r[2];
+      if (!seenShifts[key]) { seenShifts[key] = true; sObj.plan += planForDate_(monthlyPlan, stationTargets, st, r[2], dateIso); }
     }
   }
-  var completion = plan > 0 ? Math.round((actual / plan) * 100) : null;
-  var passRate = actual > 0 ? ((ok / actual) * 100).toFixed(1) : null;
+  stationOrder.sort();
+  var stationLines = stationOrder.map(function (st) {
+    var s = byStationPlan[st];
+    var completion = s.plan > 0 ? Math.round((s.actual / s.plan) * 100) : null;
+    var passRate = s.actual > 0 ? ((s.ok / s.actual) * 100).toFixed(1) : null;
+    return '  ' + st + ': ' + (completion === null ? '—' : completion + '%') + ' (' + s.actual + '/' + s.plan + ' pcs / 件), pass ' + (passRate === null ? '—' : passRate + '%');
+  }).join('\n');
 
   var awSheet = ss.getSheetByName('Awarie');
   var awarieCount = 0, awarieMin = 0, byStation = {};
@@ -841,9 +1039,8 @@ function wyslijPodsumowanieDnia() {
     .map(function(st) { return '  ' + st + ': ' + round1_(byStation[st]) + ' min'; }).join('\n');
 
   var dd = dateIso.split('-');
-  var text = '☀️ DAILY SUMMARY / 日总结 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + ' (GP12)\n\n' +
-    'Plan completion / 计划完成率: ' + (completion === null ? '—' : completion + '%') + ' (' + actual + '/' + plan + ' pcs / 件)\n' +
-    'Pass rate / 合格率: ' + (passRate === null ? '—' : passRate + '%') + ' (' + ngCount + ' defects / 件不良品)\n\n' +
+  var text = '☀️ DAILY SUMMARY / 日总结 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + '\n\n' +
+    'Plan completion & pass rate / 计划完成率与合格率:\n' + (stationLines || '  —') + '\n\n' +
     'Breakdowns / 故障: ' + awarieCount + ' (total / 总计 ' + round1_(awarieMin) + ' min)' + (awarieLines ? '\n' + awarieLines : '');
   sendFeishuBotMessage_(text);
 }
@@ -858,4 +1055,92 @@ function ustawTriggerPodsumowania() {
     if (t.getHandlerFunction() === 'wyslijPodsumowanieDnia') ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('wyslijPodsumowanieDnia').timeBased().atHour(6).everyDays(1).create();
+}
+
+// ── ESKALACJA DLUGO OTWARTYCH AWARII (trigger co 5 min) ─────────────
+// ODTWORZONE od podstaw (best-effort) — oryginalna funkcja o tej samej
+// nazwie zostala przypadkowo skasowana przy nadpisaniu tego pliku (trigger
+// zostal, ale wywolywal juz nieistniejaca funkcje - "Script function not
+// found"), a jej oryginalnego kodu nie dalo sie odzyskac z historii wersji
+// Apps Script. Kolumny alert_15min_sent/alert_1h_sent w arkuszu Awarie
+// (dodane przez ORYGINALNA wersje tej funkcji) zostaly zachowane i sa tu
+// uzyte zgodnie z ich nazwa: flaga ustawiana PO wyslaniu danego alertu,
+// zeby nie wyslac go ponownie przy kolejnym uruchomieniu triggera.
+// Progi (15 min / 1h) i tresc wiadomosci to najlepsze przyblizenie na
+// podstawie nazw kolumn - popraw, jesli oryginal robil to inaczej.
+function checkAwariaEscalations() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return;
+  var map = awarieHeaderMap_(sheet);
+  if (!map.hasOwnProperty('alert_15min_sent') || !map.hasOwnProperty('alert_1h_sent')) return;
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  var data = sheet.getDataRange().getValues();
+  var now = new Date();
+  for (var i = 1; i < data.length; i++) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.status !== 'OTWARTA' || !obj.start_timestamp) continue;
+    var start = new Date(obj.start_timestamp);
+    var elapsedMin = (now - start) / 60000;
+    var rowIdx = i + 1;
+    var startTxt = Utilities.formatDate(start, tz, 'HH:mm');
+    if (elapsedMin >= 60 && !obj.alert_1h_sent) {
+      // Powyzej 1h -> glowna grupa (szefowie) - powazniejsza eskalacja.
+      sendFeishuBotMessage_('⏱️ BREAKDOWN OPEN 1H+ / 故障持续超过1小时\n' + obj.station + ' · ' + (obj.type || 'Awaria') + (obj.operator ? '\nReported by / 报告人: ' + obj.operator : '') + '\nOpen since / 开始于: ' + startTxt, FEISHU_BOT_WEBHOOK);
+      awarieSetField_(sheet, map, rowIdx, 'alert_1h_sent', true);
+    } else if (elapsedMin >= 15 && !obj.alert_15min_sent) {
+      // 15 min -> grupa technikow, zeby ktos poszedl to naprawic zanim
+      // eskaluje dalej. Dopoki FEISHU_BOT_WEBHOOK_TECHNICY nie jest
+      // uzupelniony, NIE wysylamy tego wcale (celowo nie wpada na glowna
+      // grupe jako fallback - to bylby spam nie dla tych odbiorcow).
+      if (FEISHU_BOT_WEBHOOK_TECHNICY) {
+        sendFeishuBotMessage_('⏱️ BREAKDOWN OPEN 15MIN+ / 故障持续超过15分钟\n' + obj.station + ' · ' + (obj.type || 'Awaria') + (obj.operator ? '\nReported by / 报告人: ' + obj.operator : '') + '\nOpen since / 开始于: ' + startTxt, FEISHU_BOT_WEBHOOK_TECHNICY);
+      }
+      awarieSetField_(sheet, map, rowIdx, 'alert_15min_sent', true);
+    }
+  }
+}
+
+// Uruchom RECZNIE JEDEN RAZ, zeby zainstalowac trigger co 5 minut (ten sam
+// odstep co widoczny w historii wykonan sprzed znikniecia funkcji).
+function ustawTriggerEscalations() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'checkAwariaEscalations') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('checkAwariaEscalations').timeBased().everyMinutes(5).create();
+}
+
+// ── WYPADKI (BHP) ────────────────────────────────────────────────────
+// timestamp | date | station | severity | description | operator
+// Osobny, prosty arkusz - w odroznieniu od Awarii nie ma stanu
+// OTWARTA/ZAMKNIETA (wypadek zglasza sie raz, po fakcie), wiec tylko
+// zapis + odczyt, bez logiki start/koniec.
+var WYPADKI_HEADERS = ['timestamp', 'date', 'station', 'severity', 'description', 'operator'];
+function handleZglosWypadek(ss, p) {
+  var sheet = getOrCreateSheet(ss, 'Wypadki', WYPADKI_HEADERS);
+  ensureColumns_(sheet, WYPADKI_HEADERS);
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  var dateStr = p.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  sheet.appendRow([p.timestamp || new Date().toISOString(), dateStr, p.stanowisko || '', p.severity || '', p.description || '', p.operator || '']);
+  // Wypadek jest pilniejszy niz zwykla awaria maszyny - zawsze na glowna
+  // grupe (ta sama co alert eskalacji 1h+), niezaleznie od powagi.
+  sendFeishuBotMessage_('🚨 WORKPLACE INCIDENT / 工伤事故\n' + (p.stanowisko || '?') + ' · ' + (p.severity || '?') + (p.description ? '\n' + p.description : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
+  return jsonResponse({ status: 'ok' });
+}
+
+// Cala historia (nie tylko zakres dat) - wypadki sa rzadkie, wiec prosciej
+// zwrocic wszystko i pozwolic frontendowi (np. licznik "dni bez wypadku"
+// na Dashboardzie) samemu przefiltrowac/policzyc, niz dodawac kolejny
+// parametr zakresu tylko dla tego jednego, malego zrodla danych.
+function handleWypadkiHistoria(ss, p) {
+  var sheet = ss.getSheetByName('Wypadki');
+  if (!sheet) return jsonResponse({ status: 'ok', historia: [] });
+  var data = sheet.getDataRange().getValues();
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    rows.push({ timestamp: r[0], date: normalizeDate_(r[1]), station: r[2], severity: r[3], description: r[4], operator: r[5] || '' });
+  }
+  rows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return jsonResponse({ status: 'ok', historia: rows });
 }

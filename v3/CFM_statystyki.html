@@ -756,7 +756,7 @@ function renderKpis(groups, days, periodLabel) {
     var hasData = Object.keys(g.byDate).length > 0;
     var hasPlanEntries = days.some(function(d) { return planEntryFor(g.station, g.shift, d) !== null; });
     if (!hasData && !hasPlanEntries) return;
-    totalPlan += getPeriodPlan(g.station, g.shift, days);
+    totalPlan += getPeriodPlan(g.station, g.shift, days, g.byDate);
     days.forEach(function(d) {
       var r = g.byDate[d];
       if (!r) return;
@@ -855,7 +855,7 @@ function renderShiftComparison(groups, days) {
     if (!hasData && !hasPlanEntries) return;
     var actual = 0, ok = 0;
     Object.keys(g.byDate).forEach(function(d) { actual += g.byDate[d].qty; ok += g.byDate[d].ok_count; });
-    var plan = getPeriodPlan(g.station, g.shift, days);
+    var plan = getPeriodPlan(g.station, g.shift, days, g.byDate);
     if (!byShift[g.shift]) byShift[g.shift] = { pcts: [], passRates: [] };
     if (plan > 0) byShift[g.shift].pcts.push((actual / plan) * 100);
     if (actual > 0) byShift[g.shift].passRates.push((ok / actual) * 100);
@@ -914,7 +914,7 @@ function renderPivot(groups, days, periodLabel) {
       // dzien roboczy bez raportu (albo dzien spoza fetchowanego zakresu,
       // patrz loadMonth) po prostu znikal z mianownika zamiast obnizyc %,
       // sztucznie zawyzajac wykonanie planu.
-      var periodPlan = getPeriodPlan(stName, g.shift, days);
+      var periodPlan = getPeriodPlan(stName, g.shift, days, g.byDate);
       var cells = days.map(function(d) {
         var r = g.byDate[d];
         var planForDay = effectivePlanEntry(stName, g.shift, d);
@@ -1022,25 +1022,23 @@ function computeOee(g, days) {
   return { availability: availability, performance: performance, quality: quality, oee: oee };
 }
 // Pelny zaplanowany wolumen dla stanowiska+zmiany w podanym zakresie dni
-// (nawet dni jeszcze bez raportu). Jesli w Planie miesiecznym jest
-// CHOCIAZ JEDEN jawny wpis dla tego stanowiska+zmiany w tym okresie,
-// uzywamy WYLACZNIE jawnych wpisow (dni bez wpisu = 0) — to poprawnie
-// obsluguje stanowiska nieregularne (np. OP40, pracuje co ktorys dzien),
-// ktore NIE powinny dostawac domyslnego celu na kazdy dzien roboczy.
-// Dopiero gdy dla calego okresu nie ma ANI JEDNEGO wpisu w Planie (nikt
-// jeszcze nie ustawil planu dzien-po-dzien dla tego stanowiska), spadamy
-// na szacunek: stale Cele x liczba dni roboczych (pon-pt) w okresie.
-function getPeriodPlan(station, shift, days) {
-  var hasAnyEntry = days.some(function(d) { return planEntryFor(station, shift, d) !== null; });
-  if (hasAnyEntry) {
-    return days.reduce(function(sum, d) { return sum + (effectivePlanEntry(station, shift, d) || 0); }, 0);
-  }
-  var weekdays = days.filter(function(d) {
-    var parts = d.split('-');
-    var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
-    return wd !== 0 && wd !== 6;
-  }).length;
-  return weekdays * (Number(STATE.stationTargets[station]) || 0);
+// (nawet dni jeszcze bez raportu) — PER DZIEN: jawny wpis w Planie, jesli
+// istnieje; w przeciwnym razie stale Cele stanowiska TYLKO jesli tego dnia
+// faktycznie ZLOZONO raport (rzeczywista praca bez wpisanego z gory
+// planu, np. sobota nieplanowana wczesniej — powinna liczyc sie wzgledem
+// Celu, a nie znikac/wygladac jak "0% wykonania" mimo realnej produkcji);
+// dzien bez wpisu w Planie I bez raportu (stacja normalnie tu nie
+// pracuje, np. OP40 w dni ktore pomija) nie dolicza sie wcale — 0.
+// byDate to g.byDate GRUPY, dla ktorej liczymy plan (a nie caly STATE.rows) —
+// gwarantuje ze "czy byl raport tego dnia" sprawdzamy dokladnie na tych
+// samych danych, z ktorych i tak juz liczy sie "actual" u wywolujacego.
+function getPeriodPlan(station, shift, days, byDate) {
+  return days.reduce(function(sum, d) {
+    var explicit = effectivePlanEntry(station, shift, d);
+    if (explicit !== null) return sum + explicit;
+    if (byDate && byDate[d]) return sum + (Number(STATE.stationTargets[station]) || 0);
+    return sum;
+  }, 0);
 }
 
 // Wspolna logika pask-per-stanowisko, uzywana zarowno dla bilansu
@@ -1095,7 +1093,7 @@ function barsHtml(groups, days) {
     var hasData = Object.keys(g.byDate).length > 0;
     var hasPlanEntries = (days || []).some(function(d) { return planEntryFor(g.station, g.shift, d) !== null; });
     if (hasData || hasPlanEntries) {
-      byStation[g.station].plan += getPeriodPlan(g.station, g.shift, days || []);
+      byStation[g.station].plan += getPeriodPlan(g.station, g.shift, days || [], g.byDate);
     }
   });
   var gp12Plan = byStation['GP12'] ? byStation['GP12'].plan : 0;
@@ -1173,8 +1171,13 @@ function dailyGridHtml(groups, dateIso) {
       var hasPlan = planEntryFor(stName, s, dateIso) !== null;
       if (!hasData && !hasPlan) return '<td><div class="gc-empty">BRAK DANYCH<span class="cn">无数据</span></div></td>';
       var actual = hasData ? g.byDate[dateIso].qty : 0;
-      var plan = effectivePlanEntry(stName, s, dateIso) || 0;
-      var pct = plan > 0 ? Math.round((actual / plan) * 100) : (actual > 0 ? 0 : null);
+      // Brak jawnego wpisu w Planie na TEN dzien, ale robota jednak byla
+      // zrobiona (np. nieplanowana wczesniej sobota) - liczymy wzgledem
+      // Celu stanowiska zamiast pokazywac mylace "0%" (wygladalo jak
+      // porazka mimo realnej produkcji, patrz zrzut usera).
+      var plan = effectivePlanEntry(stName, s, dateIso);
+      if (plan === null) plan = hasData ? (Number(STATE.stationTargets[stName]) || 0) : 0;
+      var pct = plan > 0 ? Math.round((actual / plan) * 100) : null;
       if (pct !== null) pctsForAvg.push(pct);
       var color = pctColor4(pct);
       var full = getFullShiftMinutes(stName);

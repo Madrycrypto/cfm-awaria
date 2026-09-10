@@ -107,6 +107,13 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 .monthnav{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;margin-bottom:14px}
 .monthnav button{background:none;border:none;color:var(--muted);font-size:18px;padding:6px 14px;cursor:pointer;border-radius:8px;font-family:var(--fh)}
 .monthnav button:hover{color:var(--text);background:var(--surface-2)}
+.simhint{font-size:11px;color:var(--faint);margin-bottom:12px;line-height:1.5}
+.btn-clearsim{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px}
+.btn-clearsim:hover{color:var(--text);border-color:var(--muted)}
+.cellinput{width:70px;background:transparent;border:1px solid transparent;color:var(--text);font-family:inherit;font-size:inherit;text-align:right;border-radius:6px;padding:2px 6px}
+.cellinput:hover{border-color:var(--border)}
+.cellinput:focus{border-color:var(--blue-soft);outline:none;background:var(--surface-2)}
+.cellinput.overridden{color:#f0a030;border-color:rgba(240,160,48,0.4);background:rgba(240,160,48,0.08)}
 .monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:capitalize;min-width:140px;text-align:center}
 
 @media (max-width:760px){
@@ -182,7 +189,7 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null };
+var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null, solderOverrides: {} };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -230,6 +237,10 @@ function init() {
       if (u.cfm_solder_config) {
         try { localStorage.setItem('cfm_solder_config', u.cfm_solder_config); } catch (e) {}
       }
+      // Symulacja "co jesli" na buforze — czysto lokalna, nigdy nie
+      // dotyka Planu ani serwera, wiec zyje tylko w localStorage tej
+      // przegladarki.
+      try { STATE.solderOverrides = JSON.parse(localStorage.getItem('cfm_solder_overrides') || '{}'); } catch (e) { STATE.solderOverrides = {}; }
       liveEl.className = 'live';
       liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
       loadAndRender();
@@ -473,11 +484,18 @@ function computeSolderWalk(firstDate, endIso, cfg) {
     var isActual = aProd !== null || aUse !== null;
     var prod = aProd !== null ? aProd : planSumForDay(cfg.produkcja, d);
     var use = aUse !== null ? aUse : planSumForDay(cfg.zuzycie, d);
+    // Reczna symulacja "co jesli" nadpisuje wszystko inne (actual/plan) —
+    // to celowo lokalny "co by bylo gdyby", niezalezny od Planu/raportow.
+    var ov = STATE.solderOverrides[d];
+    var overrideProd = ov && ov.produkcja !== undefined;
+    var overrideUse = ov && ov.zuzycie !== undefined;
+    if (overrideProd) prod = ov.produkcja;
+    if (overrideUse) use = ov.zuzycie;
     if (idx > 0) running += prevProd - prevUse;
     var countToday = STATE.solderInventoryCounts[d] !== undefined ? Number(STATE.solderInventoryCounts[d]) : null;
     if (countToday !== null && idx > 0) running = countToday;
     if (wentNegativeAt === null && running < 0 && d > todayISO) wentNegativeAt = d;
-    out.push({ date: d, produkcja: prod, zuzycie: use, balance: running, isActual: idx === 0 ? true : isActual, isToday: d === todayISO });
+    out.push({ date: d, produkcja: prod, zuzycie: use, balance: running, isActual: idx === 0 ? true : isActual, isToday: d === todayISO, overrideProd: overrideProd, overrideUse: overrideUse });
     prevProd = prod; prevUse = use;
   });
   return { rows: out, wentNegativeAt: wentNegativeAt };
@@ -566,6 +584,8 @@ function renderSolderSection(firstDate) {
   // ale kazdy wiersz ma juz poprawne saldo z pelnego, nieprzerwanego walku.
   var visible = mDays.map(function(d) { return byDate[d]; }).filter(Boolean);
 
+  var hasOverrides = Object.keys(STATE.solderOverrides).length > 0;
+
   var app = document.getElementById('solderApp');
   app.innerHTML =
     '<div class="section"><div class="section-head"><h2>Bufor chłodnic zlutowanych<span class="cn">已焊接散热器缓冲区</span></h2></div>' +
@@ -573,6 +593,9 @@ function renderSolderSection(firstDate) {
     '<div class="hero-sub">stan dzisiaj: ' + fmt(todayRow ? todayRow.balance : null) + ' szt. &#183; ' + heroSub + '</div>' +
     solderConfigHtml(cfg) +
     '<div class="monthnav"><button type="button" onclick="prevSolderMonth()">&#8249;</button><div class="mlabel">' + SOLDER_MONTH_NAMES[STATE.solderMonthDate.getMonth()] + ' ' + STATE.solderMonthDate.getFullYear() + '</div><button type="button" onclick="nextSolderMonth()">&#8250;</button></div>' +
+    '<div class="simhint">Kliknij liczbę w kolumnie ' + cfg.produkcja + ' / ' + cfg.zuzycie + ', żeby doraźnie sprawdzić "co jeśli" — to lokalna symulacja, nie zmienia Planu ani nic nie wysyła.' +
+      (hasOverrides ? ' <button type="button" class="btn-clearsim" onclick="clearSolderOverrides()">Wyczyść symulację</button>' : '') +
+    '<br><span class="cn">点击' + cfg.produkcja + ' / ' + cfg.zuzycie + '列中的数字，即可临时进行"假设"测算 — 这只是本地模拟，不会更改计划或发送任何数据。</span></div>' +
     '<div class="tablewrap"><div class="tablescroll"><table><thead><tr>' +
       '<th>Dzień<span class="cn">日期</span></th><th>' + cfg.produkcja + '</th><th>' + cfg.zuzycie + '</th><th>Bufor<span class="cn">缓冲区</span></th>' +
     '</tr></thead><tbody>' +
@@ -582,12 +605,38 @@ function renderSolderSection(firstDate) {
         var label = DAY_LABELS[(wd + 6) % 7] + ' ' + dd[2] + '/' + dd[1] + (r.isToday ? ' &#183; dziś' : '') +
           (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual' : 'plan') + '</span>');
         var balCls = r.balance < 0 ? 'neg' : 'ok';
-        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td><td>' + fmt(r.produkcja) + '</td><td>' + fmt(r.zuzycie) + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
+        var prodCell = r.date === firstDate ? fmt(r.produkcja) :
+          '<input type="number" class="cellinput' + (r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
+        var useCell = r.date === firstDate ? fmt(r.zuzycie) :
+          '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
+        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td><td>' + prodCell + '</td><td>' + useCell + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
       }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora &#183; 该月早于第一次盘点</td></tr>') +
     '</tbody></table></div></div>' +
     solderFormHtml() +
     '</div>';
-  wireSolderConfig(); wireSolderForm();
+  wireSolderConfig(); wireSolderForm(); wireSolderCells();
+}
+function setSolderOverride(dateIso, role, valueStr) {
+  var v = valueStr === '' ? null : Number(valueStr);
+  if (v === null || isNaN(v) || v < 0) {
+    if (STATE.solderOverrides[dateIso]) delete STATE.solderOverrides[dateIso][role];
+  } else {
+    if (!STATE.solderOverrides[dateIso]) STATE.solderOverrides[dateIso] = {};
+    STATE.solderOverrides[dateIso][role] = v;
+  }
+  if (STATE.solderOverrides[dateIso] && !Object.keys(STATE.solderOverrides[dateIso]).length) delete STATE.solderOverrides[dateIso];
+  try { localStorage.setItem('cfm_solder_overrides', JSON.stringify(STATE.solderOverrides)); } catch (e) {}
+  renderSolderSection(STATE.solderFirstDate);
+}
+function clearSolderOverrides() {
+  STATE.solderOverrides = {};
+  try { localStorage.removeItem('cfm_solder_overrides'); } catch (e) {}
+  renderSolderSection(STATE.solderFirstDate);
+}
+function wireSolderCells() {
+  document.querySelectorAll('#solderApp .cellinput').forEach(function(el) {
+    el.onchange = function() { setSolderOverride(el.dataset.date, el.dataset.role, el.value); };
+  });
 }
 
 function pinGateConfirm() {

@@ -2716,6 +2716,31 @@ function saveAwariaTypes() {
   showToast('Typy awarii zapisane! · 故障类型已保存!', 'ok');
 }
 
+// Najczesciej wystepujaca (nie ostatnia z brzegu, zeby jednorazowy wyjatek
+// nie wypaczyl podpowiedzi) wartosc w Planie dzien-po-dniu dla stanowiska,
+// z dowolnej zmiany/miesiaca - podpowiedz "ile zwykle jest w Planie", zeby
+// admin mial punkt odniesienia przy wpisywaniu Celu (rezerwowej wartosci
+// na dni bez jawnego wpisu w Planie, np. niezaplanowana wczesniej sobota -
+// zwykle to i tak ta sama ilosc co w tygodniu).
+function suggestTargetFromPlan(station) {
+  var plan = getMonthlyPlan();
+  var counts = {};
+  Object.keys(plan).forEach(function(mk) {
+    var st = plan[mk] && plan[mk][station];
+    if (!st) return;
+    Object.keys(st).forEach(function(shift) {
+      Object.keys(st[shift] || {}).forEach(function(d) {
+        var v = Number(st[shift][d]);
+        if (v > 0) counts[v] = (counts[v] || 0) + 1;
+      });
+    });
+  });
+  var best = null, bestCount = 0;
+  Object.keys(counts).forEach(function(v) {
+    if (counts[v] > bestCount) { bestCount = counts[v]; best = Number(v); }
+  });
+  return best;
+}
 function renderStationTargetsList() {
   var stations = getStations();
   var targets = getStationTargets();
@@ -2723,12 +2748,15 @@ function renderStationTargetsList() {
   document.getElementById('stationTargetsList').innerHTML = stations.map(function(st, i) {
     var val = targets[st] || '';
     var celDzien = val ? Math.round(Number(val) * (shifts.liczba || 3)) : null;
+    var suggestion = suggestTargetFromPlan(st);
+    var placeholder = suggestion ? ('np. ' + suggestion) : 'np. 700';
+    var suggestionHint = suggestion ? ' &#183; <span style="color:var(--blue-soft)">z Planu: ' + suggestion + ' szt &#183; 计划中: ' + suggestion + '</span>' : '';
     return '<div class="list-item-row" style="align-items:center;">' +
       '<div style="flex:1;">' +
         '<div style="font-size:14px;color:var(--text);font-weight:600;">' + st + '</div>' +
-        '<div style="font-size:10px;color:var(--muted);margin-top:2px;">cel/dobę &#183; 每日目标 (' + shifts.liczba + ' zm.): ' + (celDzien !== null ? celDzien + ' szt' : '—') + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px;">cel/dobę &#183; 每日目标 (' + shifts.liczba + ' zm.): ' + (celDzien !== null ? celDzien + ' szt' : '—') + suggestionHint + '</div>' +
       '</div>' +
-      '<input type="number" class="list-item-input" id="ct-' + i + '" value="' + val + '" placeholder="np. 700" min="0" style="max-width:110px;text-align:center;" oninput="previewStationTarget(' + i + ',\'' + st + '\')">' +
+      '<input type="number" class="list-item-input" id="ct-' + i + '" value="' + val + '" placeholder="' + placeholder + '" min="0" style="max-width:110px;text-align:center;" oninput="previewStationTarget(' + i + ',\'' + st + '\')">' +
     '</div>';
   }).join('');
 }

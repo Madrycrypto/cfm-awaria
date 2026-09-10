@@ -102,8 +102,12 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 .balance.neg{color:var(--red)}
 .balance.ok{color:#3fd17a}
 .configrow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
-.configrow .field input{width:150px}
+.configrow .field input{width:180px}
 .configrow .hint{font-size:11px;color:var(--faint);flex-basis:100%}
+.monthnav{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;margin-bottom:14px}
+.monthnav button{background:none;border:none;color:var(--muted);font-size:18px;padding:6px 14px;cursor:pointer;border-radius:8px;font-family:var(--fh)}
+.monthnav button:hover{color:var(--text);background:var(--surface-2)}
+.monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:capitalize;min-width:140px;text-align:center}
 
 @media (max-width:760px){
   .kpis{grid-template-columns:1fr}
@@ -178,7 +182,7 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, stationTargets: {}, solderRows: [] };
+var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, stationTargets: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -363,19 +367,20 @@ function saveInventoryCount() {
 }
 
 // ── BUFOR CHŁODNIC ZLUTOWANYCH ───────────────────────────────────────
-// Ten sam mechanizm co saldo GP12 powyzej, ale dwustronny (jedna stacja
-// DOKLADA do bufora — lutowanie, dwie ODEJMUJA — group A/B) i z projekcja
-// W PRZOD (nie tylko do dzis), bo pytanie brzmi "na ile dni starczy",
-// nie tylko "ile jest teraz". Dni juz zaraportowane licza sie z realnego
-// wykonania (RaportDzienny), dni przyszle - z Planu, a jesli danego dnia
-// nie ma jawnego wpisu w Planie - z Celu stanowiska (ZAWSZE, w
-// przeciwienstwie do wykonania planu/Statystyk — to jest prognoza, nie
-// ocena, wiec potrzebuje jakiegos zalozenia nawet na niezaplanowane
-// wczesniej soboty; jak tylko przyjdzie prawdziwy raport, ten dzien
-// automatycznie zamieni sie z "plan" na "actual").
+// Dwustronny bufor: JEDNA stacja DOKLADA (lutowanie), JEDNA stacja
+// ODEJMUJE (stacja docelowa, zwykle GP12 - tyle chlodnic zuzywa ile sama
+// produkuje). Cel: odpowiedziec "czy zaplanowane lutowanie starczy na
+// caly zaplanowany montaz w tym miesiacu" - wiec tabela pokazuje CALY
+// (dowolny, z nawigacja jak w Planie) miesiac, nie sztywne okno dni.
+// Dni juz zaraportowane licza sie z realnego wykonania (RaportDzienny),
+// dni przyszle - z Planu, a jesli dla danego dnia nie ma jawnego wpisu w
+// Planie - z Celu stanowiska (ZAWSZE, w odroznieniu od Statystyk/wykonania
+// planu — to jest prognoza w przod, nie ocena, wiec potrzebuje zalozenia
+// nawet na niezaplanowane wczesniej soboty; jak tylko przyjdzie prawdziwy
+// raport, dzien automatycznie zamienia sie z "plan" na "actual").
 function getSolderConfig() {
   var s = localStorage.getItem('cfm_solder_config');
-  var d = { groupA: 'Grupa A', groupB: 'Grupa B', brazing: 'Lutowanie' };
+  var d = { produkcja: 'Lutowanie', zuzycie: 'GP12' };
   if (!s) return d;
   try { return Object.assign(d, JSON.parse(s)); } catch (e) { return d; }
 }
@@ -386,6 +391,14 @@ function saveSolderConfig(cfg) {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_solder_config', wartosc: JSON.stringify(cfg) })
   }).catch(function() {});
+}
+var SOLDER_MONTH_NAMES = ['styczeń','luty','marzec','kwiecień','maj','czerwiec','lipiec','sierpień','wrzesień','październik','listopad','grudzień'];
+function monthDays(monthDate) {
+  var y = monthDate.getFullYear(), m = monthDate.getMonth();
+  var days = [];
+  var d = new Date(y, m, 1);
+  while (d.getMonth() === m) { days.push(toISO(d)); d.setDate(d.getDate() + 1); }
+  return days;
 }
 // Suma jawnych wpisow w Planie (wszystkie zmiany) dla stanowiska/dnia;
 // jesli BRAK jawnego wpisu na TEN dzien - Cel stanowiska, zawsze (patrz
@@ -421,7 +434,7 @@ function loadSolderAndRender() {
     .then(function(data) {
       if (data.status !== 'ok') return;
       STATE.solderRows = data.historia || [];
-      renderSolderSection(firstDate, todayISO);
+      renderSolderSection(firstDate);
     })
     .catch(function() {});
 }
@@ -433,44 +446,38 @@ function renderSolderNoBaseline() {
     solderConfigHtml(cfg) + solderFormHtml() + '</div>';
   wireSolderConfig(); wireSolderForm();
 }
-// idx=0 to firstDate (punkt startowy inwentaryzacji), nie liczy sie do
-// "actual/plan" bilansu, tylko ustala saldo poczatkowe.
-function computeSolderTimeline(firstDate, todayISO, cfg) {
-  var days = enumerateDays(firstDate, todayISO);
-  // Dolozamy projekcje w przod (max 30 dni), zeby bylo widac "na ile starczy".
-  var cursor = isoToDate(todayISO);
-  for (var i = 1; i <= 30; i++) { cursor = addDays(isoToDate(todayISO), i); days.push(toISO(cursor)); }
-
+// Pelny bilans dzien-po-dniu od firstDate do endIso WLACZNIE. idx=0
+// (firstDate) to punkt startowy inwentaryzacji, nie liczy sie do
+// "actual/plan". Saldo pokazane przy dniu X to stan NA POCZATEK dnia X —
+// produkcja/zuzycie WYPISANE przy dniu X dotycza tego, co sie wydarzy
+// W CIAGU dnia X i wplywaja dopiero na saldo dnia X+1 (dokladnie tak jak
+// w arkuszu usera: 1980 -200-600+0 = 1180 na NASTEPNY dzien, nie na ten sam).
+function computeSolderWalk(firstDate, endIso, cfg) {
+  var todayISO = toISO(new Date());
+  var days = enumerateDays(firstDate, endIso);
   var running = Number(STATE.solderInventoryCounts[firstDate]) || 0;
   var out = [];
   var wentNegativeAt = null;
-  // Saldo pokazane przy dniu X to stan NA POCZATEK dnia X — zuzycie/
-  // produkcja WYPISANE przy dniu X dotycza tego, co sie wydarzy W CIAGU
-  // dnia X i wplywaja dopiero na saldo dnia X+1 (dokladnie tak jak w
-  // arkuszu usera: 1980 -200-600+0 = 1180 na NASTEPNY dzien, nie na ten sam).
-  var prevGA = null, prevGB = null, prevBr = null;
+  var prevProd = null, prevUse = null;
   days.forEach(function(d, idx) {
-    var aA = actualSumForDay(STATE.solderRows, cfg.groupA, d);
-    var aB = actualSumForDay(STATE.solderRows, cfg.groupB, d);
-    var aBr = actualSumForDay(STATE.solderRows, cfg.brazing, d);
-    var isActual = aA !== null || aB !== null || aBr !== null;
-    var gA = aA !== null ? aA : planSumForDay(cfg.groupA, d);
-    var gB = aB !== null ? aB : planSumForDay(cfg.groupB, d);
-    var br = aBr !== null ? aBr : planSumForDay(cfg.brazing, d);
-    if (idx > 0) running += prevBr - prevGA - prevGB;
+    var aProd = actualSumForDay(STATE.solderRows, cfg.produkcja, d);
+    var aUse = actualSumForDay(STATE.solderRows, cfg.zuzycie, d);
+    var isActual = aProd !== null || aUse !== null;
+    var prod = aProd !== null ? aProd : planSumForDay(cfg.produkcja, d);
+    var use = aUse !== null ? aUse : planSumForDay(cfg.zuzycie, d);
+    if (idx > 0) running += prevProd - prevUse;
     var countToday = STATE.solderInventoryCounts[d] !== undefined ? Number(STATE.solderInventoryCounts[d]) : null;
     if (countToday !== null && idx > 0) running = countToday;
     if (wentNegativeAt === null && running < 0 && d > todayISO) wentNegativeAt = d;
-    out.push({ date: d, groupA: gA, groupB: gB, brazing: br, balance: running, isActual: idx === 0 ? true : isActual, isToday: d === todayISO });
-    prevGA = gA; prevGB = gB; prevBr = br;
+    out.push({ date: d, produkcja: prod, zuzycie: use, balance: running, isActual: idx === 0 ? true : isActual, isToday: d === todayISO });
+    prevProd = prod; prevUse = use;
   });
   return { rows: out, wentNegativeAt: wentNegativeAt };
 }
 function solderConfigHtml(cfg) {
   return '<div class="configrow">' +
-    '<div class="field"><label>Stanowisko - Group A &#183; 工位A</label><input type="text" id="cfgGroupA" value="' + cfg.groupA + '"></div>' +
-    '<div class="field"><label>Stanowisko - Group B &#183; 工位B</label><input type="text" id="cfgGroupB" value="' + cfg.groupB + '"></div>' +
-    '<div class="field"><label>Stanowisko - Lutowanie &#183; 焊接工位</label><input type="text" id="cfgBrazing" value="' + cfg.brazing + '"></div>' +
+    '<div class="field"><label>Stanowisko - produkcja (lutowanie) &#183; 生产工位（焊接）</label><input type="text" id="cfgProdukcja" value="' + cfg.produkcja + '"></div>' +
+    '<div class="field"><label>Stanowisko - zużycie (montaż) &#183; 消耗工位（装配）</label><input type="text" id="cfgZuzycie" value="' + cfg.zuzycie + '"></div>' +
     '<button type="button" class="btn-save" id="btnSaveSolderCfg">Zapisz nazwy<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存名称</small></button>' +
     '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan &#183; 请输入与管理面板中完全一致的工位名称</div>' +
   '</div>';
@@ -487,9 +494,8 @@ function wireSolderConfig() {
   var btn = document.getElementById('btnSaveSolderCfg');
   if (btn) btn.onclick = function() {
     var cfg = {
-      groupA: document.getElementById('cfgGroupA').value.trim() || 'Grupa A',
-      groupB: document.getElementById('cfgGroupB').value.trim() || 'Grupa B',
-      brazing: document.getElementById('cfgBrazing').value.trim() || 'Lutowanie',
+      produkcja: document.getElementById('cfgProdukcja').value.trim() || 'Lutowanie',
+      zuzycie: document.getElementById('cfgZuzycie').value.trim() || 'GP12',
     };
     saveSolderConfig(cfg);
     showToast('Nazwy zapisane! &#183; 名称已保存!', 'ok');
@@ -517,29 +523,40 @@ function saveSolderInventoryCount() {
     showToast('Błąd zapisu &#183; 保存失败', 'err');
   });
 }
-function renderSolderSection(firstDate, todayISO) {
+function prevSolderMonth() { STATE.solderMonthDate = new Date(STATE.solderMonthDate.getFullYear(), STATE.solderMonthDate.getMonth() - 1, 1); renderSolderSection(STATE.solderFirstDate); }
+function nextSolderMonth() { STATE.solderMonthDate = new Date(STATE.solderMonthDate.getFullYear(), STATE.solderMonthDate.getMonth() + 1, 1); renderSolderSection(STATE.solderFirstDate); }
+function renderSolderSection(firstDate) {
+  STATE.solderFirstDate = firstDate;
   var cfg = getSolderConfig();
-  var timeline = computeSolderTimeline(firstDate, todayISO, cfg);
+  var todayISO = toISO(new Date());
+  var mDays = monthDays(STATE.solderMonthDate);
+  // Bilans musi byc liczony NIEPRZERWANIE od pierwszej inwentaryzacji -
+  // saldo sie nie zeruje na poczatku miesiaca. Koniec walka to ostatni
+  // dzien PRZEGLADANEGO miesiaca (dla przeszlych/biezacych miesiecy) albo
+  // dalej, jesli trzeba wykryc pierwszy ujemny dzien do naglowka ("na ile
+  // starczy") nawet gdy wypada POZA przegladanym miesiacem.
+  var horizonEnd = new Date(); horizonEnd.setDate(horizonEnd.getDate() + 60);
+  var horizonEndIso = toISO(horizonEnd);
+  var walkEnd = mDays[mDays.length - 1] > horizonEndIso ? mDays[mDays.length - 1] : horizonEndIso;
+  var timeline = computeSolderWalk(firstDate, walkEnd, cfg);
   var rows = timeline.rows;
-  var todayRow = rows.filter(function(r) { return r.isToday; })[0];
+  var byDate = {};
+  rows.forEach(function(r) { byDate[r.date] = r; });
+
+  var todayRow = byDate[todayISO];
   var daysUntilNegative = null;
   if (timeline.wentNegativeAt) {
     daysUntilNegative = Math.round((isoToDate(timeline.wentNegativeAt) - isoToDate(todayISO)) / 86400000);
   }
   var heroColor = daysUntilNegative === null ? '#3fd17a' : (daysUntilNegative <= 3 ? '#ff7070' : '#f0a030');
-  var heroText = daysUntilNegative === null ? 'ponad 30 dni zapasu' : (daysUntilNegative + ' dni zapasu');
+  var heroText = daysUntilNegative === null ? 'ponad 60 dni zapasu' : (daysUntilNegative + ' dni zapasu');
   var heroSub = daysUntilNegative === null
-    ? 'w ciągu najbliższych 30 dni bufor nie powinien się wyczerpać (na podstawie Planu/Celu)'
-    : 'bufor spadnie poniżej zera ok. ' + fmtDateLabel(timeline.wentNegativeAt);
+    ? 'w ciągu najbliższych 60 dni bufor nie powinien się wyczerpać (na podstawie Planu/Celu)'
+    : 'bufor spadnie poniżej zera ok. ' + fmtDateLabel(timeline.wentNegativeAt) + ' — trzeba dolutować więcej';
 
-  // Do wyswietlenia: ostatnie 7 dni historii + caly widoczny fragment projekcji w przod
-  // (do pierwszego dnia ujemnego wlacznie, albo max 14 dni w przod jesli sie nie wyczerpie).
-  var todayIdx = rows.findIndex(function(r) { return r.isToday; });
-  var historyStart = Math.max(0, todayIdx - 6);
-  var futureEnd = timeline.wentNegativeAt
-    ? rows.findIndex(function(r) { return r.date === timeline.wentNegativeAt; }) + 1
-    : Math.min(rows.length, todayIdx + 15);
-  var visible = rows.slice(historyStart, futureEnd);
+  // Widoczna tabela = TYLKO przegladany miesiac (nawigacja jak w Planie),
+  // ale kazdy wiersz ma juz poprawne saldo z pelnego, nieprzerwanego walku.
+  var visible = mDays.map(function(d) { return byDate[d]; }).filter(Boolean);
 
   var app = document.getElementById('solderApp');
   app.innerHTML =
@@ -547,17 +564,18 @@ function renderSolderSection(firstDate, todayISO) {
     '<div class="hero"><span class="n" style="color:' + heroColor + '">' + heroText + '</span></div>' +
     '<div class="hero-sub">stan dzisiaj: ' + fmt(todayRow ? todayRow.balance : null) + ' szt. &#183; ' + heroSub + '</div>' +
     solderConfigHtml(cfg) +
+    '<div class="monthnav"><button type="button" onclick="prevSolderMonth()">&#8249;</button><div class="mlabel">' + SOLDER_MONTH_NAMES[STATE.solderMonthDate.getMonth()] + ' ' + STATE.solderMonthDate.getFullYear() + '</div><button type="button" onclick="nextSolderMonth()">&#8250;</button></div>' +
     '<div class="tablewrap"><div class="tablescroll"><table><thead><tr>' +
-      '<th>Dzień<span class="cn">日期</span></th><th>' + cfg.groupA + '</th><th>' + cfg.groupB + '</th><th>' + cfg.brazing + '</th><th>Bufor<span class="cn">缓冲区</span></th>' +
+      '<th>Dzień<span class="cn">日期</span></th><th>' + cfg.produkcja + '</th><th>' + cfg.zuzycie + '</th><th>Bufor<span class="cn">缓冲区</span></th>' +
     '</tr></thead><tbody>' +
-      visible.map(function(r) {
+      (visible.length ? visible.map(function(r) {
         var dd = r.date.split('-');
         var wd = isoToDate(r.date).getDay();
         var label = DAY_LABELS[(wd + 6) % 7] + ' ' + dd[2] + '/' + dd[1] + (r.isToday ? ' &#183; dziś' : '') +
           (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual' : 'plan') + '</span>');
         var balCls = r.balance < 0 ? 'neg' : 'ok';
-        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td><td>' + fmt(r.groupA) + '</td><td>' + fmt(r.groupB) + '</td><td>' + fmt(r.brazing) + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
-      }).join('') +
+        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td><td>' + fmt(r.produkcja) + '</td><td>' + fmt(r.zuzycie) + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
+      }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora &#183; 该月早于第一次盘点</td></tr>') +
     '</tbody></table></div></div>' +
     solderFormHtml() +
     '</div>';

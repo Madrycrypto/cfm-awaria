@@ -36,6 +36,8 @@ button{cursor:pointer;font-family:var(--fh)}
 .logo span{color:var(--blue)}
 .topbar-right{font-size:11px;color:var(--muted);text-align:right;line-height:1.5}
 .gear-btn{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:2px 8px;line-height:1}
+.wypadek-btn{background:none;border:1.5px solid var(--red);color:#ff7070;font-size:18px;cursor:pointer;padding:3px 8px;line-height:1;border-radius:8px}
+.wypadek-btn:active{background:rgba(217,43,43,0.15)}
 .topbar-left{display:flex;align-items:center;gap:10px}
 .navmenu-wrap{position:relative}
 .navmenu-btn{background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:16px;padding:3px 9px;cursor:pointer;line-height:1.6}
@@ -302,6 +304,7 @@ button{cursor:pointer;font-family:var(--fh)}
     </div>
   </div>
   <div class="topbar-right">&#25253;&#21578;&#31995;&#32479;<br><span id="clockDisplay" style="color:var(--text);font-weight:600;"></span></div>
+  <button type="button" class="wypadek-btn" id="wypadekBtn" onclick="openWypadek()" title="Zgłoś wypadek · 报告工伤事故">&#128680;</button>
   <button class="gear-btn" id="gearBtn" onclick="openAdmin()">&#9881;</button>
 </div>
 
@@ -841,6 +844,34 @@ button{cursor:pointer;font-family:var(--fh)}
     <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN &#183; &#24403;&#21069;PIN: <strong id="currentPinDisplay" style="color:var(--text);">****</strong></div>
     <div class="pin-row"><input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN &#183; &#26032;PIN"><button class="pin-btn" onclick="savePin()">Zmie&#324; &#183; &#20462;&#25913;</button></div>
   </div>
+</div>
+
+<div class="admin-panel" id="wypadekPanel">
+  <div class="admin-header">
+    <div class="admin-title" style="color:#ff7070;">&#128680; WYPADEK &#183; &#24037;&#20260;&#20107;&#25925;</div>
+    <button class="admin-close" onclick="closeWypadek()">&#10005; Zamknij &#183; &#20851;&#38381;</button>
+  </div>
+  <div class="field">
+    <div class="lbl">Stanowisko / obszar &#183; &#24037;&#20301;&#8231;&#21306;&#22495;</div>
+    <select id="wypadekStationSel"></select>
+  </div>
+  <div class="field">
+    <div class="lbl">Powaga zdarzenia &#183; &#20107;&#20214;&#20005;&#37325;&#24615;</div>
+    <select id="wypadekSeveritySel">
+      <option value="Zdarzenie potencjalnie niebezpieczne">Zdarzenie potencjalnie niebezpieczne &#183; &#28966;&#28857;&#38590;&#20107;&#20214;</option>
+      <option value="Pierwsza pomoc">Pierwsza pomoc (bez absencji) &#183; &#26082;&#25937;&#65288;&#26080;&#32536;&#24037;&#65289;</option>
+      <option value="Wypadek z absencją">Wypadek z absencj&#261; &#183; &#24037;&#20260;&#65288;&#26377;&#32536;&#24037;&#65289;</option>
+    </select>
+  </div>
+  <div class="field">
+    <div class="lbl">Co się stało &#183; &#21457;&#29983;&#20102;&#20160;&#20040;</div>
+    <textarea class="awaria-desc-input" id="wypadekDescInput" rows="4" placeholder="Opisz co się stało...&#10;&#35831;&#25551;&#36848;&#21457;&#29983;&#20102;&#20160;&#20040;..." autocomplete="off"></textarea>
+  </div>
+  <div class="field">
+    <div class="lbl">Zgłaszający &#183; &#25253;&#21578;&#20154;</div>
+    <input type="text" id="wypadekOperatorInput" placeholder="Imię i nazwisko &#183; &#22995;&#21517;" autocomplete="off">
+  </div>
+  <button class="list-save-btn" style="background:var(--red);" onclick="submitWypadek()">Zgłoś wypadek &#183; &#25253;&#21578;&#24037;&#20260;</button>
 </div>
 
 <script>
@@ -2924,6 +2955,31 @@ function pinOverlayConfirm() {
 }
 function pinOverlayClose() { document.getElementById('pinOverlay').classList.remove('open'); document.getElementById('pinOverlayInput').value = ''; }
 function closeAdmin() { document.getElementById('adminPanel').classList.remove('open'); document.getElementById('gearBtn').classList.remove('active'); rebuildSelects(); updateShiftDisplay(); renderScrapReasonsTable(); renderReworkReasonsTable(); renderGodzReworkReasonsTable(); }
+
+// Bez PIN-a (w odroznieniu od reszty Panelu Admina) - w nagle wypadku ma
+// byc dostepne od razu, nie chowane za dodatkowym krokiem.
+function openWypadek() {
+  var s = getStations(), st = getStationStatus();
+  var acts = s.filter(function(x) { return st[x] !== false; });
+  document.getElementById('wypadekStationSel').innerHTML = acts.map(function(x) { return '<option>' + x + '</option>'; }).join('') + '<option value="Inne / cały zakład">Inne / cały zakład · 其他&#8231;全厂</option>';
+  document.getElementById('wypadekSeveritySel').value = 'Zdarzenie potencjalnie niebezpieczne';
+  document.getElementById('wypadekDescInput').value = '';
+  document.getElementById('wypadekOperatorInput').value = localStorage.getItem('cfm_operator') || '';
+  document.getElementById('wypadekPanel').classList.add('open');
+}
+function closeWypadek() { document.getElementById('wypadekPanel').classList.remove('open'); }
+function submitWypadek() {
+  var station = document.getElementById('wypadekStationSel').value;
+  var severity = document.getElementById('wypadekSeveritySel').value;
+  var description = document.getElementById('wypadekDescInput').value.trim();
+  var operator = document.getElementById('wypadekOperatorInput').value.trim();
+  if (!description) { showToast('Opisz co się stało · 请描述发生了什么', 'err'); return; }
+  var wh = getWH();
+  if (!wh) { showToast('Brak połączenia (Panel Admina → Połączenie) · 未连接', 'err'); return; }
+  new Image().src = wh + '?event_type=ZGLOS_WYPADEK&stanowisko=' + encodeURIComponent(station) + '&severity=' + encodeURIComponent(severity) + '&description=' + encodeURIComponent(description) + '&operator=' + encodeURIComponent(operator) + '&timestamp=' + encodeURIComponent(localIsoString());
+  showToast('Zgłoszenie wysłane · 已发送报告', 'ok');
+  closeWypadek();
+}
 function adminTab(tab) {
   var tabs = ['workers', 'stations', 'przyczyny', 'typy_awarii', 'cele', 'zmiany', 'webhook', 'pin'];
   document.querySelectorAll('.admin-tab').forEach(function(t, i) { t.classList.toggle('active', tabs[i] === tab); });

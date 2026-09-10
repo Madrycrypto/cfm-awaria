@@ -114,6 +114,13 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 .cellinput:hover{border-color:var(--border)}
 .cellinput:focus{border-color:var(--blue-soft);outline:none;background:var(--surface-2)}
 .cellinput.overridden{color:#f0a030;border-color:rgba(240,160,48,0.4);background:rgba(240,160,48,0.08)}
+.chaintoggle{display:block;font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;cursor:pointer;line-height:1.5}
+.chaintoggle input{margin-right:6px}
+.chainhint{background:rgba(47,127,224,0.08);border:1px solid rgba(47,127,224,0.25);border-radius:10px;padding:10px 14px}
+.shipcell{color:var(--muted)}
+.autoadjust-btn{margin-bottom:12px}
+.autoadjust-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:16px}
+.autoadjust-panel .btn-save{margin-top:12px;margin-right:8px}
 .monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:capitalize;min-width:140px;text-align:center}
 
 @media (max-width:760px){
@@ -189,7 +196,7 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null, solderOverrides: {} };
+var STATE = { inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null, solderOverrides: {}, chainMode: false };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -217,6 +224,15 @@ function shippingActualFor(dateIso) {
   var v = STATE.shippingActual[mk] && STATE.shippingActual[mk][dateIso];
   return v ? Number(v) : 0;
 }
+// Plan wysyłek — plaska mapa dzien->ilosc (bez podzialu na zmiany), tak
+// jak zapisuje ja CFM_plan.html. Uzywana jako "wyrocznia" popytu w trybie
+// lancucha: to co ma wyjechac z magazynu, dyktuje ile GP12 musi
+// wyprodukowac, co z kolei dyktuje ile trzeba wczesniej wylutowac.
+function shipPlanForDay(dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var v = STATE.shippingPlan[mk] && STATE.shippingPlan[mk][dateIso];
+  return v ? Number(v) : 0;
+}
 
 function init() {
   var wh = getWH();
@@ -228,6 +244,7 @@ function init() {
       var u = data.ustawienia || {};
       try { STATE.inventoryCounts = JSON.parse(u.cfm_inventory_counts || '{}'); } catch (e) { STATE.inventoryCounts = {}; }
       try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
+      try { STATE.shippingPlan = JSON.parse(u.cfm_shipping_plan || '{}'); } catch (e) { STATE.shippingPlan = {}; }
       try { STATE.solderInventoryCounts = JSON.parse(u.cfm_solder_inventory_counts || '{}'); } catch (e) { STATE.solderInventoryCounts = {}; }
       try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
       // cfm_solder_config synchronizowany jak reszta ustawien (zapisywany
@@ -382,12 +399,11 @@ function saveInventoryCount() {
 // produkuje). Cel: odpowiedziec "czy zaplanowane lutowanie starczy na
 // caly zaplanowany montaz w tym miesiacu" - wiec tabela pokazuje CALY
 // (dowolny, z nawigacja jak w Planie) miesiac, nie sztywne okno dni.
-// Dni juz zaraportowane licza sie z realnego wykonania (RaportDzienny),
-// dni przyszle - z Planu, a jesli dla danego dnia nie ma jawnego wpisu w
-// Planie - z Celu stanowiska (ZAWSZE, w odroznieniu od Statystyk/wykonania
-// planu — to jest prognoza w przod, nie ocena, wiec potrzebuje zalozenia
-// nawet na niezaplanowane wczesniej soboty; jak tylko przyjdzie prawdziwy
-// raport, dzien automatycznie zamienia sie z "plan" na "actual").
+// Dni juz zaraportowane licza sie z realnego wykonania (RaportDzienny);
+// dni przyszle - WYLACZNIE z jawnych wpisow w Planie (bez fallbacku na
+// Cel stanowiska — lutowanie nie pracuje kazdego dnia roboczego, wiec
+// "normalny Cel" bylby falszywym zalozeniem). Jak tylko przyjdzie
+// prawdziwy raport, dzien automatycznie zamienia sie z "plan" na "actual".
 function getSolderConfig() {
   var s = localStorage.getItem('cfm_solder_config');
   var d = { produkcja: 'Lutowanie', zuzycie: 'GP12' };
@@ -482,8 +498,16 @@ function computeSolderWalk(firstDate, endIso, cfg) {
     var aProd = actualSumForDay(STATE.solderRows, cfg.produkcja, d);
     var aUse = actualSumForDay(STATE.solderRows, cfg.zuzycie, d);
     var isActual = aProd !== null || aUse !== null;
-    var prod = aProd !== null ? aProd : planSumForDay(cfg.produkcja, d);
-    var use = aUse !== null ? aUse : planSumForDay(cfg.zuzycie, d);
+    var shipPlan = shipPlanForDay(d);
+    // Tryb lancucha: Wysylki sa wyrocznia dla GP12 (ile trzeba
+    // wyprodukowac, zeby wyslac tyle ile planuje logistyka), a potrzeba
+    // GP12 jest z kolei wyrocznia dla lutowania (ile chlodnic trzeba
+    // wczesniej wylutowac). Zastepuje to WLASNE wpisy w Planie GP12/OP40
+    // IN jako zrodlo prognozy — Plan tych stacji nadal dziala jak zwykle
+    // poza tym trybem (Statystyki/Premie/OEE go nie widza, to tylko ten
+    // podglad).
+    var use = aUse !== null ? aUse : (STATE.chainMode ? shipPlan : planSumForDay(cfg.zuzycie, d));
+    var prod = aProd !== null ? aProd : (STATE.chainMode ? use : planSumForDay(cfg.produkcja, d));
     // Reczna symulacja "co jesli" nadpisuje wszystko inne (actual/plan) —
     // to celowo lokalny "co by bylo gdyby", niezalezny od Planu/raportow.
     var ov = STATE.solderOverrides[d];
@@ -495,7 +519,7 @@ function computeSolderWalk(firstDate, endIso, cfg) {
     var countToday = STATE.solderInventoryCounts[d] !== undefined ? Number(STATE.solderInventoryCounts[d]) : null;
     if (countToday !== null && idx > 0) running = countToday;
     if (wentNegativeAt === null && running < 0 && d > todayISO) wentNegativeAt = d;
-    out.push({ date: d, produkcja: prod, zuzycie: use, balance: running, isActual: idx === 0 ? true : isActual, isToday: d === todayISO, overrideProd: overrideProd, overrideUse: overrideUse });
+    out.push({ date: d, produkcja: prod, zuzycie: use, shipPlan: shipPlan, balance: running, isActual: idx === 0 ? true : isActual, isToday: d === todayISO, overrideProd: overrideProd, overrideUse: overrideUse });
     prevProd = prod; prevUse = use;
   });
   return { rows: out, wentNegativeAt: wentNegativeAt };
@@ -583,8 +607,11 @@ function renderSolderSection(firstDate) {
   // Widoczna tabela = TYLKO przegladany miesiac (nawigacja jak w Planie),
   // ale kazdy wiersz ma juz poprawne saldo z pelnego, nieprzerwanego walku.
   var visible = mDays.map(function(d) { return byDate[d]; }).filter(Boolean);
+  STATE.solderLastByDate = byDate;
+  STATE.solderLastCfg = cfg;
 
   var hasOverrides = Object.keys(STATE.solderOverrides).length > 0;
+  var chain = STATE.chainMode;
 
   var app = document.getElementById('solderApp');
   app.innerHTML =
@@ -592,12 +619,20 @@ function renderSolderSection(firstDate) {
     '<div class="hero"><span class="n" style="color:' + heroColor + '">' + heroText + '</span></div>' +
     '<div class="hero-sub">stan dzisiaj: ' + fmt(todayRow ? todayRow.balance : null) + ' szt. &#183; ' + heroSub + '</div>' +
     solderConfigHtml(cfg) +
+    '<label class="chaintoggle"><input type="checkbox" id="chainModeToggle" ' + (chain ? 'checked' : '') + '> Licz potrzebę od Wysyłek: Wysyłki &#8594; ' + cfg.zuzycie + ' &#8594; ' + cfg.produkcja +
+      '<br><span class="cn">从发运倒推需求：发运 &#8594; ' + cfg.zuzycie + ' &#8594; ' + cfg.produkcja + '</span></label>' +
+    (chain ? '<div class="simhint chainhint">W tym trybie ' + cfg.zuzycie + ' i ' + cfg.produkcja + ' NIE pokazują już własnego Planu — pokazują, ile trzeba wyprodukować, żeby nadążyć za Planem wysyłek (dopóki nie ma prawdziwego raportu). Plan tych stacji w Panelu Admina pozostaje bez zmian, dopóki nie klikniesz "Zapisz do Planu" poniżej.' +
+      '<br><span class="cn">此模式下' + cfg.zuzycie + '和' + cfg.produkcja + '不再显示各自的计划，而是显示为跟上发运计划所需的产量（在收到真实报告之前）。除非点击下方"保存到计划"，否则管理面板中的计划不会改变。</span></div>' : '') +
     '<div class="monthnav"><button type="button" onclick="prevSolderMonth()">&#8249;</button><div class="mlabel">' + SOLDER_MONTH_NAMES[STATE.solderMonthDate.getMonth()] + ' ' + STATE.solderMonthDate.getFullYear() + '</div><button type="button" onclick="nextSolderMonth()">&#8250;</button></div>' +
     '<div class="simhint">Kliknij liczbę w kolumnie ' + cfg.produkcja + ' / ' + cfg.zuzycie + ', żeby doraźnie sprawdzić "co jeśli" — to lokalna symulacja, nie zmienia Planu ani nic nie wysyła.' +
       (hasOverrides ? ' <button type="button" class="btn-clearsim" onclick="clearSolderOverrides()">Wyczyść symulację</button>' : '') +
     '<br><span class="cn">点击' + cfg.produkcja + ' / ' + cfg.zuzycie + '列中的数字，即可临时进行"假设"测算 — 这只是本地模拟，不会更改计划或发送任何数据。</span></div>' +
+    (chain ? '<button type="button" class="btn-save autoadjust-btn" onclick="openAutoAdjustPreview()">Auto-dopasuj Plan<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">自动调整计划</small></button>' : '') +
+    '<div id="autoAdjustPanel"></div>' +
     '<div class="tablewrap"><div class="tablescroll"><table><thead><tr>' +
-      '<th>Dzień<span class="cn">日期</span></th><th>' + cfg.produkcja + '</th><th>' + cfg.zuzycie + '</th><th>Bufor<span class="cn">缓冲区</span></th>' +
+      '<th>Dzień<span class="cn">日期</span></th>' +
+      (chain ? '<th>Wysyłki (plan)<span class="cn">发运（计划）</span></th>' : '') +
+      '<th>' + cfg.zuzycie + (chain ? ' (potrzeba)' : '') + '</th><th>' + cfg.produkcja + (chain ? ' (potrzeba)' : '') + '</th><th>Bufor<span class="cn">缓冲区</span></th>' +
     '</tr></thead><tbody>' +
       (visible.length ? visible.map(function(r) {
         var dd = r.date.split('-');
@@ -609,12 +644,87 @@ function renderSolderSection(firstDate) {
           '<input type="number" class="cellinput' + (r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
         var useCell = r.date === firstDate ? fmt(r.zuzycie) :
           '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
-        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td><td>' + prodCell + '</td><td>' + useCell + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
-      }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora &#183; 该月早于第一次盘点</td></tr>') +
+        var shipCell = chain ? '<td class="shipcell">' + fmt(r.shipPlan) + '</td>' : '';
+        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td>' + shipCell + '<td>' + useCell + '</td><td>' + prodCell + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
+      }).join('') : '<tr><td colspan="' + (chain ? 5 : 4) + '" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora &#183; 该月早于第一次盘点</td></tr>') +
     '</tbody></table></div></div>' +
     solderFormHtml() +
     '</div>';
   wireSolderConfig(); wireSolderForm(); wireSolderCells();
+  var toggle = document.getElementById('chainModeToggle');
+  if (toggle) toggle.onchange = function() { STATE.chainMode = toggle.checked; renderSolderSection(STATE.solderFirstDate); };
+}
+// "Auto-dopasuj Plan" — pokazuje PODGLAD roznic miedzy tym, co jest teraz
+// jawnie wpisane w Planie (dla przyszlych dni), a tym, co wychodzi z
+// lancucha Wysylki->GP12->lutowanie, i wymaga jawnego potwierdzenia przed
+// zapisem. Celowo NIE zapisuje samo — Plan sluzy tez jako punkt
+// odniesienia dla Statystyk/Premii/OEE gdzie indziej w apce, wiec cicha
+// automatyczna zmiana bylaby myląca dla tamtych wskaznikow.
+var AUTOADJUST_SHIFT = 'A';
+function openAutoAdjustPreview() {
+  var byDate = STATE.solderLastByDate, cfg = STATE.solderLastCfg;
+  if (!byDate || !cfg) return;
+  var todayISO = toISO(new Date());
+  var mDays = monthDays(STATE.solderMonthDate);
+  var diffs = [];
+  mDays.forEach(function(d) {
+    var r = byDate[d];
+    if (!r || d <= todayISO || r.isActual) return;
+    [[cfg.zuzycie, r.zuzycie], [cfg.produkcja, r.produkcja]].forEach(function(pair) {
+      var station = pair[0], proposed = pair[1];
+      var current = planSumForDay(station, d);
+      if (current !== proposed) diffs.push({ date: d, station: station, current: current, proposed: proposed });
+    });
+  });
+  STATE.autoAdjustDiffs = diffs;
+  renderAutoAdjustPanel();
+}
+function renderAutoAdjustPanel() {
+  var panel = document.getElementById('autoAdjustPanel');
+  if (!panel) return;
+  var diffs = STATE.autoAdjustDiffs;
+  if (!diffs) { panel.innerHTML = ''; return; }
+  if (!diffs.length) {
+    panel.innerHTML = '<div class="autoadjust-panel"><div class="simhint">Plan już się zgadza z potrzebą wynikającą z Wysyłek — nic do zapisania. <span class="cn">计划已与发运需求一致，无需保存。</span></div></div>';
+    return;
+  }
+  panel.innerHTML = '<div class="autoadjust-panel">' +
+    '<div class="simhint">Zostanie zapisane jako Plan, zmiana ' + AUTOADJUST_SHIFT + ' (jeśli stanowisko pracuje na innych zmianach, popraw to ręcznie w Panelu Admina po zapisie). Tylko przyszłe dni, dni z prawdziwym raportem są pomijane.<br><span class="cn">将保存为计划，班次' + AUTOADJUST_SHIFT + '（如工位排班不同，保存后请在管理面板手动调整）。仅未来日期，已有实际报告的日期会被跳过。</span></div>' +
+    '<div class="tablewrap"><div class="tablescroll"><table><thead><tr><th>Dzień<span class="cn">日期</span></th><th>Stanowisko<span class="cn">工位</span></th><th>Obecny Plan<span class="cn">现有计划</span></th><th>Proponowany<span class="cn">建议值</span></th></tr></thead><tbody>' +
+    diffs.map(function(x) {
+      return '<tr><td>' + fmtDateLabel(x.date) + '</td><td>' + x.station + '</td><td>' + fmt(x.current) + '</td><td class="' + (x.proposed > x.current ? 'diff-pos' : 'diff-neg') + '">' + fmt(x.proposed) + '</td></tr>';
+    }).join('') +
+    '</tbody></table></div></div>' +
+    '<button type="button" class="btn-save" onclick="applyAutoAdjustPlan()">Zapisz do Planu (' + diffs.length + ')<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存到计划</small></button>' +
+    '<button type="button" class="btn-clearsim" onclick="cancelAutoAdjustPreview()">Anuluj &#183; 取消</button>' +
+  '</div>';
+}
+function cancelAutoAdjustPreview() {
+  STATE.autoAdjustDiffs = null;
+  renderAutoAdjustPanel();
+}
+function applyAutoAdjustPlan() {
+  var diffs = STATE.autoAdjustDiffs;
+  if (!diffs || !diffs.length) return;
+  diffs.forEach(function(x) {
+    var mk = x.date.slice(0, 7);
+    if (!STATE.monthlyPlan[mk]) STATE.monthlyPlan[mk] = {};
+    if (!STATE.monthlyPlan[mk][x.station]) STATE.monthlyPlan[mk][x.station] = {};
+    if (!STATE.monthlyPlan[mk][x.station][AUTOADJUST_SHIFT]) STATE.monthlyPlan[mk][x.station][AUTOADJUST_SHIFT] = {};
+    STATE.monthlyPlan[mk][x.station][AUTOADJUST_SHIFT][x.date] = x.proposed;
+  });
+  var wh = getWH();
+  localStorage.setItem('cfm_monthly_plan', JSON.stringify(STATE.monthlyPlan));
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_monthly_plan', wartosc: JSON.stringify(STATE.monthlyPlan) })
+  }).then(function() {
+    showToast('Plan zaktualizowany! &#183; 计划已更新!', 'ok');
+    STATE.autoAdjustDiffs = null;
+    renderSolderSection(STATE.solderFirstDate);
+  }).catch(function() {
+    showToast('Błąd zapisu &#183; 保存失败', 'err');
+  });
 }
 function setSolderOverride(dateIso, role, valueStr) {
   var v = valueStr === '' ? null : Number(valueStr);

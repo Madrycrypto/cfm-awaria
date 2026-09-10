@@ -487,9 +487,43 @@ function renderSolderNoBaseline() {
 // produkcja/zuzycie WYPISANE przy dniu X dotycza tego, co sie wydarzy
 // W CIAGU dnia X i wplywaja dopiero na saldo dnia X+1 (dokladnie tak jak
 // w arkuszu usera: 1980 -200-600+0 = 1180 na NASTEPNY dzien, nie na ten sam).
+// Ile GP12 NAPRAWDE musi wyprodukowac, zeby nadazyc za Planem wysylek —
+// UWZGLEDNIAJAC to, co juz fizycznie lezy na magazynie gotowych
+// produktow (gorna sekcja "Saldo dzien po dniu"), a nie zakladajac zero.
+// Bez tego przy buforze np. 3845 szt. lancuch kazalby produkowac tyle,
+// ile wychodzi, zamiast najpierw zjadac istniejacy zapas.
+function computeGp12RequiredWalk(gp12Station, endIso) {
+  var countDates = Object.keys(STATE.inventoryCounts).sort();
+  if (!countDates.length) return null;
+  var todayISO = toISO(new Date());
+  var lastCountDate = countDates[countDates.length - 1];
+  var startIso = lastCountDate < todayISO ? lastCountDate : todayISO;
+  if (startIso > endIso) return null;
+  var days = enumerateDays(startIso, endIso);
+  var running = Number(STATE.inventoryCounts[lastCountDate]) || 0;
+  var byDate = {};
+  var prevProd = null, prevShip = null;
+  days.forEach(function(d, idx) {
+    if (idx > 0) running += prevProd - prevShip;
+    var countToday = STATE.inventoryCounts[d] !== undefined ? Number(STATE.inventoryCounts[d]) : null;
+    if (countToday !== null && idx > 0) running = countToday;
+    var isFuture = d > todayISO;
+    var aProd = isFuture ? null : actualSumForDay(STATE.solderRows, gp12Station, d);
+    var ship = isFuture ? shipPlanForDay(d) : shippingActualFor(d);
+    // Produkuj TYLKO brakujaca roznice ponad to, co juz jest w buforze —
+    // dokladnie ta sama zasada "dzis wplywa na jutro" co reszta modelu:
+    // jesli po dzisiejszej wysylce saldo spadloby ponizej zera, dzisiejsza
+    // produkcja musi pokryc dokladnie ten niedobor, nie wiecej.
+    var prod = aProd !== null ? aProd : Math.max(0, ship - running);
+    byDate[d] = prod;
+    prevProd = prod; prevShip = ship;
+  });
+  return byDate;
+}
 function computeSolderWalk(firstDate, endIso, cfg) {
   var todayISO = toISO(new Date());
   var days = enumerateDays(firstDate, endIso);
+  var gp12Required = STATE.chainMode ? computeGp12RequiredWalk(cfg.zuzycie, endIso) : null;
 
   // Krok 1: potrzeba (zuzycie) kazdego dnia — niezalezna od decyzji o
   // produkcji, wiec liczymy ja najpierw w calosci (potrzebna do
@@ -501,7 +535,13 @@ function computeSolderWalk(firstDate, endIso, cfg) {
     aProdByDate[d] = aProd;
     isActualByDate[d] = aProd !== null || aUse !== null;
     var shipPlan = shipPlanForDay(d);
-    var use = aUse !== null ? aUse : (STATE.chainMode ? shipPlan : planSumForDay(cfg.zuzycie, d));
+    // Jesli mamy prawdziwy punkt odniesienia dla magazynu gotowych
+    // produktow (gp12Required), lancuch bierze pod uwage istniejacy bufor
+    // GP12 zamiast zakladac produkcje 1:1 z Wysylkami. Bez tej danej
+    // (nikt jeszcze nie wpisal inwentaryzacji gotowych produktow) —
+    // bezpieczny fallback to dawne 1:1 z Planem wysylek.
+    var chainUse = gp12Required && gp12Required[d] !== undefined ? gp12Required[d] : shipPlan;
+    var use = aUse !== null ? aUse : (STATE.chainMode ? chainUse : planSumForDay(cfg.zuzycie, d));
     var ov = STATE.solderOverrides[d];
     if (ov && ov.zuzycie !== undefined) use = ov.zuzycie;
     useByDate[d] = use;

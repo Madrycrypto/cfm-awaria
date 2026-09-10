@@ -108,6 +108,24 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .card-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px}
 .card-head h2{margin-bottom:0}
 .card-select{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--fb);font-weight:600;font-size:13px;padding:7px 10px;outline:none}
+.sqdipgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
+.sqdipgrid .card{padding:16px 16px 12px}
+.card-title{font-family:var(--fh);font-weight:700;font-size:13.5px;letter-spacing:0.02em}
+.card-title .cn{font-family:var(--fc);color:var(--faint);font-size:11px;font-weight:500;margin-left:5px}
+.card-val{font-family:var(--fh);font-weight:800;font-size:20px}
+.card-sub{font-size:10.5px;color:var(--faint);margin-bottom:8px}
+.daylabels{display:flex;justify-content:space-between;font-size:9px;color:var(--faint);margin-top:2px}
+.safetybig{font-family:var(--fh);font-weight:800;font-size:30px;line-height:1;margin:6px 0 10px}
+.safetydots{display:flex;justify-content:space-between;gap:4px}
+.safetydot{width:100%;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#0d0d0d}
+.legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft)}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px}
+.legend-swatch{width:16px;height:0;border-top-width:2px;border-top-style:solid}
+.legend-name{color:var(--muted);font-weight:600}
+.legend-val{font-family:var(--fh);font-weight:800}
+.legend-compact{gap:4px 10px;margin-top:8px;padding-top:8px}
+.legend-compact .legend-item{font-size:9.5px}
+.legend-compact .legend-swatch{width:10px}
 .weeknav{display:flex;align-items:center;gap:12px;margin-bottom:18px}
 .weeknav button{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:16px;padding:6px 14px;cursor:pointer;font-family:var(--fh);font-weight:700;line-height:1.4}
 .weeknav button:hover:not(:disabled){color:var(--text);background:var(--surface-2)}
@@ -159,6 +177,10 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
   .kpis{grid-template-columns:repeat(2,1fr)}
   .chartsgrid{grid-template-columns:1fr}
   .chartsgrid2{grid-template-columns:1fr}
+  .sqdipgrid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:560px){
+  .sqdipgrid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -195,7 +217,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined, godzStation: localStorage.getItem('cfm_dash_godz_station') || null, godzRows: null, weekOffset: 0, reworkTodayRows: null, yesterdayKpi: null };
+var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined, stockHistory: {}, godzStation: localStorage.getItem('cfm_dash_godz_station') || null, godzRows: null, weekOffset: 0, reworkTodayRows: null, sqdipLastDays: null, wypadkiRows: null };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -232,7 +254,7 @@ function loadSettings() {
 }
 
 function init() {
-  loadSettings().then(function() { loadData(); loadStockLevel(); loadGodzinny(); loadReworkToday(); loadYesterdayKpi(); });
+  loadSettings().then(function() { loadData(); loadStockLevel(); loadGodzinny(); loadReworkToday(); loadSqdip(); });
 
   // Przegladana MOZE nie byc biezacym tygodniem (patrz prevWeek/nextWeek) —
   // dane historycznego tygodnia nie zmienia sie w kolko, wiec cykliczne
@@ -240,8 +262,8 @@ function init() {
   // Raport godzinny, Rework dzisiaj i KPI "Wczoraj" dotycza zawsze stalego
   // dnia (dzis/wczoraj), niezaleznie ktory tydzien jest akurat przegladany
   // na wykresach ponizej — stad osobne zapytania, nie STATE.rows.
-  setInterval(function() { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); loadReworkToday(); loadYesterdayKpi(); }); }, 45000);
-  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); loadReworkToday(); loadYesterdayKpi(); }); loadActiveAwarie(); } });
+  setInterval(function() { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); loadReworkToday(); loadSqdip(); }); }, 45000);
+  document.addEventListener('visibilitychange', function() { if (!document.hidden) { loadSettings().then(function() { if (!STATE.weekOffset) loadData(true); loadStockLevel(); loadGodzinny(); loadReworkToday(); loadSqdip(); }); loadActiveAwarie(); } });
 
   // Aktywne awarie — pytamy serwer czesciej niz reszte danych (co 15s, nie
   // co 45s), bo "czy cos jest TERAZ zepsute" jest bardziej pilne niz reszta
@@ -331,11 +353,18 @@ function effectivePlanEntry(station, shift, dateIso) {
   var full = getFullShiftMinutes(station);
   return full > 0 ? Math.round(base * (korekta / full)) : base;
 }
-function getPeriodPlan(station, shift, days) {
-  var hasAnyEntry = days.some(function(d) { return planEntryFor(station, shift, d) !== null; });
-  if (hasAnyEntry) return days.reduce(function(s, d) { return s + (effectivePlanEntry(station, shift, d) || 0); }, 0);
-  var weekdays = days.filter(function(d) { var p = d.split('-'); var wd = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay(); return wd !== 0 && wd !== 6; }).length;
-  return weekdays * (Number(STATE.stationTargets[station]) || 0);
+// Per dzien: jawny wpis w Planie jesli istnieje, inaczej Cel stanowiska
+// TYLKO jesli tego dnia faktycznie zlozono raport (byDate[d]) - realna
+// praca bez wpisanego z gory planu (np. niezaplanowana wczesniej sobota)
+// liczy sie wzgledem Celu zamiast znikac/wygladac jak porazka. byDate to
+// g.byDate WYWOLUJACEGO (te same rows, z ktorych i tak liczy sie actual).
+function getPeriodPlan(station, shift, days, byDate) {
+  return days.reduce(function(sum, d) {
+    var explicit = effectivePlanEntry(station, shift, d);
+    if (explicit !== null) return sum + explicit;
+    if (byDate && byDate[d]) return sum + (Number(STATE.stationTargets[station]) || 0);
+    return sum;
+  }, 0);
 }
 function getAwarieForDay(station, shift, dateIso) {
   return STATE.awarieRows.filter(function(a) { return a.date === dateIso && a.station === station && a.shift === shift; });
@@ -368,18 +397,15 @@ function computeOee(g, days) {
   var performance = sumIdeal > 0 ? sumActual / sumIdeal : null;
   var quality = sumActual > 0 ? sumOk / sumActual : null;
   var oee = (availability !== null && performance !== null && quality !== null) ? availability * performance * quality : null;
-  return { oee: oee };
+  return { availability: availability, performance: performance, quality: quality, oee: oee };
 }
 
 // Wyodrebnione z render() zeby policzyc TE SAME 3 wskazniki (wykonanie
-// planu/pass rate/OEE) dla DOWOLNEGO zakresu dni — uzywane raz dla
-// przegladanego tygodnia, raz dla samego "dzis" (patrz kpis-today w
-// render()). Dziala na STATE.rows/STATE.awarieRows tak jak wczesniej —
-// Przyjmuje "rows" jawnie (nie zawsze STATE.rows) - karta "Wczoraj" ma
-// wlasne, niezalezne od nawigacji tygodni zapytanie (patrz
-// loadYesterdayKpi), bo wczoraj czesto wypada w INNYM tygodniu niz dzis
-// (kazdy poniedzialek) - poleganie na STATE.rows (zakres biezaco
-// przegladanego tygodnia) dawaloby "brak danych" w poniedzialki.
+// planu/pass rate/OEE) dla DOWOLNEGO zakresu dni. Przyjmuje "rows"
+// jawnie (nie zawsze STATE.rows) - SQDIP (patrz loadSqdip nizej) ma
+// wlasne, niezalezne od nawigacji tygodni zapytanie, bo jego zakres
+// (poprzedni tydzien + biezacy do wczoraj) czesto wychodzi poza to, co
+// akurat jest zaladowane do STATE.rows dla przegladanego tygodnia.
 function computeGp12KpiSet(rows, days) {
   var groups = buildGroups(rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
   var gp12 = groups.filter(function(g) { return g.station === 'GP12'; });
@@ -388,7 +414,7 @@ function computeGp12KpiSet(rows, days) {
     var hasData = Object.keys(g.byDate).length > 0;
     var hasPlanEntries = days.some(function(d) { return planEntryFor(g.station, g.shift, d) !== null; });
     if (!hasData && !hasPlanEntries) return;
-    plan += getPeriodPlan(g.station, g.shift, days);
+    plan += getPeriodPlan(g.station, g.shift, days, g.byDate);
     days.forEach(function(d) {
       var r = g.byDate[d];
       if (!r) return;
@@ -402,54 +428,228 @@ function computeGp12KpiSet(rows, days) {
   return { completion: completion, passRate: passRate, plan: plan, ok: ok, scrap: scrap, rework: rework, oeeAvg: oeeAvg };
 }
 
-// Wlasne, niezalezne od nawigacji tygodni zapytanie (jak Stan magazynowy/
-// Raport godzinny/Rework dzisiaj) - wczoraj to zawsze PELNY, zakonczony
-// dzien (w odroznieniu od wczesniejszej karty "Dzis", ktora wczesnym
-// rankiem pokazywala prawie same zera, bo zmiana dopiero sie zaczela).
-function loadYesterdayKpi() {
-  var wh = getWH();
+
+// ── SQDIP · ten sam tydzien co reszta Dashboardu ────────────────────
+// Zamiast wlasnego, niezaleznego zakresu dat - SQDIP podpina sie pod
+// TEN SAM tydzien co juz przegladany na reszcie strony (STATE.weekOffset,
+// te same strzalki ← → w naglowku). Domyslnie (biezacy tydzien) pokazuje
+// poniedzialek..WCZORAJ (dzisiejszy, niedokonczony dzien dawalby mylacy,
+// sztucznie niski ostatni punkt); po cofnieciu do dowolnego wczesniejszego
+// tygodnia pokazuje go w calosci (pon-niedz, 7 pelnych dni). Dzieki temu
+// nie trzeba osobnego zapytania o STATYSTYKI — dane sa juz w STATE.rows
+// (ten sam fetch co Bilans dzienny/Awarie ponizej).
+var SQDIP_OEE_STATIONS = ['OP51/52', 'OP60/61', 'OP33A', 'OP33B', 'GP12'];
+var SQDIP_TARGETS = { productivity: 85, quality: 99, performance: 95, oee: 80, inventory: 5000 };
+function ddmm(iso) { var p = iso.split('-'); return p[2] + '/' + p[1]; }
+function sqdipTrendDays(viewedDays) {
+  if (STATE.weekOffset !== 0) return viewedDays; // tydzien z przeszlosci - caly, juz zakonczony
   var y = new Date(); y.setDate(y.getDate() - 1);
   var yIso = toISO(y);
-  fetch(wh + '?event_type=STATYSTYKI&start=' + yIso + '&end=' + yIso)
+  return viewedDays.filter(function(d) { return d <= yIso; });
+}
+// Wypadki (dni bez wypadku) to zawsze ZYWY, biezacy licznik - NIE zalezy
+// od tego, ktory tydzien jest akurat przegladany w reszcie SQDIP (cofniecie
+// sie do starszego tygodnia nie powinno zmieniac "od ilu dni bez
+// wypadku licząc od dzis"). Stale ostatnie 7 dni konczace sie wczoraj.
+function sqdipSafetyWindow() {
+  var days = [];
+  var end = new Date(); end.setDate(end.getDate() - 1);
+  for (var i = 6; i >= 0; i--) { var x = new Date(end); x.setDate(x.getDate() - i); days.push(toISO(x)); }
+  return days;
+}
+// Rownomiernie rozlozone indeksy do podpisow dni pod wykresem (zawsze
+// pierwszy i ostatni dzien) - dlugosc trendu jest zmienna (7-13 dni), wiec
+// nie mozna sztywno wskazywac np. "co drugi dzien" jak przy stalych 7.
+function pickLabelIdx(n, count) {
+  if (n <= count) { var all = []; for (var i = 0; i < n; i++) all.push(i); return all; }
+  var idx = [];
+  for (var j = 0; j < count; j++) idx.push(Math.round(j * (n - 1) / (count - 1)));
+  return idx;
+}
+function dayLabelsHtml(days) {
+  return '<div class="daylabels">' + pickLabelIdx(days.length, 4).map(function(i) { return '<span>' + ddmm(days[i]) + '</span>'; }).join('') + '</div>';
+}
+function loadSqdip() {
+  var wh = getWH();
+  fetch(wh + '?event_type=WYPADKI_HISTORIA')
     .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.status !== 'ok') return;
-      STATE.yesterdayKpi = computeGp12KpiSet(data.historia || [], [yIso]);
-      renderYesterdayKpi();
-    })
+    .then(function(data) { if (data.status !== 'ok') return; STATE.wypadkiRows = data.historia || []; renderSqdip(); })
     .catch(function() {});
 }
-function yesterdayKpiHtml() {
-  var countDates = Object.keys(STATE.inventoryCounts).sort();
-  var stockHtml = renderStockKpi(countDates);
-  if (!STATE.yesterdayKpi) {
-    return kpiTile('Wykonanie planu (GP12)', '计划完成率', '&#8230;', 'wczytywanie...', 0, 'var(--faint)') +
-      kpiTile('Pass rate (GP12)', '合格率', '&#8230;', 'wczytywanie...', 0, 'var(--faint)') +
-      kpiTile('OEE (cała linia)', 'OEE 全线', '&#8230;', 'wczytywanie...', 0, 'var(--faint)') +
-      stockHtml;
-  }
-  var y = STATE.yesterdayKpi;
-  return kpiTile('Wykonanie planu (GP12)', '计划完成率', y.completion === null ? '&#8212;' : y.completion + '%', 'plan: ' + fmt(y.plan) + ' szt.', y.completion, y.completion === null ? 'var(--faint)' : y.completion >= 95 ? 'var(--green)' : y.completion >= 80 ? 'var(--orange)' : 'var(--red)') +
-    kpiTile('Pass rate (GP12)', '合格率', y.passRate === null ? '&#8212;' : y.passRate + '%', (y.scrap + y.rework) + ' szt. braków', y.passRate || 0, 'var(--blue)') +
-    kpiTile('OEE (cała linia)', 'OEE 全线', y.oeeAvg === null ? '&#8212;' : y.oeeAvg + '%', 'śr. ze wszystkich stanowisk', y.oeeAvg, y.oeeAvg === null ? 'var(--faint)' : y.oeeAvg >= 85 ? 'var(--green)' : y.oeeAvg >= 60 ? 'var(--orange)' : 'var(--red)') +
-    stockHtml;
+// Grupy per stanowisko+zmiana zbudowane TYLKO z wierszy jednego dnia -
+// potrzebne osobno na kazdy dzien trendu (buildGroups nie ma pojecia
+// "dzien", wiec filtrujemy STATE.sqdipRows przed wywolaniem).
+function sqdipGroupsForDay(rows, day, station) {
+  return buildGroups(rows.filter(function(r) { return r.date === day; })).filter(function(g) { return g.station === station; });
 }
-function renderYesterdayKpi() {
-  var el = document.getElementById('yesterdayKpis');
-  if (!el) return;
-  el.innerHTML = yesterdayKpiHtml();
+function sqdipAvg(vals) { vals = vals.filter(function(v) { return v !== null; }); return vals.length ? Math.round(vals.reduce(function(a, b) { return a + b; }, 0) / vals.length) : null; }
+function sqdipProductivityPerDay(rows, days) { return days.map(function(d) { return computeGp12KpiSet(rows, [d]).completion; }); }
+function sqdipQualityPerDay(rows, days) { return days.map(function(d) { var p = computeGp12KpiSet(rows, [d]).passRate; return p === null ? null : Number(p); }); }
+function sqdipPerformancePerDay(rows, days) {
+  return days.map(function(d) {
+    var groups = sqdipGroupsForDay(rows, d, 'GP12');
+    return sqdipAvg(groups.map(function(g) { var r = computeOee(g, [d]); return r && r.performance !== null ? r.performance * 100 : null; }));
+  });
+}
+function sqdipStationOeePerDay(rows, station, days) {
+  return days.map(function(d) {
+    var groups = sqdipGroupsForDay(rows, d, station);
+    return sqdipAvg(groups.map(function(g) { var r = computeOee(g, [d]); return r && r.oee !== null ? r.oee * 100 : null; }));
+  });
+}
+function sqdipInventoryPerDay(days) { return days.map(function(d) { return STATE.stockHistory[d] !== undefined ? STATE.stockHistory[d] : null; }); }
+function sqdipWypadkiOkPerDay(days) {
+  var bad = {};
+  (STATE.wypadkiRows || []).forEach(function(r) { bad[r.date] = true; });
+  return days.map(function(d) { return !bad[d]; });
+}
+
+// Linia zawsze biala-szara (neutralna) — kolor niesie tylko status:
+// punkt zielony gdy dzien byl OK wzgledem celu, czerwony gdy nie (albo
+// brak danych = brak punktu, przerwa w linii). Wartosc null = dzien bez
+// zadnego raportu tego dnia dla tego wskaznika (nie "0%").
+function sqdipTrendSvg(values, target, higherIsBetter) {
+  var W = 280, H = 90;
+  var known = values.filter(function(v) { return v !== null; });
+  if (!known.length) return '<div class="empty" style="padding:28px 0;font-size:11px">Brak danych. <span class="cn">无数据。</span></div>';
+  var lo = Math.min.apply(null, known.concat([target])), hi = Math.max.apply(null, known.concat([target]));
+  if (lo === hi) { lo -= 1; hi += 1; }
+  var pad = (hi - lo) * 0.15;
+  lo -= pad; hi += pad;
+  var n = values.length;
+  var stepX = (W - 20) / (n - 1);
+  function y(v) { return H - 12 - ((v - lo) / (hi - lo)) * (H - 24); }
+  var segs = [], cur = [];
+  values.forEach(function(v, i) {
+    if (v === null) { if (cur.length) { segs.push(cur); cur = []; } return; }
+    cur.push([10 + i * stepX, y(v)]);
+  });
+  if (cur.length) segs.push(cur);
+  var lines = segs.map(function(seg) {
+    return '<polyline points="' + seg.map(function(p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '" fill="none" stroke="#cfcfcf" stroke-width="2"/>';
+  }).join('');
+  var dots = values.map(function(v, i) {
+    if (v === null) return '';
+    var ok = higherIsBetter ? v >= target : v <= target;
+    var color = ok ? '#3fd17a' : '#ff7070';
+    return '<circle cx="' + (10 + i * stepX).toFixed(1) + '" cy="' + y(v).toFixed(1) + '" r="3" fill="' + color + '" stroke="#0d0d0d" stroke-width="1"/>';
+  }).join('');
+  var targetY = y(target);
+  return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="display:block;width:100%;height:' + H + 'px;overflow:visible">' +
+    '<line x1="0" y1="' + targetY.toFixed(1) + '" x2="' + W + '" y2="' + targetY.toFixed(1) + '" stroke="var(--faint)" stroke-width="1" stroke-dasharray="3,3"/>' +
+    lines + dots + '</svg>';
+}
+function sqdipTrendCard(title, cn, sub, values, target, fmtFn, days) {
+  var known = values.filter(function(v) { return v !== null; });
+  var last = known.length ? known[known.length - 1] : null;
+  var ok = last !== null && last >= target;
+  var color = last === null ? 'var(--faint)' : (ok ? '#3fd17a' : '#ff7070');
+  return '<div class="card">' +
+    '<div class="card-head"><div class="card-title">' + title + '<span class="cn">' + cn + '</span></div>' +
+    '<div class="card-val" style="color:' + color + '">' + (last === null ? '&#8212;' : fmtFn(last)) + '</div></div>' +
+    '<div class="card-sub">' + sub + '</div>' +
+    sqdipTrendSvg(values, target, true) +
+    dayLabelsHtml(days) +
+    '</div>';
+}
+function sqdipSafetyCard(days) {
+  var ok = sqdipWypadkiOkPerDay(days);
+  var streak = 0;
+  for (var i = ok.length - 1; i >= 0; i--) { if (ok[i]) streak++; else break; }
+  var color = streak > 0 ? '#3fd17a' : '#ff7070';
+  var dots = ok.map(function(o, i) { return '<div class="safetydot" style="background:' + (o ? '#3fd17a' : '#ff7070') + '">' + ddmm(days[i]).slice(0, 2) + '</div>'; }).join('');
+  return '<div class="card">' +
+    '<div class="card-title">Wypadki <span class="cn">安全 &#183; 工伤事故</span></div>' +
+    '<div class="card-sub">cel: 0 wypadków &#183; ostatnie 7 dni</div>' +
+    '<div class="safetybig" style="color:' + color + '">' + streak + ' dni</div>' +
+    '<div class="safetydots">' + dots + '</div>' +
+    '</div>';
+}
+function sqdipOeeCard(rows, days, target) {
+  var styles = [
+    { stroke: '#f2f2f2', dash: '' }, { stroke: '#cfcfcf', dash: '' }, { stroke: '#a8a8a8', dash: '5,4' },
+    { stroke: '#e8e8e8', dash: '2,3' }, { stroke: '#888', dash: '8,3' },
+  ];
+  var series = SQDIP_OEE_STATIONS.map(function(st) { return { name: st, values: sqdipStationOeePerDay(rows, st, days) }; });
+  var W = 280, H = 90;
+  var allKnown = [].concat.apply([], series.map(function(s) { return s.values.filter(function(v) { return v !== null; }); }));
+  var lastVals = series.map(function(s) { var k = s.values.filter(function(v) { return v !== null; }); return k.length ? k[k.length - 1] : null; });
+  var avgKnown = lastVals.filter(function(v) { return v !== null; });
+  var avg = avgKnown.length ? Math.round(avgKnown.reduce(function(a, b) { return a + b; }, 0) / avgKnown.length) : null;
+  var avgColor = avg === null ? 'var(--faint)' : (avg >= target ? '#3fd17a' : '#ff7070');
+  var svg;
+  if (!allKnown.length) {
+    svg = '<div class="empty" style="padding:28px 0;font-size:11px">Brak danych. <span class="cn">无数据。</span></div>';
+  } else {
+    var lo = Math.min.apply(null, allKnown.concat([target])), hi = Math.max.apply(null, allKnown.concat([target]));
+    if (lo === hi) { lo -= 1; hi += 1; }
+    var pad = (hi - lo) * 0.15; lo -= pad; hi += pad;
+    var n = days.length, stepX = (W - 20) / (n - 1);
+    function y(v) { return H - 12 - ((v - lo) / (hi - lo)) * (H - 24); }
+    var lines = series.map(function(s, si) {
+      var segs = [], cur = [];
+      s.values.forEach(function(v, i) { if (v === null) { if (cur.length) { segs.push(cur); cur = []; } return; } cur.push([10 + i * stepX, y(v)]); });
+      if (cur.length) segs.push(cur);
+      var st = styles[si % styles.length];
+      return segs.map(function(seg) { return '<polyline points="' + seg.map(function(p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '" fill="none" stroke="' + st.stroke + '" stroke-width="1.6" stroke-dasharray="' + st.dash + '"/>'; }).join('');
+    }).join('');
+    var targetY = y(target);
+    svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="display:block;width:100%;height:' + H + 'px;overflow:visible">' +
+      '<line x1="0" y1="' + targetY.toFixed(1) + '" x2="' + W + '" y2="' + targetY.toFixed(1) + '" stroke="var(--faint)" stroke-width="1" stroke-dasharray="3,3"/>' + lines + '</svg>';
+  }
+  var legend = series.map(function(s, si) {
+    var st = styles[si % styles.length];
+    var k = s.values.filter(function(v) { return v !== null; });
+    var last = k.length ? k[k.length - 1] : null;
+    var color = last === null ? 'var(--faint)' : (last >= target ? '#3fd17a' : '#ff7070');
+    return '<div class="legend-item"><span class="legend-swatch" style="border-color:' + st.stroke + ';' + (st.dash ? 'border-top-style:dashed' : '') + '"></span>' +
+      '<span class="legend-name">' + s.name + '</span><span class="legend-val" style="color:' + color + '">' + (last === null ? '&#8212;' : last + '%') + '</span></div>';
+  }).join('');
+  return '<div class="card">' +
+    '<div class="card-head"><div class="card-title">OEE <span class="cn">设备综合效率</span></div><div class="card-val" style="color:' + avgColor + '">' + (avg === null ? '&#8212;' : avg + '%') + '</div></div>' +
+    '<div class="card-sub">śr. ' + SQDIP_OEE_STATIONS.length + ' stanowisk &#183; cel &#8805; ' + target + '%</div>' +
+    svg +
+    dayLabelsHtml(days) +
+    '<div class="legend legend-compact">' + legend + '</div>' +
+    '</div>';
+}
+function sqdipHtml(days) {
+  var rows = STATE.rows;
+  return '<div class="sqdipgrid">' +
+    sqdipSafetyCard(sqdipSafetyWindow()) +
+    sqdipTrendCard('Produktywność', '生产率', 'wykonanie planu GP12 &#183; dziennie', sqdipProductivityPerDay(rows, days), SQDIP_TARGETS.productivity, function(v) { return v + '%'; }, days) +
+    sqdipTrendCard('Jakość', '质量 &#183; 合格率', 'pass rate GP12 &#183; dziennie', sqdipQualityPerDay(rows, days), SQDIP_TARGETS.quality, function(v) { return v + '%'; }, days) +
+    sqdipTrendCard('Wydajność', '性能开动率', 'performance (OEE) GP12 &#183; dziennie', sqdipPerformancePerDay(rows, days), SQDIP_TARGETS.performance, function(v) { return v + '%'; }, days) +
+    sqdipTrendCard('Inwentarz', '库存', 'gotowe sztuki &#183; dziennie', sqdipInventoryPerDay(days), SQDIP_TARGETS.inventory, function(v) { return fmt(v); }, days) +
+    sqdipOeeCard(rows, days, SQDIP_TARGETS.oee) +
+    '</div>';
+}
+// Wypadki dochodza asynchronicznie (loadSqdip) - reszta karty juz jest
+// narysowana synchronicznie w render(), wiec re-render dotyczy calej
+// siatki (prosciej niz aktualizowac tylko jedna karte), na tych samych
+// dniach co ostatni pelny render (STATE.sqdipLastDays).
+function renderSqdip() {
+  var el = document.getElementById('sqdipGrid');
+  if (!el || !STATE.sqdipLastDays) return;
+  el.innerHTML = sqdipHtml(STATE.sqdipLastDays);
 }
 
 function render(days) {
   var app = document.getElementById('app');
   var week = computeGp12KpiSet(STATE.rows, days);
-  var completion = week.completion, passRate = week.passRate, plan = week.plan, ok = week.ok, scrap = week.scrap, rework = week.rework, oeeAvg = week.oeeAvg;
+  var ok = week.ok, scrap = week.scrap, rework = week.rework;
   var groups = buildGroups(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
   var recovered = STATE.reworkRows.filter(function(r) { return days.indexOf(r.date) >= 0; }).reduce(function(s, r) { return s + (Number(r.recovered) || 0); }, 0);
 
-  // Stan magazynowy (jak w Inwentarz/Statystyki) — na dzisiaj
-  var countDates = Object.keys(STATE.inventoryCounts).sort();
-  var stockHtml = renderStockKpi(countDates, days);
+  // SQDIP idzie za TA SAMA nawigacja tygodni co reszta strony: biezacy
+  // tydzien (weekOffset===0) pokazuje pon..wczoraj, kazdy wczesniejszy
+  // tydzien pokazuje sie w calosci (7 pelnych dni) - patrz sqdipTrendDays.
+  var sqdipDaysVal = sqdipTrendDays(days);
+  STATE.sqdipLastDays = sqdipDaysVal;
+  var sqdipLbl = STATE.weekOffset === 0
+    ? 'SQDIP &#183; bieżący tydzień do wczoraj'
+    : 'SQDIP &#183; Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days);
+  var sqdipLblCn = STATE.weekOffset === 0 ? 'SQDIP &#183; 本周至昨日' : 'SQDIP &#183; 第' + isoWeekNumber(days[0]) + '周';
 
   app.innerHTML =
     '<div class="pagehead"><h1>Dashboard produkcji <span class="cn">生产仪表盘</span></h1><div class="sub">GP12 = ostatnie stanowisko, liczy się do wykonania planu/jakości &#183; <span class="cn">GP12=末端工位</span></div></div>' +
@@ -460,15 +660,8 @@ function render(days) {
       (STATE.weekOffset !== 0 ? '<button type="button" class="wtoday" onclick="goToCurrentWeek()">Ten tydzień &#183; 本周</button>' : '') +
     '</div>' +
     '<div id="awarieBanner"></div>' +
-    '<div class="kpirowlbl">Ten tydzień <span class="cn">本周</span></div>' +
-    '<div class="kpis">' +
-      kpiTile('Wykonanie planu (GP12)', '计划完成率', completion === null ? '&#8212;' : completion + '%', 'plan: ' + fmt(plan) + ' szt.', completion, completion === null ? 'var(--faint)' : completion >= 95 ? 'var(--green)' : completion >= 80 ? 'var(--orange)' : 'var(--red)') +
-      kpiTile('Pass rate (GP12)', '合格率', passRate === null ? '&#8212;' : passRate + '%', (scrap + rework) + ' szt. braków', passRate || 0, 'var(--blue)') +
-      kpiTile('OEE (cała linia)', 'OEE 全线', oeeAvg === null ? '&#8212;' : oeeAvg + '%', 'śr. ze wszystkich stanowisk', oeeAvg, oeeAvg === null ? 'var(--faint)' : oeeAvg >= 85 ? 'var(--green)' : oeeAvg >= 60 ? 'var(--orange)' : 'var(--red)') +
-      stockHtml +
-    '</div>' +
-    '<div class="kpirowlbl">Wczoraj <span class="cn">昨日</span></div>' +
-    '<div class="kpis" id="yesterdayKpis">' + yesterdayKpiHtml() + '</div>' +
+    '<div class="kpirowlbl">' + sqdipLbl + ' <span class="cn">' + sqdipLblCn + '</span></div>' +
+    '<div id="sqdipGrid">' + sqdipHtml(sqdipDaysVal) + '</div>' +
     '<div class="chartsgrid">' +
       '<div class="card"><h2>Jakość (GP12) <span class="cn">质量</span></h2><div id="qualityDonut"></div></div>' +
       '<div class="card"><h2>Awarie wg stanowiska <span class="datebadge">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + '</span><span class="cn">故障 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
@@ -504,14 +697,6 @@ function isoWeekNumber(dateIso) {
 function fmtRange(days) {
   var s = days[0].split('-'), e = days[6].split('-');
   return s[2] + '/' + s[1] + ' &#8211; ' + e[2] + '/' + e[1];
-}
-function kpiTile(lbl, lblCn, val, sub, barPct, color) {
-  return '<div class="kpi"><div class="kpi-lbl">' + lbl + '<span class="cn">' + lblCn + '</span></div><div class="kpi-val">' + val + '</div><div class="kpi-sub">' + sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, Math.min(barPct || 0, 100)) + '%;background:' + color + '"></i></div></div>';
-}
-function renderStockKpi(countDates, days) {
-  if (!countDates.length) return kpiTile('Stan magazynowy', '库存', '&#8212;', 'brak inwentaryzacji', 0, 'var(--faint)');
-  if (!STATE.stockLevel) return kpiTile('Stan magazynowy', '库存', '&#8230;', 'obliczanie...', 0, 'var(--faint)');
-  return kpiTile('Stan magazynowy', '库存', fmt(STATE.stockLevel.balance), 'gotowe sztuki na dziś', 100, 'var(--blue)');
 }
 
 // Donut jakosci — Zgodne/Scrap/Rework to znaczenie dobry/zly, wiec kolory
@@ -776,15 +961,19 @@ function loadStockLevel() {
       var cursor = new Date(Number(firstDate.slice(0,4)), Number(firstDate.slice(5,7)) - 1, Number(firstDate.slice(8,10)));
       var end = new Date(Number(todayISO.slice(0,4)), Number(todayISO.slice(5,7)) - 1, Number(todayISO.slice(8,10)));
       var idx = 0;
+      var history = {}; // dateIso -> saldo na koniec tego dnia, do wykresu trendu SQDIP (Inwentarz)
       while (cursor <= end) {
         var iso = toISO(cursor);
         if (idx > 0) running += (prodByDate[iso] || 0) - shippingActualFor(iso);
         if (STATE.inventoryCounts[iso] !== undefined && idx > 0) running = Number(STATE.inventoryCounts[iso]);
+        history[iso] = running;
         cursor.setDate(cursor.getDate() + 1);
         idx++;
       }
       STATE.stockLevel = { balance: running };
+      STATE.stockHistory = history;
       render(currentWeekDays());
+      renderSqdip();
     })
     .catch(function() {});
 }

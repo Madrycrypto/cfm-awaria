@@ -91,6 +91,20 @@ tbody tr.today td{background:rgba(26,110,216,0.08)}
 
 .empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
 
+.hero{display:flex;align-items:baseline;gap:14px;margin-bottom:4px}
+.hero .n{font-family:var(--fh);font-weight:800;font-size:34px}
+.hero .lbl{font-size:13px;color:var(--muted)}
+.hero-sub{font-size:12px;color:var(--faint);margin-bottom:16px}
+.tag{font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px}
+.tag.plan{background:rgba(154,154,154,0.15);color:var(--muted)}
+.tag.actual{background:rgba(47,127,224,0.18);color:var(--blue-soft)}
+tbody tr.negative td{background:rgba(217,43,43,0.14)}
+.balance.neg{color:var(--red)}
+.balance.ok{color:#3fd17a}
+.configrow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+.configrow .field input{width:150px}
+.configrow .hint{font-size:11px;color:var(--faint);flex-basis:100%}
+
 @media (max-width:760px){
   .kpis{grid-template-columns:1fr}
   h1{font-size:24px}
@@ -156,13 +170,15 @@ tbody tr.today td{background:rgba(26,110,216,0.08)}
   <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
 </div>
 
+<div class="wrap" id="solderApp"></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [] };
+var STATE = { inventoryCounts: {}, shippingActual: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, stationTargets: {}, solderRows: [] };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -201,9 +217,20 @@ function init() {
       var u = data.ustawienia || {};
       try { STATE.inventoryCounts = JSON.parse(u.cfm_inventory_counts || '{}'); } catch (e) { STATE.inventoryCounts = {}; }
       try { STATE.shippingActual = JSON.parse(u.cfm_shipping_actual || '{}'); } catch (e) { STATE.shippingActual = {}; }
+      try { STATE.solderInventoryCounts = JSON.parse(u.cfm_solder_inventory_counts || '{}'); } catch (e) { STATE.solderInventoryCounts = {}; }
+      try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
+      try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
+      // cfm_solder_config synchronizowany jak reszta ustawien (zapisywany
+      // lokalnie od razu przy zapisie, ale przy STARCIE trzeba go tez
+      // pobrac z serwera - inaczej inne urzadzenie/przegladarka nigdy by
+      // go nie zobaczylo i zawsze uzywaloby domyslnych "Grupa A/B/Lutowanie").
+      if (u.cfm_solder_config) {
+        try { localStorage.setItem('cfm_solder_config', u.cfm_solder_config); } catch (e) {}
+      }
       liveEl.className = 'live';
       liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
       loadAndRender();
+      loadSolderAndRender();
     })
     .catch(function() { showConnError(); });
 }
@@ -333,6 +360,208 @@ function saveInventoryCount() {
   }).catch(function() {
     showToast('Błąd zapisu &#183; 保存失败', 'err');
   });
+}
+
+// ── BUFOR CHŁODNIC ZLUTOWANYCH ───────────────────────────────────────
+// Ten sam mechanizm co saldo GP12 powyzej, ale dwustronny (jedna stacja
+// DOKLADA do bufora — lutowanie, dwie ODEJMUJA — group A/B) i z projekcja
+// W PRZOD (nie tylko do dzis), bo pytanie brzmi "na ile dni starczy",
+// nie tylko "ile jest teraz". Dni juz zaraportowane licza sie z realnego
+// wykonania (RaportDzienny), dni przyszle - z Planu, a jesli danego dnia
+// nie ma jawnego wpisu w Planie - z Celu stanowiska (ZAWSZE, w
+// przeciwienstwie do wykonania planu/Statystyk — to jest prognoza, nie
+// ocena, wiec potrzebuje jakiegos zalozenia nawet na niezaplanowane
+// wczesniej soboty; jak tylko przyjdzie prawdziwy raport, ten dzien
+// automatycznie zamieni sie z "plan" na "actual").
+function getSolderConfig() {
+  var s = localStorage.getItem('cfm_solder_config');
+  var d = { groupA: 'Grupa A', groupB: 'Grupa B', brazing: 'Lutowanie' };
+  if (!s) return d;
+  try { return Object.assign(d, JSON.parse(s)); } catch (e) { return d; }
+}
+function saveSolderConfig(cfg) {
+  localStorage.setItem('cfm_solder_config', JSON.stringify(cfg));
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_solder_config', wartosc: JSON.stringify(cfg) })
+  }).catch(function() {});
+}
+// Suma jawnych wpisow w Planie (wszystkie zmiany) dla stanowiska/dnia;
+// jesli BRAK jawnego wpisu na TEN dzien - Cel stanowiska, zawsze (patrz
+// komentarz wyzej - to prognoza, nie ocena wykonania planu).
+function planSumForDay(station, dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var stPlan = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station];
+  var sum = 0, hasAny = false;
+  if (stPlan) {
+    Object.keys(stPlan).forEach(function(shift) {
+      var v = stPlan[shift] && stPlan[shift][dateIso];
+      if (v) { sum += Number(v) || 0; hasAny = true; }
+    });
+  }
+  return hasAny ? sum : (Number(STATE.stationTargets[station]) || 0);
+}
+// Suma actual (wszystkie zmiany) dla stanowiska/dnia z podanych wierszy;
+// null = brak jakiegokolwiek raportu tego dnia dla tej stacji (dzien
+// jeszcze sie nie odbyl, albo po prostu nikt nie zlozyl raportu).
+function actualSumForDay(rows, station, dateIso) {
+  var sum = 0, has = false;
+  rows.forEach(function(r) { if (r.station === station && r.date === dateIso) { sum += Number(r.qty) || 0; has = true; } });
+  return has ? sum : null;
+}
+function loadSolderAndRender() {
+  var countDates = Object.keys(STATE.solderInventoryCounts).sort();
+  var todayISO = toISO(new Date());
+  if (!countDates.length) { renderSolderNoBaseline(); return; }
+  var firstDate = countDates[0];
+  var wh = getWH();
+  fetch(wh + '?event_type=STATYSTYKI&start=' + firstDate + '&end=' + todayISO)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') return;
+      STATE.solderRows = data.historia || [];
+      renderSolderSection(firstDate, todayISO);
+    })
+    .catch(function() {});
+}
+function renderSolderNoBaseline() {
+  var cfg = getSolderConfig();
+  document.getElementById('solderApp').innerHTML =
+    '<div class="section"><div class="section-head"><h2>Bufor chłodnic zlutowanych<span class="cn">已焊接散热器缓冲区</span></h2></div>' +
+    '<div class="empty">Brak zapisanej inwentaryzacji bufora lutowania — wpisz pierwszy punkt odniesienia poniżej, żeby zacząć liczyć zasięg.<br><span class="cn">还没有焊接缓冲区盘点记录 — 请先输入一个基准数量。</span></div>' +
+    solderConfigHtml(cfg) + solderFormHtml() + '</div>';
+  wireSolderConfig(); wireSolderForm();
+}
+// idx=0 to firstDate (punkt startowy inwentaryzacji), nie liczy sie do
+// "actual/plan" bilansu, tylko ustala saldo poczatkowe.
+function computeSolderTimeline(firstDate, todayISO, cfg) {
+  var days = enumerateDays(firstDate, todayISO);
+  // Dolozamy projekcje w przod (max 30 dni), zeby bylo widac "na ile starczy".
+  var cursor = isoToDate(todayISO);
+  for (var i = 1; i <= 30; i++) { cursor = addDays(isoToDate(todayISO), i); days.push(toISO(cursor)); }
+
+  var running = Number(STATE.solderInventoryCounts[firstDate]) || 0;
+  var out = [];
+  var wentNegativeAt = null;
+  // Saldo pokazane przy dniu X to stan NA POCZATEK dnia X — zuzycie/
+  // produkcja WYPISANE przy dniu X dotycza tego, co sie wydarzy W CIAGU
+  // dnia X i wplywaja dopiero na saldo dnia X+1 (dokladnie tak jak w
+  // arkuszu usera: 1980 -200-600+0 = 1180 na NASTEPNY dzien, nie na ten sam).
+  var prevGA = null, prevGB = null, prevBr = null;
+  days.forEach(function(d, idx) {
+    var aA = actualSumForDay(STATE.solderRows, cfg.groupA, d);
+    var aB = actualSumForDay(STATE.solderRows, cfg.groupB, d);
+    var aBr = actualSumForDay(STATE.solderRows, cfg.brazing, d);
+    var isActual = aA !== null || aB !== null || aBr !== null;
+    var gA = aA !== null ? aA : planSumForDay(cfg.groupA, d);
+    var gB = aB !== null ? aB : planSumForDay(cfg.groupB, d);
+    var br = aBr !== null ? aBr : planSumForDay(cfg.brazing, d);
+    if (idx > 0) running += prevBr - prevGA - prevGB;
+    var countToday = STATE.solderInventoryCounts[d] !== undefined ? Number(STATE.solderInventoryCounts[d]) : null;
+    if (countToday !== null && idx > 0) running = countToday;
+    if (wentNegativeAt === null && running < 0 && d > todayISO) wentNegativeAt = d;
+    out.push({ date: d, groupA: gA, groupB: gB, brazing: br, balance: running, isActual: idx === 0 ? true : isActual, isToday: d === todayISO });
+    prevGA = gA; prevGB = gB; prevBr = br;
+  });
+  return { rows: out, wentNegativeAt: wentNegativeAt };
+}
+function solderConfigHtml(cfg) {
+  return '<div class="configrow">' +
+    '<div class="field"><label>Stanowisko - Group A &#183; 工位A</label><input type="text" id="cfgGroupA" value="' + cfg.groupA + '"></div>' +
+    '<div class="field"><label>Stanowisko - Group B &#183; 工位B</label><input type="text" id="cfgGroupB" value="' + cfg.groupB + '"></div>' +
+    '<div class="field"><label>Stanowisko - Lutowanie &#183; 焊接工位</label><input type="text" id="cfgBrazing" value="' + cfg.brazing + '"></div>' +
+    '<button type="button" class="btn-save" id="btnSaveSolderCfg">Zapisz nazwy<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存名称</small></button>' +
+    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan &#183; 请输入与管理面板中完全一致的工位名称</div>' +
+  '</div>';
+}
+function solderFormHtml() {
+  var todayISO = toISO(new Date());
+  return '<div class="formcard">' +
+    '<div class="field"><label>Data &#183; 日期</label><input type="date" id="solderInvDate" value="' + todayISO + '"></div>' +
+    '<div class="field"><label>Ilość policzona fizycznie &#183; 实际盘点数量</label><input type="number" min="0" id="solderInvQty" placeholder="np. 1980"></div>' +
+    '<button type="button" class="btn-save" id="btnSaveSolderInv">Zapisz inwentaryzację<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存盘点</small></button>' +
+  '</div>';
+}
+function wireSolderConfig() {
+  var btn = document.getElementById('btnSaveSolderCfg');
+  if (btn) btn.onclick = function() {
+    var cfg = {
+      groupA: document.getElementById('cfgGroupA').value.trim() || 'Grupa A',
+      groupB: document.getElementById('cfgGroupB').value.trim() || 'Grupa B',
+      brazing: document.getElementById('cfgBrazing').value.trim() || 'Lutowanie',
+    };
+    saveSolderConfig(cfg);
+    showToast('Nazwy zapisane! &#183; 名称已保存!', 'ok');
+    loadSolderAndRender();
+  };
+}
+function wireSolderForm() {
+  var btn = document.getElementById('btnSaveSolderInv');
+  if (btn) btn.onclick = saveSolderInventoryCount;
+}
+function saveSolderInventoryCount() {
+  var d = document.getElementById('solderInvDate').value;
+  var q = Number(document.getElementById('solderInvQty').value);
+  if (!d) { showToast('Wybierz datę &#183; 请选择日期', 'err'); return; }
+  if (!q || q < 0) { showToast('Wpisz poprawną ilość &#183; 请输入正确数量', 'err'); return; }
+  STATE.solderInventoryCounts[d] = q;
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_solder_inventory_counts', wartosc: JSON.stringify(STATE.solderInventoryCounts) })
+  }).then(function() {
+    showToast('Inwentaryzacja zapisana! &#183; 盘点已保存!', 'ok');
+    loadSolderAndRender();
+  }).catch(function() {
+    showToast('Błąd zapisu &#183; 保存失败', 'err');
+  });
+}
+function renderSolderSection(firstDate, todayISO) {
+  var cfg = getSolderConfig();
+  var timeline = computeSolderTimeline(firstDate, todayISO, cfg);
+  var rows = timeline.rows;
+  var todayRow = rows.filter(function(r) { return r.isToday; })[0];
+  var daysUntilNegative = null;
+  if (timeline.wentNegativeAt) {
+    daysUntilNegative = Math.round((isoToDate(timeline.wentNegativeAt) - isoToDate(todayISO)) / 86400000);
+  }
+  var heroColor = daysUntilNegative === null ? '#3fd17a' : (daysUntilNegative <= 3 ? '#ff7070' : '#f0a030');
+  var heroText = daysUntilNegative === null ? 'ponad 30 dni zapasu' : (daysUntilNegative + ' dni zapasu');
+  var heroSub = daysUntilNegative === null
+    ? 'w ciągu najbliższych 30 dni bufor nie powinien się wyczerpać (na podstawie Planu/Celu)'
+    : 'bufor spadnie poniżej zera ok. ' + fmtDateLabel(timeline.wentNegativeAt);
+
+  // Do wyswietlenia: ostatnie 7 dni historii + caly widoczny fragment projekcji w przod
+  // (do pierwszego dnia ujemnego wlacznie, albo max 14 dni w przod jesli sie nie wyczerpie).
+  var todayIdx = rows.findIndex(function(r) { return r.isToday; });
+  var historyStart = Math.max(0, todayIdx - 6);
+  var futureEnd = timeline.wentNegativeAt
+    ? rows.findIndex(function(r) { return r.date === timeline.wentNegativeAt; }) + 1
+    : Math.min(rows.length, todayIdx + 15);
+  var visible = rows.slice(historyStart, futureEnd);
+
+  var app = document.getElementById('solderApp');
+  app.innerHTML =
+    '<div class="section"><div class="section-head"><h2>Bufor chłodnic zlutowanych<span class="cn">已焊接散热器缓冲区</span></h2></div>' +
+    '<div class="hero"><span class="n" style="color:' + heroColor + '">' + heroText + '</span></div>' +
+    '<div class="hero-sub">stan dzisiaj: ' + fmt(todayRow ? todayRow.balance : null) + ' szt. &#183; ' + heroSub + '</div>' +
+    solderConfigHtml(cfg) +
+    '<div class="tablewrap"><div class="tablescroll"><table><thead><tr>' +
+      '<th>Dzień<span class="cn">日期</span></th><th>' + cfg.groupA + '</th><th>' + cfg.groupB + '</th><th>' + cfg.brazing + '</th><th>Bufor<span class="cn">缓冲区</span></th>' +
+    '</tr></thead><tbody>' +
+      visible.map(function(r) {
+        var dd = r.date.split('-');
+        var wd = isoToDate(r.date).getDay();
+        var label = DAY_LABELS[(wd + 6) % 7] + ' ' + dd[2] + '/' + dd[1] + (r.isToday ? ' &#183; dziś' : '') +
+          (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual' : 'plan') + '</span>');
+        var balCls = r.balance < 0 ? 'neg' : 'ok';
+        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td><td>' + fmt(r.groupA) + '</td><td>' + fmt(r.groupB) + '</td><td>' + fmt(r.brazing) + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
+      }).join('') +
+    '</tbody></table></div></div>' +
+    solderFormHtml() +
+    '</div>';
+  wireSolderConfig(); wireSolderForm();
 }
 
 function pinGateConfirm() {

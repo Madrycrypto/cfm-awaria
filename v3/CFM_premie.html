@@ -136,6 +136,12 @@ table.results tbody tr:last-child td{border-bottom:none}
 .pin-dialog-ok{width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:18px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;padding:13px;cursor:pointer}
 .pin-dialog-back{display:block;margin-top:14px;font-size:12px;color:var(--muted);text-decoration:none}
 .pin-dialog-back:hover{color:var(--text)}
+.langtoggle{display:flex;gap:6px}
+.langflag{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:15px;line-height:1;cursor:pointer;transition:opacity .15s,filter .15s}
+.langflag:hover{border-color:var(--muted)}
+.langflag.off{opacity:.3;filter:grayscale(1)}
+body.hide-pl .pl{display:none}
+body.hide-cn .cn{display:none}
 </style>
 </head>
 <body>
@@ -168,6 +174,10 @@ table.results tbody tr:last-child td{border-bottom:none}
       <a href="CFM_inwentarz.html">&#128230; Inwentarz · 库存</a>
       </div>
     </div>
+    <div class="langtoggle">
+      <button type="button" class="langflag" data-lang="pl" title="Polski">&#127477;&#127473;</button>
+      <button type="button" class="langflag" data-lang="cn" title="&#20013;&#25991;">&#127464;&#127475;</button>
+    </div>
     <div class="topbar-right">
       <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
     </div>
@@ -179,6 +189,77 @@ table.results tbody tr:last-child td{border-bottom:none}
 </div>
 
 <script>
+// ── PRZELACZNIK JEZYKA (PL/CN) ────────────────────────────────────────
+// Kazda flaga NIEZALEZNIE chowa/pokazuje SWOJ jezyk (to nie jest wybor
+// "jednego jezyka na cala strone") - wspolny ekran na hali czesto czyta
+// jednoczesnie polski kierownik i chinski operator, wiec pelne
+// przelaczenie byloby zle dla tego przypadku; to tylko doraznie "wycisz
+// jeden jezyk dla siebie". Ustawienie jest per-przegladarka (localStorage).
+// Chinski tekst ZAWSZE siedzi w <span class="cn"> (caly projekt
+// konsekwentnie tak buduje), wiec jego chowanie jest trywialne. Polski
+// NIE ma wlasnego znacznika w zrodle (byloby to tysiace miejsc do
+// recznego przepisania w calej apce), wiec zamiast tego automatycznie
+// "opakowywujemy" kazdy goly tekstowy wezel DOM (ktory nie jest juz w
+// .cn) w <span class="pl"> - raz, na calym <body>, i odswiezamy to za
+// kazdym razem gdy cokolwiek w apce sie przerenderuje (obserwator
+// mutacji DOM), zamiast recznie pilnowac tego przy kazdym renderze.
+var LANG_STATE = (function() {
+  try { return Object.assign({ pl: true, cn: true }, JSON.parse(localStorage.getItem('cfm_lang_visibility') || '{}')); }
+  catch (e) { return { pl: true, cn: true }; }
+})();
+// Tekst uznajemy za "do zawiniecia" TYLKO jesli zawiera jakas litere -
+// czysto liczbowe/znakowe wezly (ilosci, daty, %, jednostki-symbole typu
+// "&#8212;") NIE sa jezykiem i musza zostac widoczne zawsze, niezaleznie
+// od przelacznika - inaczej chowanie polskiego chowaloby tez realne dane
+// produkcyjne. Uwaga: jesli slowo polskie i liczba siedza w JEDNYM
+// wezle tekstowym (np. "550 szt."), zostana zawiniete razem - to znany,
+// akceptowalny kompromis tego mechanizmu.
+var PL_WRAP_RE = /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/;
+function wrapPlTextNodes(root) {
+  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  var toWrap = [];
+  var node;
+  while ((node = walker.nextNode())) {
+    if (!node.nodeValue || !PL_WRAP_RE.test(node.nodeValue)) continue;
+    var p = node.parentNode;
+    if (!p || p.nodeType !== 1) continue;
+    if (p.closest('.cn, .pl, script, style')) continue;
+    toWrap.push(node);
+  }
+  toWrap.forEach(function(n) {
+    var span = document.createElement('span');
+    span.className = 'pl';
+    n.parentNode.insertBefore(span, n);
+    span.appendChild(n);
+  });
+}
+function applyLangVisibility() {
+  document.body.classList.toggle('hide-pl', !LANG_STATE.pl);
+  document.body.classList.toggle('hide-cn', !LANG_STATE.cn);
+  document.querySelectorAll('.langflag').forEach(function(b) { b.classList.toggle('off', !LANG_STATE[b.dataset.lang]); });
+}
+function toggleLang(lang) {
+  LANG_STATE[lang] = !LANG_STATE[lang];
+  if (!LANG_STATE.pl && !LANG_STATE.cn) LANG_STATE[lang] = true; // co najmniej jeden jezyk musi zostac widoczny
+  try { localStorage.setItem('cfm_lang_visibility', JSON.stringify(LANG_STATE)); } catch (e) {}
+  applyLangVisibility();
+}
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest && e.target.closest('.langflag');
+  if (btn) toggleLang(btn.dataset.lang);
+});
+(function() {
+  var busy = false;
+  new MutationObserver(function() {
+    if (busy) return;
+    busy = true;
+    wrapPlTextNodes(document.body);
+    applyLangVisibility();
+    busy = false;
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+wrapPlTextNodes(document.body);
+applyLangVisibility();
 // Domyslny webhook wpisany na sztywno — zeby KAZDY otwierajacy ten link
 // mial polaczenie od razu, bez konfigurowania Panelu Admina na tym samym
 // urzadzeniu/przegladarce (localStorage jest osobny dla kazdej przegladarki/
@@ -463,12 +544,12 @@ function renderConfigPanel() {
 
   el.innerHTML =
     '<div class="cfgpanel">' +
-      '<h3>Progi premii wg grupy stanowisk — ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + (inherited ? ' <span style="color:var(--faint);font-weight:500;font-size:11px">(odziedziczone z poprzedniego miesiąca — zapisz, żeby ustawić własne na ten miesiąc)</span>' : '') + ' <span class="cn">按工位组划分的奖金门槛 —— 本月</span></h3>' +
-      '<table class="cfgtable"><thead><tr><th>Grupa</th><th>Próg wyższy (% planu)</th><th>Premia wyższa (PLN)</th><th>Próg niższy (% planu)</th><th>Premia niższa (PLN)</th><th>Wymagany pass rate (%)</th></tr></thead><tbody id="groupCfgBody">' + groupRows + '</tbody></table>' +
+      '<h3>Progi premii wg grupy stanowisk — ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + (inherited ? ' <span style="color:var(--faint);font-weight:500;font-size:11px">(odziedziczone z poprzedniego miesiąca — zapisz, żeby ustawić własne na ten miesiąc)</span>' : '') + ' <span class="cn">按工位组划分的奖金门槛 —— ' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></h3>' +
+      '<table class="cfgtable"><thead><tr><th>Grupa<span class="cn">组</span></th><th>Próg wyższy (% planu)<span class="cn">较高门槛（计划%）</span></th><th>Premia wyższa (PLN)<span class="cn">较高奖金（PLN）</span></th><th>Próg niższy (% planu)<span class="cn">较低门槛（计划%）</span></th><th>Premia niższa (PLN)<span class="cn">较低奖金（PLN）</span></th><th>Wymagany pass rate (%)<span class="cn">要求合格率（%）</span></th></tr></thead><tbody id="groupCfgBody">' + groupRows + '</tbody></table>' +
       '<h3>Wydajność godzinowa per stanowisko (szt./h) <span class="cn">每小时产能（非按月，长期设置）</span></h3>' +
       '<div class="bulksub">Cel dzienny pobiera się automatycznie z dzisiejszego Planu (lub z Cele, jeśli w Planie nic nie ma na dziś). Wpisz czas pracy (np. 450 min = 8h minus 30 min przerwy) — wydajność wyliczy się sama. Możesz ją też nadpisać ręcznie.<br><span class="cn">每日目标自动从今日计划获取（若计划为空则用"目标"设置）。输入工作时间（如450分钟=8小时减30分钟休息）— 产能会自动计算，也可手动覆盖。</span></div>' +
-      '<table class="cfgtable"><thead><tr><th>Stanowisko</th><th>Cel dzienny (szt., z planu)</th><th>Czas pracy (min)</th><th>Wydajność (szt./h)</th></tr></thead><tbody id="wydajnoscCfgBody">' + wRows + '</tbody></table>' +
-      '<div class="cfgactions"><button class="btn-cfg-save" id="btnCfgSave">Zapisz konfigurację na ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn"> 保存本月配置</span></button></div>' +
+      '<table class="cfgtable"><thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Cel dzienny (szt., z planu)<span class="cn">每日目标（件，来自计划）</span></th><th>Czas pracy (min)<span class="cn">工作时间（分钟）</span></th><th>Wydajność (szt./h)<span class="cn">产能（件/小时）</span></th></tr></thead><tbody id="wydajnoscCfgBody">' + wRows + '</tbody></table>' +
+      '<div class="cfgactions"><button class="btn-cfg-save" id="btnCfgSave">Zapisz konfigurację na ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn"> 保存本月配置 ' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></button></div>' +
     '</div>';
 
   el.addEventListener('input', function() { markCfgDirty(); });
@@ -524,14 +605,14 @@ function renderResultsTable(rows) {
   order.forEach(function(st) {
     var list = byStation[st];
     list.forEach(function(r, si) {
-      var crewHtml = r.crewList.length ? r.crewList.join('<br>') : '<span class="crewnames empty">brak obsady</span>';
+      var crewHtml = r.crewList.length ? r.crewList.join('<br>') : '<span class="crewnames empty">brak obsady <span class="cn">无人员</span></span>';
       body += '<tr>' +
         (si === 0 ? '<td rowspan="' + list.length + '"><div class="stationname">' + st + '</div></td>' : '') +
         '<td><span class="shiftpill"><i style="background:' + shiftColor(r.shift) + '"></i>Zmiana ' + r.shift + '</span></td>' +
         '<td><div class="crewnames">' + crewHtml + '</div></td>' +
         '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.sumQty) + '</span><span class="cell-plan">/' + fmt(r.sumPlan) + '</span></div></td>' +
         '<td><span class="pct ' + pctClass(r.passRate, r.group.passRate) + '">' + (r.passRate === null ? '&#8212;' : r.passRate.toFixed(1) + '%') + '</span></td>' +
-        '<td><div class="korektacell"><span class="autolbl">auto z Awarii: ' + r.autoDowntimeMin + ' min</span><input type="number" class="korektainput" min="0" value="' + r.korektaMin + '" data-station="' + r.station.replace(/"/g, '&quot;') + '" data-shift="' + r.shift + '"></div></td>' +
+        '<td><div class="korektacell"><span class="autolbl">auto z Awarii: ' + r.autoDowntimeMin + ' min <span class="cn">故障自动计入: ' + r.autoDowntimeMin + ' 分钟</span></span><input type="number" class="korektainput" min="0" value="' + r.korektaMin + '" data-station="' + r.station.replace(/"/g, '&quot;') + '" data-shift="' + r.shift + '"></div></td>' +
         '<td><span class="pct ' + pctClass(r.finalPct, r.group.progNizszy) + '">' + (r.finalPct === null ? '&#8212;' : r.finalPct.toFixed(1) + '%') + '</span>' +
           '<button type="button" class="techbtn' + (r.techApplied ? ' on' : '') + '" data-station="' + r.station.replace(/"/g, '&quot;') + '" data-shift="' + r.shift + '">+60min</button></td>' +
         '<td><span class="premia ' + (r.premia ? 'yes' : 'no') + '">' + (r.premia ? r.premia + ' PLN' : '&#8212;') + '</span></td>' +

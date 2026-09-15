@@ -182,6 +182,12 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 @media (max-width:560px){
   .sqdipgrid{grid-template-columns:1fr}
 }
+.langtoggle{display:flex;gap:6px}
+.langflag{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:15px;line-height:1;cursor:pointer;transition:opacity .15s,filter .15s}
+.langflag:hover{border-color:var(--muted)}
+.langflag.off{opacity:.3;filter:grayscale(1)}
+body.hide-pl .pl{display:none}
+body.hide-cn .cn{display:none}
 </style>
 </head>
 <body>
@@ -202,6 +208,10 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
       <a href="CFM_inwentarz.html">&#128230; Inwentarz · 库存</a>
       </div>
     </div>
+    <div class="langtoggle">
+      <button type="button" class="langflag" data-lang="pl" title="Polski">&#127477;&#127473;</button>
+      <button type="button" class="langflag" data-lang="cn" title="&#20013;&#25991;">&#127464;&#127475;</button>
+    </div>
     <div class="topbar-right">
       <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
       <div id="lastUpdate"></div>
@@ -214,6 +224,77 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 </div>
 
 <script>
+// ── PRZELACZNIK JEZYKA (PL/CN) ────────────────────────────────────────
+// Kazda flaga NIEZALEZNIE chowa/pokazuje SWOJ jezyk (to nie jest wybor
+// "jednego jezyka na cala strone") - wspolny ekran na hali czesto czyta
+// jednoczesnie polski kierownik i chinski operator, wiec pelne
+// przelaczenie byloby zle dla tego przypadku; to tylko doraznie "wycisz
+// jeden jezyk dla siebie". Ustawienie jest per-przegladarka (localStorage).
+// Chinski tekst ZAWSZE siedzi w <span class="cn"> (caly projekt
+// konsekwentnie tak buduje), wiec jego chowanie jest trywialne. Polski
+// NIE ma wlasnego znacznika w zrodle (byloby to tysiace miejsc do
+// recznego przepisania w calej apce), wiec zamiast tego automatycznie
+// "opakowywujemy" kazdy goly tekstowy wezel DOM (ktory nie jest juz w
+// .cn) w <span class="pl"> - raz, na calym <body>, i odswiezamy to za
+// kazdym razem gdy cokolwiek w apce sie przerenderuje (obserwator
+// mutacji DOM), zamiast recznie pilnowac tego przy kazdym renderze.
+var LANG_STATE = (function() {
+  try { return Object.assign({ pl: true, cn: true }, JSON.parse(localStorage.getItem('cfm_lang_visibility') || '{}')); }
+  catch (e) { return { pl: true, cn: true }; }
+})();
+// Tekst uznajemy za "do zawiniecia" TYLKO jesli zawiera jakas litere -
+// czysto liczbowe/znakowe wezly (ilosci, daty, %, jednostki-symbole typu
+// "&#8212;") NIE sa jezykiem i musza zostac widoczne zawsze, niezaleznie
+// od przelacznika - inaczej chowanie polskiego chowaloby tez realne dane
+// produkcyjne. Uwaga: jesli slowo polskie i liczba siedza w JEDNYM
+// wezle tekstowym (np. "550 szt."), zostana zawiniete razem - to znany,
+// akceptowalny kompromis tego mechanizmu.
+var PL_WRAP_RE = /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/;
+function wrapPlTextNodes(root) {
+  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  var toWrap = [];
+  var node;
+  while ((node = walker.nextNode())) {
+    if (!node.nodeValue || !PL_WRAP_RE.test(node.nodeValue)) continue;
+    var p = node.parentNode;
+    if (!p || p.nodeType !== 1) continue;
+    if (p.closest('.cn, .pl, script, style')) continue;
+    toWrap.push(node);
+  }
+  toWrap.forEach(function(n) {
+    var span = document.createElement('span');
+    span.className = 'pl';
+    n.parentNode.insertBefore(span, n);
+    span.appendChild(n);
+  });
+}
+function applyLangVisibility() {
+  document.body.classList.toggle('hide-pl', !LANG_STATE.pl);
+  document.body.classList.toggle('hide-cn', !LANG_STATE.cn);
+  document.querySelectorAll('.langflag').forEach(function(b) { b.classList.toggle('off', !LANG_STATE[b.dataset.lang]); });
+}
+function toggleLang(lang) {
+  LANG_STATE[lang] = !LANG_STATE[lang];
+  if (!LANG_STATE.pl && !LANG_STATE.cn) LANG_STATE[lang] = true; // co najmniej jeden jezyk musi zostac widoczny
+  try { localStorage.setItem('cfm_lang_visibility', JSON.stringify(LANG_STATE)); } catch (e) {}
+  applyLangVisibility();
+}
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest && e.target.closest('.langflag');
+  if (btn) toggleLang(btn.dataset.lang);
+});
+(function() {
+  var busy = false;
+  new MutationObserver(function() {
+    if (busy) return;
+    busy = true;
+    wrapPlTextNodes(document.body);
+    applyLangVisibility();
+    busy = false;
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+wrapPlTextNodes(document.body);
+applyLangVisibility();
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
@@ -225,6 +306,7 @@ function mondayOf(d) { var x = new Date(d); var day = (x.getDay() + 6) % 7; x.se
 function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
 var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
+var DAY_LABELS_CN = ['周一','周二','周三','周四','周五','周六','周日'];
 
 // Ustawienia (w tym inwentaryzacja) pobieramy nie tylko raz przy starcie,
 // ale i co odswiezenie — Dashboard bywa otwarty caly dzien na duzym
@@ -777,7 +859,7 @@ function renderDailyPlanBars(days) {
     });
     var dd = d.split('-');
     var wd = new Date(Number(dd[0]), Number(dd[1]) - 1, Number(dd[2])).getDay();
-    var label = DAY_LABELS[(wd + 6) % 7];
+    var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span>';
     if (plan <= 0) return '<div class="dailybar-row"><div class="dailybar-lbl">' + label + '</div><div class="dailybar-track"></div><div class="dailybar-val" style="color:var(--faint)">&#8212;</div></div>';
     any = true;
     var pct = Math.round((actual / plan) * 100);

@@ -197,6 +197,12 @@ tbody tr.grouphead td{padding-top:16px}
   .gccell{min-width:170px;gap:6px}
   .gc-pct{font-size:14px}
 }
+.langtoggle{display:flex;gap:6px}
+.langflag{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:15px;line-height:1;cursor:pointer;transition:opacity .15s,filter .15s}
+.langflag:hover{border-color:var(--muted)}
+.langflag.off{opacity:.3;filter:grayscale(1)}
+body.hide-pl .pl{display:none}
+body.hide-cn .cn{display:none}
 </style>
 </head>
 <body>
@@ -217,6 +223,10 @@ tbody tr.grouphead td{padding-top:16px}
       <a href="CFM_inwentarz.html">&#128230; Inwentarz · 库存</a>
       </div>
     </div>
+    <div class="langtoggle">
+      <button type="button" class="langflag" data-lang="pl" title="Polski">&#127477;&#127473;</button>
+      <button type="button" class="langflag" data-lang="cn" title="&#20013;&#25991;">&#127464;&#127475;</button>
+    </div>
     <div class="topbar-right">
       <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
       <div id="lastUpdate"></div>
@@ -229,6 +239,77 @@ tbody tr.grouphead td{padding-top:16px}
 </div>
 
 <script>
+// ── PRZELACZNIK JEZYKA (PL/CN) ────────────────────────────────────────
+// Kazda flaga NIEZALEZNIE chowa/pokazuje SWOJ jezyk (to nie jest wybor
+// "jednego jezyka na cala strone") - wspolny ekran na hali czesto czyta
+// jednoczesnie polski kierownik i chinski operator, wiec pelne
+// przelaczenie byloby zle dla tego przypadku; to tylko doraznie "wycisz
+// jeden jezyk dla siebie". Ustawienie jest per-przegladarka (localStorage).
+// Chinski tekst ZAWSZE siedzi w <span class="cn"> (caly projekt
+// konsekwentnie tak buduje), wiec jego chowanie jest trywialne. Polski
+// NIE ma wlasnego znacznika w zrodle (byloby to tysiace miejsc do
+// recznego przepisania w calej apce), wiec zamiast tego automatycznie
+// "opakowywujemy" kazdy goly tekstowy wezel DOM (ktory nie jest juz w
+// .cn) w <span class="pl"> - raz, na calym <body>, i odswiezamy to za
+// kazdym razem gdy cokolwiek w apce sie przerenderuje (obserwator
+// mutacji DOM), zamiast recznie pilnowac tego przy kazdym renderze.
+var LANG_STATE = (function() {
+  try { return Object.assign({ pl: true, cn: true }, JSON.parse(localStorage.getItem('cfm_lang_visibility') || '{}')); }
+  catch (e) { return { pl: true, cn: true }; }
+})();
+// Tekst uznajemy za "do zawiniecia" TYLKO jesli zawiera jakas litere -
+// czysto liczbowe/znakowe wezly (ilosci, daty, %, jednostki-symbole typu
+// "&#8212;") NIE sa jezykiem i musza zostac widoczne zawsze, niezaleznie
+// od przelacznika - inaczej chowanie polskiego chowaloby tez realne dane
+// produkcyjne. Uwaga: jesli slowo polskie i liczba siedza w JEDNYM
+// wezle tekstowym (np. "550 szt."), zostana zawiniete razem - to znany,
+// akceptowalny kompromis tego mechanizmu.
+var PL_WRAP_RE = /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/;
+function wrapPlTextNodes(root) {
+  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  var toWrap = [];
+  var node;
+  while ((node = walker.nextNode())) {
+    if (!node.nodeValue || !PL_WRAP_RE.test(node.nodeValue)) continue;
+    var p = node.parentNode;
+    if (!p || p.nodeType !== 1) continue;
+    if (p.closest('.cn, .pl, script, style')) continue;
+    toWrap.push(node);
+  }
+  toWrap.forEach(function(n) {
+    var span = document.createElement('span');
+    span.className = 'pl';
+    n.parentNode.insertBefore(span, n);
+    span.appendChild(n);
+  });
+}
+function applyLangVisibility() {
+  document.body.classList.toggle('hide-pl', !LANG_STATE.pl);
+  document.body.classList.toggle('hide-cn', !LANG_STATE.cn);
+  document.querySelectorAll('.langflag').forEach(function(b) { b.classList.toggle('off', !LANG_STATE[b.dataset.lang]); });
+}
+function toggleLang(lang) {
+  LANG_STATE[lang] = !LANG_STATE[lang];
+  if (!LANG_STATE.pl && !LANG_STATE.cn) LANG_STATE[lang] = true; // co najmniej jeden jezyk musi zostac widoczny
+  try { localStorage.setItem('cfm_lang_visibility', JSON.stringify(LANG_STATE)); } catch (e) {}
+  applyLangVisibility();
+}
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest && e.target.closest('.langflag');
+  if (btn) toggleLang(btn.dataset.lang);
+});
+(function() {
+  var busy = false;
+  new MutationObserver(function() {
+    if (busy) return;
+    busy = true;
+    wrapPlTextNodes(document.body);
+    applyLangVisibility();
+    busy = false;
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+wrapPlTextNodes(document.body);
+applyLangVisibility();
 // Domyslny webhook wpisany na sztywno — zeby KAZDY otwierajacy ten link
 // (np. przeslany operatorowi) mial polaczenie od razu, bez koniecznosci
 // najpierw otwierania glownej apki i konfigurowania Panelu Admina na tym
@@ -539,7 +620,7 @@ function awarieTitleText(entries) {
 function render() {
   var app = document.getElementById('app');
   if (!STATE.rows.length) {
-    app.innerHTML = '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub">' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + '</div></div>' + monthNavHtml() + '</div><div class="empty">Brak wpisów w tym miesiącu. <span class="cn">本月无记录。</span></div>';
+    app.innerHTML = '<div class="pagehead"><div><h1>Plan vs. wykonanie <span class="cn">计划与完成</span></h1><div class="sub">' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + ' <span class="cn">' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></div></div>' + monthNavHtml() + '</div><div class="empty">Brak wpisów w tym miesiącu. <span class="cn">本月无记录。</span></div>';
     wireMonthNav();
     return;
   }
@@ -563,7 +644,7 @@ function render() {
     '<div class="section"><div class="section-head"><h2>Porównanie zmian &#183; która lepsza<span class="cn">班次对比 &#183; 哪个更好</span></h2></div><div class="barsgrid" id="shiftComparison"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Bilans dzienny<span class="cn">每日计划平衡</span></h2></div><div id="dailyBalance"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Bilans tygodniowy<span class="cn">每周计划平衡</span></h2></div><div id="weeklyBalance"></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
+    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡 &#183; ' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
     '<div class="twosectiongrid">' +
       '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>' +
       '<div class="section"><div class="section-head"><h2>Awarie &#183; przestoje w okresie<span class="cn">故障 &#183; 本期停机</span></h2></div><div class="barsgrid" id="awarieSummary"></div></div>' +
@@ -662,10 +743,10 @@ function exportToExcel() {
   var title = 'Plan vs. wykonanie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear();
   var html = '<table>';
 
-  html += '<tr><th rowspan="2">Stanowisko</th><th rowspan="2">Zmiana</th><th rowspan="2">Wska&#378;nik</th>';
+  html += '<tr><th rowspan="2">Stanowisko<span class="cn">工位</span></th><th rowspan="2">Zmiana<span class="cn">班次</span></th><th rowspan="2">Wska&#378;nik<span class="cn">指标</span></th>';
   days.forEach(function(d) { var dd = d.split('-'); html += '<th>' + dd[2] + '/' + dd[1] + '</th>'; });
-  html += '<th rowspan="2">Suma m-c</th></tr><tr>';
-  days.forEach(function(d) { var parts = d.split('-'); var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay(); html += '<th>' + DAY_LABELS[(wd + 6) % 7] + '</th>'; });
+  html += '<th rowspan="2">Suma m-c<span class="cn">本月合计</span></th></tr><tr>';
+  days.forEach(function(d) { var parts = d.split('-'); var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay(); html += '<th>' + DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span></th>'; });
   html += '</tr>';
 
   stationOrder.forEach(function(stName) {
@@ -809,7 +890,7 @@ function renderSqdiHelper(groups, days) {
   var rows = days.map(function(d) {
     var dd = d.split('-');
     var wd = new Date(Number(dd[0]), Number(dd[1]) - 1, Number(dd[2])).getDay();
-    var label = DAY_LABELS[(wd + 6) % 7] + ' ' + dd[2] + '/' + dd[1] + (d === todayISO ? ' &#183; dziś' : '');
+    var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (d === todayISO ? ' &#183; dziś' : '');
 
     var gp12 = groups.filter(function(g) { return g.station === 'GP12'; });
     var actual = 0, ok = 0, plan = 0;
@@ -1243,7 +1324,7 @@ function renderDailyBalance(days) {
     var dayGroups = buildGroups(STATE.rows.filter(function(r) { return r.date === d; }));
     var parts = d.split('-');
     var wd = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getDay();
-    var label = DAY_LABELS[(wd + 6) % 7] + ' ' + parts[2] + '/' + parts[1] + (d === todayISO ? ' · dziś' : '');
+    var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + parts[2] + '/' + parts[1] + (d === todayISO ? ' · dziś' : '');
     return '<div class="weekblock"><div class="weekblock-head">' + label + '</div>' + dailyGridHtml(dayGroups, d) + '</div>';
   }).join('');
   el.querySelectorAll('.wtinput').forEach(function(inp) {

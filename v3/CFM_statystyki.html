@@ -846,8 +846,23 @@ function renderSqdiHelper(groups, days) {
 // kazda sztuka przechodzi przez wiele stanowisk, wiec usrednianie WSZYSTKICH
 // stanowisk myliloby "ktora zmiana jest lepsza" z "ktora zmiana ma lepsze
 // stanowiska w swoim gronie" — a to nie to samo pytanie.
+//
+// Mianownik to TYGODNIOWY plan (5 dni x Cel stanowiska), NIE getPeriodPlan
+// (ktory liczy tylko dni z faktycznym raportem/wpisem w Planie). Powod:
+// dwie zmiany moga dojsc do tej samej tygodniowej ilosci ROZNA liczba dni
+// (np. jedna w 5 dni x 8h, druga w 6 dni bo przyszla tez w sobote) — to
+// zaden z tych sposobow nie jest "gorszy", obie ostatecznie realizuja plan.
+// Stale porownanie do 5xCel (przeskalowane proporcjonalnie do dlugosci
+// ogladanego okresu, gdyby to byl nie tydzien a np. miesiac) pokazuje wiec
+// uczciwie "czy zmiana dowozi tygodniowa norme", niezaleznie od tego w ile
+// dni to zrobila — a nie karze dodatkowego dnia pracy brakiem widocznego
+// zysku w %. Uwaga: to inna semantyka niz getPeriodPlan uzywany gdzie
+// indziej (Bilans dzienny, Pivot, Premie) — tam CELOWO liczy sie dzien po
+// dniu, bo tamte widoki oceniaja "czy TEN dzien wypadl dobrze", a nie
+// "czy tydzien jako calosc jest zrobiony".
 function renderShiftComparison(groups, days) {
   var el = document.getElementById('shiftComparison');
+  var weekFactor = days.length / 7;
   var byShift = {};
   groups.filter(function(g) { return g.station === 'GP12'; }).forEach(function(g) {
     var hasData = Object.keys(g.byDate).length > 0;
@@ -855,9 +870,10 @@ function renderShiftComparison(groups, days) {
     if (!hasData && !hasPlanEntries) return;
     var actual = 0, ok = 0;
     Object.keys(g.byDate).forEach(function(d) { actual += g.byDate[d].qty; ok += g.byDate[d].ok_count; });
-    var plan = getPeriodPlan(g.station, g.shift, days, g.byDate);
+    var cel = Number(STATE.stationTargets[g.station]) || 0;
+    var weeklyPlan = cel * 5 * weekFactor;
     if (!byShift[g.shift]) byShift[g.shift] = { pcts: [], passRates: [] };
-    if (plan > 0) byShift[g.shift].pcts.push((actual / plan) * 100);
+    if (weeklyPlan > 0) byShift[g.shift].pcts.push((actual / weeklyPlan) * 100);
     if (actual > 0) byShift[g.shift].passRates.push((ok / actual) * 100);
   });
   var shiftsOrder = STATE.shiftLabels.filter(function(s) { return byShift[s] && byShift[s].pcts.length; });
@@ -867,7 +883,7 @@ function renderShiftComparison(groups, days) {
     return { shift: s, pct: avg(byShift[s].pcts), passRate: avg(byShift[s].passRates), n: byShift[s].pcts.length };
   });
   rows.sort(function(a, b) { return b.pct - a.pct; });
-  var hint = '<div class="wthint">% &#8212; wykonanie planu GP12 tej zmiany &#183; 该班次GP12计划完成率</div>';
+  var hint = '<div class="wthint">% &#8212; wykonanie tygodniowej normy GP12 (5 dni &#215; Cel), niezależnie od liczby przepracowanych dni &#183; 相对于GP12每周定额（5天&#215;目标）的完成率，与实际工作天数无关</div>';
   el.innerHTML = hint + rows.map(function(r, i) {
     var color = r.pct >= 95 ? 'var(--green)' : r.pct >= 80 ? 'var(--orange)' : 'var(--red)';
     var crown = i === 0 && rows.length > 1 ? ' &#9733;' : '';

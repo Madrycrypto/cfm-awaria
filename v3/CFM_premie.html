@@ -141,18 +141,18 @@ table.results tbody tr:last-child td{border-bottom:none}
 .langflag:hover{border-color:var(--muted)}
 .langflag.off{opacity:.3;filter:grayscale(1)}
 body.hide-pl .pl{display:none}
-body.hide-cn .cn{display:none}
+body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria-btn-cn,body.hide-cn .view-switch-cn,body.hide-cn .warn-title-cn{display:none}
 </style>
 </head>
 <body>
 <div class="pin-overlay" id="pinGateOverlay">
   <div class="pin-dialog">
     <div class="pin-dialog-title">&#128274; DOSTĘP</div>
-    <div class="pin-dialog-sub">Podaj PIN, żeby wejść &#183; 请输入PIN进入</div>
+    <div class="pin-dialog-sub">Podaj PIN, żeby wejść <span class="cn">&#183; 请输入</span>PIN进入</div>
     <input class="pin-dialog-input" type="password" id="pinGateInput" placeholder="&#8226;&#8226;&#8226;&#8226;" maxlength="8" onkeydown="if(event.key==='Enter')pinGateConfirm()">
     <div class="pin-dialog-err" id="pinGateErr">Błędny PIN &#183; PIN错误</div>
-    <button class="pin-dialog-ok" onclick="pinGateConfirm()">WEJDŹ &#183; 进入</button>
-    <a href="CFM_R_DZIENNY_V3.html" class="pin-dialog-back">&#8592; Wróć do Raportu dziennego &#183; 返回日报</a>
+    <button class="pin-dialog-ok" onclick="pinGateConfirm()">WEJDŹ <span class="cn">&#183; 进入</span></button>
+    <a href="CFM_R_DZIENNY_V3.html" class="pin-dialog-back">&#8592; Wróć do Raportu dziennego <span class="cn">&#183; 返回日报</span></a>
   </div>
 </div>
 <script>if(sessionStorage.getItem('cfm_page_unlocked')==='1'){document.getElementById('pinGateOverlay').classList.add('hidden');}</script>
@@ -164,14 +164,14 @@ body.hide-cn .cn{display:none}
     <div class="navmenu-wrap">
       <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
       <div class="navmenu-dropdown" id="navmenuDropdown">
-      <a href="CFM_dashboard.html">&#128202; Dashboard · 仪表盘</a>
-      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny · 日报</a>
-      <a href="CFM_statystyki.html">&#128200; Statystyki · 统计</a>
-      <a href="CFM_oee.html">&#9881;&#65039; OEE · 效率</a>
-      <a href="CFM_premie.html" class="on">&#128176; Premie · 奖金</a>
-      <a href="CFM_plan.html">&#128197; Plan · 计划</a>
-      <a href="CFM_obsada.html">&#128101; Obsada · 排班</a>
-      <a href="CFM_inwentarz.html">&#128230; Inwentarz · 库存</a>
+      <a href="CFM_dashboard.html">&#128202; Dashboard <span class="cn">· 仪表盘</span></a>
+      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny <span class="cn">· 日报</span></a>
+      <a href="CFM_statystyki.html">&#128200; Statystyki <span class="cn">· 统计</span></a>
+      <a href="CFM_oee.html">&#9881;&#65039; OEE <span class="cn">· 效率</span></a>
+      <a href="CFM_premie.html" class="on">&#128176; Premie <span class="cn">· 奖金</span></a>
+      <a href="CFM_plan.html">&#128197; Plan <span class="cn">· 计划</span></a>
+      <a href="CFM_obsada.html">&#128101; Obsada <span class="cn">· 排班</span></a>
+      <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">· 库存</span></a>
       </div>
     </div>
     <div class="langtoggle">
@@ -214,23 +214,32 @@ var LANG_STATE = (function() {
 // produkcyjne. Uwaga: jesli slowo polskie i liczba siedza w JEDNYM
 // wezle tekstowym (np. "550 szt."), zostana zawiniete razem - to znany,
 // akceptowalny kompromis tego mechanizmu.
-var PL_WRAP_RE = /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/;
+// Owijamy TYLKO tekst ktory jest BEZPOSREDNIM poprzednikiem juz
+// istniejacego .cn - czyli dokladnie "polska polowka" ustalonego wzorca
+// "Polski<span class=cn>Chinski</span>" uzywanego konsekwentnie w calej
+// apce. Poprzednia wersja owijala KAZDY tekst z litera lacinska, co
+// bledy chowalo tez DANE (nazwiska operatorow, kody stanowisk typu
+// "OP60/61", wartosci w dropdownach) przy wylaczeniu PL - to naprawia
+// ten problem: dane bez sasiadujacego .cn nigdy nie sa dotykane, wiec
+// zawsze zostaja widoczne niezaleznie od przelacznika.
 function wrapPlTextNodes(root) {
-  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  var toWrap = [];
-  var node;
-  while ((node = walker.nextNode())) {
-    if (!node.nodeValue || !PL_WRAP_RE.test(node.nodeValue)) continue;
-    var p = node.parentNode;
-    if (!p || p.nodeType !== 1) continue;
-    if (p.closest('.cn, .pl, script, style')) continue;
-    toWrap.push(node);
-  }
-  toWrap.forEach(function(n) {
-    var span = document.createElement('span');
-    span.className = 'pl';
-    n.parentNode.insertBefore(span, n);
-    span.appendChild(n);
+  root.querySelectorAll('.cn, .cn-line, .cn-sub, .awaria-btn-cn, .view-switch-cn, .warn-title-cn').forEach(function(cnEl) {
+    var prev = cnEl.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3) {
+        if (prev.nodeValue.trim()) {
+          var span = document.createElement('span');
+          span.className = 'pl';
+          prev.parentNode.insertBefore(span, prev);
+          span.appendChild(prev);
+          break;
+        }
+        prev = prev.previousSibling;
+        continue;
+      }
+      if (prev.nodeType === 1) break;
+      prev = prev.previousSibling;
+    }
   });
 }
 function applyLangVisibility() {

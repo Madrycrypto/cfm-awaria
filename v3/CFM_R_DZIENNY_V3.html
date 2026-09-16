@@ -287,7 +287,7 @@ button{cursor:pointer;font-family:var(--fh)}
 .langflag:hover{border-color:var(--muted)}
 .langflag.off{opacity:.3;filter:grayscale(1)}
 body.hide-pl .pl{display:none}
-body.hide-cn .cn{display:none}
+body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria-btn-cn,body.hide-cn .view-switch-cn,body.hide-cn .warn-title-cn{display:none}
 </style>
 </head>
 <body>
@@ -298,14 +298,14 @@ body.hide-cn .cn{display:none}
     <div class="navmenu-wrap">
       <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
       <div class="navmenu-dropdown" id="navmenuDropdown">
-        <a href="CFM_dashboard.html">&#128202; Dashboard · 仪表盘</a>
-        <a href="CFM_R_DZIENNY_V3.html" class="on">&#128221; Raport dzienny · 日报</a>
-        <a href="CFM_statystyki.html">&#128200; Statystyki · 统计</a>
-        <a href="CFM_oee.html">&#9881;&#65039; OEE · 效率</a>
-        <a href="CFM_premie.html">&#128176; Premie · 奖金</a>
-        <a href="CFM_plan.html">&#128197; Plan · 计划</a>
-        <a href="CFM_obsada.html">&#128101; Obsada · 排班</a>
-        <a href="CFM_inwentarz.html">&#128230; Inwentarz · 库存</a>
+        <a href="CFM_dashboard.html">&#128202; Dashboard <span class="cn">· 仪表盘</span></a>
+        <a href="CFM_R_DZIENNY_V3.html" class="on">&#128221; Raport dzienny <span class="cn">· 日报</span></a>
+        <a href="CFM_statystyki.html">&#128200; Statystyki <span class="cn">· 统计</span></a>
+        <a href="CFM_oee.html">&#9881;&#65039; OEE <span class="cn">· 效率</span></a>
+        <a href="CFM_premie.html">&#128176; Premie <span class="cn">· 奖金</span></a>
+        <a href="CFM_plan.html">&#128197; Plan <span class="cn">· 计划</span></a>
+        <a href="CFM_obsada.html">&#128101; Obsada <span class="cn">· 排班</span></a>
+        <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">· 库存</span></a>
       </div>
     </div>
   </div>
@@ -320,7 +320,7 @@ body.hide-cn .cn{display:none}
 
 <div class="main">
   <div id="shiftBlock">
-    <div class="lbl">Zmiana &#183; &#29677;&#27425; <span class="req">*</span></div>
+    <div class="lbl">Zmiana <span class="cn">&#183; &#29677;&#27425;</span> <span class="req">*</span></div>
     <div class="shift-selector" id="shiftSelector"></div>
   </div>
 
@@ -332,16 +332,16 @@ body.hide-cn .cn{display:none}
       Raport po zako&#324;czeniu zmiany<br>
       <span class="cn">&#29677;&#27425;&#32467;&#26463;&#21518;&#25253;&#21578;</span><br>
       <span id="dateDisplay" style="color:var(--text);"></span>
-      <a href="#" onclick="toggleRaportDate();return false;" style="color:var(--blue);">Zmie&#324; dzie&#324; &#183; &#20462;&#25913;&#26085;&#26399;</a>
+      <a href="#" onclick="toggleRaportDate();return false;" style="color:var(--blue);">Zmie&#324; dzie&#324; <span class="cn">&#183; &#20462;&#25913;&#26085;&#26399;</span></a>
     </div>
   </div>
 
   <div id="raportDateManual" style="display:none;margin-bottom:10px;">
-    <div class="lbl">Dzie&#324; &#183; &#26085;&#26399;</div>
+    <div class="lbl">Dzie&#324; <span class="cn">&#183; &#26085;&#26399;</span></div>
     <input type="date" id="raportDateInput" onchange="setRaportDate()" style="width:100%;font-size:14px;padding:10px;margin-top:6px;">
   </div>
   <div id="raportDateBanner" style="display:none;margin-bottom:10px;padding:8px 12px;background:rgba(217,119,6,0.16);border:1px solid rgba(240,160,48,0.35);border-radius:9px;font-size:11.5px;color:#f0a030;font-weight:700;text-align:center;">
-    &#9888; Wprowadzasz dane dla innego dnia! &#183; 正在为其他日期录入数据!
+    &#9888; Wprowadzasz dane dla innego dnia! <span class="cn">&#183; 正在为其他日期录入数据</span>!
   </div>
 
   <div id="hourBadgeWrap" style="display:none;margin-bottom:10px;">
@@ -352,13 +352,13 @@ body.hide-cn .cn{display:none}
       <div class="shift-sub">
         Raport za uko&#324;czon&#261; godzin&#281;<br>
         <span class="cn">&#25253;&#21578;&#24050;&#32467;&#26463;&#30340;&#23567;&#26102;</span><br>
-        <a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);">Zmie&#324; r&#281;cznie &#183; &#25163;&#21160;</a>
+        <a href="#" onclick="toggleManualHour();return false;" style="color:var(--blue);">Zmie&#324; r&#281;cznie <span class="cn">&#183; &#25163;&#21160;</span></a>
       </div>
     </div>
   </div>
 
   <div id="hourBlock" style="display:none;">
-    <div class="lbl">Godzina &#183; &#26102;&#38388; <span class="req">*</span> <span class="cn">&#8211; wykryta automatycznie &#183; 自动检测</span></div>
+    <div class="lbl">Godzina <span class="cn">&#183; &#26102;&#38388;</span> <span class="req">*</span> <span class="cn">&#8211; wykryta automatycznie &#183; 自动检测</span></div>
     <div id="hourManual" style="display:none;margin-top:8px;">
       <select id="hourManualSel" onchange="setManualHour()">
         <option value="">&#8212; wybierz godzin&#281; &#8212; 请选择时间</option>
@@ -376,28 +376,28 @@ body.hide-cn .cn{display:none}
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" id="opStationGrid">
     <div class="field">
-      <div class="lbl" style="font-size:9px;">Operator &#183; &#25805;&#20316;&#21592; <span class="req">*</span></div>
+      <div class="lbl" style="font-size:9px;">Operator <span class="cn">&#183; &#25805;&#20316;&#21592;</span> <span class="req">*</span></div>
       <select id="operatorSel" onchange="saveOperator()" style="font-size:14px;padding:10px 12px;"></select>
-      <div class="remembered" id="remOperator" style="display:none;">&#10003; Zapami&#281;tano &#183; &#24050;&#35760;&#20303;</div>
+      <div class="remembered" id="remOperator" style="display:none;">&#10003; Zapami&#281;tano <span class="cn">&#183; &#24050;&#35760;&#20303;</span></div>
     </div>
     <div class="field" id="stationField">
-      <div class="lbl" style="font-size:9px;">Stanowisko &#183; &#24037;&#20301; <span class="req">*</span></div>
+      <div class="lbl" style="font-size:9px;">Stanowisko <span class="cn">&#183; &#24037;&#20301;</span> <span class="req">*</span></div>
       <select id="stationSel" onchange="saveStation()" style="font-size:14px;padding:10px 12px;"></select>
-      <div class="remembered" id="remStation" style="display:none;">&#10003; Zapami&#281;tano &#183; &#24050;&#35760;&#20303;</div>
+      <div class="remembered" id="remStation" style="display:none;">&#10003; Zapami&#281;tano <span class="cn">&#183; &#24050;&#35760;&#20303;</span></div>
     </div>
   </div>
 
   <div id="reworkDateBlock" style="display:none;">
     <div class="field" style="margin-top:10px;font-size:12.5px;color:var(--muted);">
       Przetwarzasz zaległość z: <span id="reworkDateDisplay" style="color:var(--text);font-weight:700;"></span>
-      &#183; <a href="#" onclick="toggleReworkDate();return false;" style="color:var(--blue);">Zmień dzień &#183; 修改日期</a>
+      &#183; <a href="#" onclick="toggleReworkDate();return false;" style="color:var(--blue);">Zmień dzień <span class="cn">&#183; 修改日期</span></a>
     </div>
     <div id="reworkDateManual" style="display:none;margin-bottom:10px;">
-      <div class="lbl">Dzień przetworzenia (np. jeśli to zaległość z poprzedniego tygodnia) &#183; 处理日期（如为上周积压）</div>
+      <div class="lbl">Dzień przetworzenia (np. jeśli to zaległość z poprzedniego tygodnia) <span class="cn">&#183; 处理日期（如为上周积压）</span></div>
       <input type="date" id="reworkDateInput" onchange="setReworkDate()" style="width:100%;font-size:14px;padding:10px;margin-top:6px;">
     </div>
     <div id="reworkDateBanner" style="display:none;margin-bottom:10px;padding:8px 12px;background:rgba(217,119,6,0.16);border:1px solid rgba(240,160,48,0.35);border-radius:9px;font-size:11.5px;color:#f0a030;font-weight:700;text-align:center;">
-      &#9888; Przetworzenie zaksięguje się pod innym dniem (i tygodniem)! &#183; 处理记录将计入其他日期（及周）!
+      &#9888; Przetworzenie zaksięguje się pod innym dniem (i tygodniem)! <span class="cn">&#183; 处理记录将计入其他日期（及周）</span>!
     </div>
   </div>
 
@@ -414,9 +414,9 @@ body.hide-cn .cn{display:none}
   <div class="view active" id="viewRaport">
 
     <div class="data-section">
-      <div class="data-section-title"><span class="icon">&#9881;</span> Produkcja &#183; &#29983;&#20135;&#25968;&#25454;</div>
+      <div class="data-section-title"><span class="icon">&#9881;</span> Produkcja <span class="cn">&#183; &#29983;&#20135;&#25968;&#25454;</span></div>
       <div class="field" style="margin-bottom:0;">
-        <div class="lbl">Ilo&#347;&#263; wyprodukowana &#183; &#23436;&#25104;&#20214;&#25968; <span class="req">*</span></div>
+        <div class="lbl">Ilo&#347;&#263; wyprodukowana <span class="cn">&#183; &#23436;&#25104;&#20214;&#25968;</span> <span class="req">*</span></div>
         <div class="counter-row">
           <button type="button" class="counter-btn" onclick="adjust('qtyInput',-10)">-10</button>
           <button type="button" class="counter-btn" onclick="adjust('qtyInput',-1)">&#8722;</button>
@@ -429,27 +429,27 @@ body.hide-cn .cn{display:none}
 
     <div class="reason-toggle-row">
       <button type="button" class="reason-toggle-btn scrap compact" id="scrapSectionTitle" onclick="toggleReasonSection('scrap')">
-        <span class="icon">&#128465;</span> Scrap &#183; &#25253;&#24223;&#25968;
+        <span class="icon">&#128465;</span> Scrap <span class="cn">&#183; &#25253;&#24223;&#25968;</span>
         <span class="count-badge" id="scrapTotalBadge">(0)</span>
         <span class="chevron">&#9662;</span>
       </button>
       <button type="button" class="reason-toggle-btn rework compact" id="reworkSectionTitle" onclick="toggleReasonSection('rework')">
-        <span class="icon">&#128295;</span> Rework &#183; &#36820;&#20462;&#25968;
+        <span class="icon">&#128295;</span> Rework <span class="cn">&#183; &#36820;&#20462;&#25968;</span>
         <span class="count-badge" id="reworkTotalBadge">(0)</span>
         <span class="chevron">&#9662;</span>
       </button>
     </div>
     <div class="reason-panel-body" id="scrapReasonsBody">
       <div id="scrapReasonsTable"></div>
-      <div class="reason-total">Razem scrap &#183; &#24635;&#25253;&#24223; <strong id="scrapTotalLbl">0</strong> szt.</div>
+      <div class="reason-total">Razem scrap <span class="cn">&#183; &#24635;&#25253;&#24223;</span> <strong id="scrapTotalLbl">0</strong> szt.</div>
     </div>
     <div class="reason-panel-body" id="reworkReasonsBody">
       <div id="reworkReasonsTable"></div>
-      <div class="reason-total">Razem rework &#183; &#24635;&#36820;&#20462; <strong id="reworkTotalLbl">0</strong> szt.</div>
+      <div class="reason-total">Razem rework <span class="cn">&#183; &#24635;&#36820;&#20462;</span> <strong id="reworkTotalLbl">0</strong> szt.</div>
     </div>
 
     <div class="summary-card">
-      <div class="lbl" style="margin-bottom:10px;">Podsumowanie &#183; &#27719;&#24635;</div>
+      <div class="lbl" style="margin-bottom:10px;">Podsumowanie <span class="cn">&#183; &#27719;&#24635;</span></div>
       <div class="summary-grid">
         <div class="summary-item">
           <div class="summary-lbl">&#21512;&#26684;&#25968;<br>Zgodne szt.</div>
@@ -471,37 +471,37 @@ body.hide-cn .cn{display:none}
     </div>
 
     <div class="field">
-      <div class="lbl">Uwagi &#183; &#22791;&#27880; <span class="cn">&#8211; opcjonalnie</span></div>
+      <div class="lbl">Uwagi <span class="cn">&#183; &#22791;&#27880;</span> <span class="cn">&#8211; opcjonalnie</span></div>
       <textarea id="notesInput" placeholder="Uwagi dotycz&#261;ce zmiany...&#10;&#35831;&#22635;&#20889;&#29677;&#27425;&#22791;&#27880;..." rows="2" autocomplete="off"></textarea>
     </div>
 
     <button class="btn-submit" id="btnSubmit" onclick="submitForm()">
-      WY&#346;LIJ RAPORT &#183; &#25552;&#20132;&#25253;&#21578;<span class="cn">&#21457;&#36865;&#29677;&#27425;&#25253;&#21578;</span>
+      WY&#346;LIJ RAPORT <span class="cn">&#183; &#25552;&#20132;&#25253;&#21578;</span><span class="cn">&#21457;&#36865;&#29677;&#27425;&#25253;&#21578;</span>
     </button>
 
     <div class="historia-card" id="shiftComparisonCard" style="margin-top:14px;display:none;">
       <div class="historia-header">
-        <div class="historia-title">Dzisiaj wg zmian &#183; &#21508;&#29677;&#27425;&#20170;&#26085;&#20135;&#37327;</div>
+        <div class="historia-title">Dzisiaj wg zmian <span class="cn">&#183; &#21508;&#29677;&#27425;&#20170;&#26085;&#20135;&#37327;</span></div>
       </div>
       <div id="shiftComparisonContent"></div>
     </div>
 
     <div class="historia-card" style="margin-top:14px;">
       <div class="historia-header">
-        <div class="historia-title">Wprowadzone dzisiaj &#183; &#20170;&#26085;&#24050;&#24405;&#20837;</div>
+        <div class="historia-title">Wprowadzone dzisiaj <span class="cn">&#183; &#20170;&#26085;&#24050;&#24405;&#20837;</span></div>
       </div>
-      <div id="dzisiajWpisyList"><div class="hist-loading">Wybierz stanowisko &#183; &#35831;&#36873;&#25321;&#24037;&#20301;</div></div>
+      <div id="dzisiajWpisyList"><div class="hist-loading">Wybierz stanowisko <span class="cn">&#183; &#35831;&#36873;&#25321;&#24037;&#20301;</span></div></div>
     </div>
   </div>
 
   <!-- ============ WIDOK: REWORK ============ -->
   <div class="view" id="viewRework">
-    <div class="lbl">Strefa reworku &#183; &#36820;&#20462;&#21306;&#22495; <span class="req">*</span></div>
+    <div class="lbl">Strefa reworku <span class="cn">&#183; &#36820;&#20462;&#21306;&#22495;</span> <span class="req">*</span></div>
     <div class="rework-zone-grid" id="reworkZoneGrid"></div>
 
     <div class="data-section" style="margin-top:16px;">
-      <div class="data-section-title"><span class="icon">&#128230;</span> Bufor reworku &#183; &#36820;&#20462;&#24453;&#22788;&#29702;</div>
-      <div id="reworkBufferInfo"><div class="hist-loading">Wybierz strefę &#183; &#35831;&#36873;&#25321;&#21306;&#22495;</div></div>
+      <div class="data-section-title"><span class="icon">&#128230;</span> Bufor reworku <span class="cn">&#183; &#36820;&#20462;&#24453;&#22788;&#29702;</span></div>
+      <div id="reworkBufferInfo"><div class="hist-loading">Wybierz strefę <span class="cn">&#183; &#35831;&#36873;&#25321;&#21306;&#22495;</span></div></div>
     </div>
 
 
@@ -509,19 +509,19 @@ body.hide-cn .cn{display:none}
       <button type="button" class="reason-toggle-btn rework compact" id="reworkBufferSectionTitle" onclick="toggleReasonSection('reworkBuffer')">
         <span class="icon">&#128230;</span> Bufor
         <span class="chevron">&#9662;</span>
-        <span class="cn-sub">&#183; &#32531;&#20914;&#21306;</span>
+        <span class="cn-sub"><span class="cn">&#183; &#32531;&#20914;&#21306;</span></span>
       </button>
       <button type="button" class="reason-toggle-btn ok compact" id="reworkRecoveredSectionTitle" onclick="toggleReasonSection('reworkRecovered')">
         <span class="icon">&#9989;</span> Odzyskane
         <span class="count-badge" id="reworkRecoveredTotalBadge">(0)</span>
         <span class="chevron">&#9662;</span>
-        <span class="cn-sub">&#183; &#20462;&#22797;&#21512;&#26684;</span>
+        <span class="cn-sub"><span class="cn">&#183; &#20462;&#22797;&#21512;&#26684;</span></span>
       </button>
       <button type="button" class="reason-toggle-btn scrap compact" id="reworkScrapSectionTitle" onclick="toggleReasonSection('reworkScrap')">
         <span class="icon">&#10060;</span> Złom
         <span class="count-badge" id="reworkScrapTotalBadge">(0)</span>
         <span class="chevron">&#9662;</span>
-        <span class="cn-sub">&#183; &#24453;&#25253;&#24223;</span>
+        <span class="cn-sub"><span class="cn">&#183; &#24453;&#25253;&#24223;</span></span>
       </button>
     </div>
     <div class="reason-panel-body" id="reworkBufferReasonsBody">
@@ -530,15 +530,15 @@ body.hide-cn .cn{display:none}
     </div>
     <div class="reason-panel-body" id="reworkRecoveredReasonsBody">
       <div id="reworkRecoveredReasonsTable"></div>
-      <div class="reason-total">Razem odzyskane &#183; &#24635;&#20462;&#22797; <strong id="reworkRecoveredTotalLbl">0</strong> szt.</div>
+      <div class="reason-total">Razem odzyskane <span class="cn">&#183; &#24635;&#20462;&#22797;</span> <strong id="reworkRecoveredTotalLbl">0</strong> szt.</div>
     </div>
     <div class="reason-panel-body" id="reworkScrapReasonsBody">
       <div id="reworkScrapReasonsTable"></div>
-      <div class="reason-total">Razem do złomowania &#183; &#24635;&#24453;&#25253;&#24223; <strong id="reworkScrapTotalLbl">0</strong> szt.</div>
+      <div class="reason-total">Razem do złomowania <span class="cn">&#183; &#24635;&#24453;&#25253;&#24223;</span> <strong id="reworkScrapTotalLbl">0</strong> szt.</div>
     </div>
 
     <div class="summary-card" id="reworkBalanceCard" style="display:none;">
-      <div class="lbl" style="margin-bottom:10px;">Bilans &#183; &#24179;&#34913;&#26680;&#23545;</div>
+      <div class="lbl" style="margin-bottom:10px;">Bilans <span class="cn">&#183; &#24179;&#34913;&#26680;&#23545;</span></div>
       <div id="reworkBalanceText" style="font-size:13px;color:var(--text);line-height:1.6;"></div>
     </div>
 
@@ -548,20 +548,20 @@ body.hide-cn .cn{display:none}
     </div>
 
     <div class="field">
-      <div class="lbl">Uwagi &#183; &#22791;&#27880; <span class="cn">&#8211; opcjonalnie, np. które maszyny</span></div>
+      <div class="lbl">Uwagi <span class="cn">&#183; &#22791;&#27880;</span> <span class="cn">&#8211; opcjonalnie, np. które maszyny</span></div>
       <textarea id="reworkNotesInput" rows="2" placeholder="Np. rework z OP33A i OP33B z tego tygodnia... · 例如：本周OP33A和OP33B的返修..." autocomplete="off"></textarea>
     </div>
 
     <button type="button" class="btn-rework-submit" id="btnReworkSubmit" onclick="submitReworkProcessing()">
-      WY&#346;LIJ PRZETWORZENIE &#183; &#25552;&#20132;&#22788;&#29702;<span class="cn">&#21457;&#36865;&#36820;&#20462;&#22788;&#29702;&#25253;&#21578;</span>
+      WY&#346;LIJ PRZETWORZENIE <span class="cn">&#183; &#25552;&#20132;&#22788;&#29702;</span><span class="cn">&#21457;&#36865;&#36820;&#20462;&#22788;&#29702;&#25253;&#21578;</span>
     </button>
 
     <div class="historia-card" style="margin-top:14px;">
       <div class="historia-header">
-        <div class="historia-title">Historia przetworzeń &#183; &#22788;&#29702;&#35760;&#24405;</div>
-        <button class="historia-refresh" onclick="loadReworkHistory()">&#8635; Od&#347;wie&#380; &#183; &#21047;&#26032;</button>
+        <div class="historia-title">Historia przetworzeń <span class="cn">&#183; &#22788;&#29702;&#35760;&#24405;</span></div>
+        <button class="historia-refresh" onclick="loadReworkHistory()">&#8635; Od&#347;wie&#380; <span class="cn">&#183; &#21047;&#26032;</span></button>
       </div>
-      <div id="reworkHistoryContent"><div class="hist-loading">Wybierz strefę &#183; &#35831;&#36873;&#25321;&#21306;&#22495;</div></div>
+      <div id="reworkHistoryContent"><div class="hist-loading">Wybierz strefę <span class="cn">&#183; &#35831;&#36873;&#25321;&#21306;&#22495;</span></div></div>
     </div>
   </div>
 
@@ -569,17 +569,17 @@ body.hide-cn .cn{display:none}
   <div class="view" id="viewAwaria">
     <div class="awaria-active-banner" id="awariaActiveBanner">
       <div class="awaria-active-top">
-        <div class="awaria-active-label"><span class="blink">&#9679;</span> AWARIA TRWA &#183; &#25925;&#38556;&#36827;&#34892;&#20013;</div>
+        <div class="awaria-active-label"><span class="blink">&#9679;</span> AWARIA TRWA <span class="cn">&#183; &#25925;&#38556;&#36827;&#34892;&#20013;</span></div>
         <div class="awaria-active-timer" id="awariaActiveTimer">00:00</div>
       </div>
       <div class="awaria-active-station" id="awariaActiveStation"></div>
     </div>
 
-    <div class="lbl">Typ zdarzenia &#183; &#20107;&#20214;&#31867;&#22411; <span class="cn">(tylko dla startu)</span></div>
+    <div class="lbl">Typ zdarzenia <span class="cn">&#183; &#20107;&#20214;&#31867;&#22411;</span> <span class="cn">(tylko dla startu)</span></div>
     <div class="awaria-type-grid" id="awariaTypeGrid"></div>
 
     <div class="awaria-desc-box" id="awariaDescBox">
-      <span class="awaria-desc-lbl" id="awariaDescLbl">Opis &#183; &#25551;&#36848; *</span>
+      <span class="awaria-desc-lbl" id="awariaDescLbl">Opis <span class="cn">&#183; &#25551;&#36848;</span> *</span>
       <textarea class="awaria-desc-input" id="awariaDescInput" rows="3" placeholder="Opisz przyczyn&#281; awarii...&#10;&#35831;&#25551;&#36848;&#25925;&#38556;&#21407;&#22240;..." autocomplete="off"></textarea>
     </div>
 
@@ -596,9 +596,9 @@ body.hide-cn .cn{display:none}
 
     <div class="historia-card" style="margin-top:20px;">
       <div class="historia-header">
-        <div class="historia-title">Historia awarii &#183; &#25925;&#38556;&#35760;&#24405;</div>
+        <div class="historia-title">Historia awarii <span class="cn">&#183; &#25925;&#38556;&#35760;&#24405;</span></div>
       </div>
-      <div id="awariaHistoryList"><div class="hist-loading">Brak historii &#183; &#26242;&#26080;&#35760;&#24405;</div></div>
+      <div id="awariaHistoryList"><div class="hist-loading">Brak historii <span class="cn">&#183; &#26242;&#26080;&#35760;&#24405;</span></div></div>
     </div>
 
     <button type="button" class="reason-toggle-btn" id="awariaBackfillToggleBtn" style="margin-top:14px;" onclick="toggleAwariaBackfill()">
@@ -606,21 +606,21 @@ body.hide-cn .cn{display:none}
     </button>
     <div class="reason-panel-body" id="awariaBackfillBody">
       <div class="field">
-        <div class="lbl">Data &#183; &#26085;&#26399; <span class="req">*</span></div>
+        <div class="lbl">Data <span class="cn">&#183; &#26085;&#26399;</span> <span class="req">*</span></div>
         <input type="date" id="awariaBackfillDate">
       </div>
       <div class="field">
-        <div class="lbl">Zmiana &#183; &#29677;&#27425; <span class="req">*</span></div>
+        <div class="lbl">Zmiana <span class="cn">&#183; &#29677;&#27425;</span> <span class="req">*</span></div>
         <div class="shift-selector" id="awariaBackfillShiftRow"></div>
       </div>
-      <div class="lbl">Typ zdarzenia &#183; &#20107;&#20214;&#31867;&#22411;</div>
+      <div class="lbl">Typ zdarzenia <span class="cn">&#183; &#20107;&#20214;&#31867;&#22411;</span></div>
       <div class="awaria-type-grid" id="awariaBackfillTypeGrid"></div>
       <div class="awaria-desc-box" id="awariaBackfillDescBox">
-        <span class="awaria-desc-lbl" id="awariaBackfillDescLbl">Opis &#183; &#25551;&#36848; *</span>
+        <span class="awaria-desc-lbl" id="awariaBackfillDescLbl">Opis <span class="cn">&#183; &#25551;&#36848;</span> *</span>
         <textarea class="awaria-desc-input" id="awariaBackfillDescInput" rows="2" autocomplete="off"></textarea>
       </div>
       <div class="field">
-        <div class="lbl">Czas trwania (min) &#183; &#25345;&#32493;&#26102;&#38388;&#65288;&#20998;&#38047;&#65289; <span class="req">*</span></div>
+        <div class="lbl">Czas trwania (min) <span class="cn">&#183; &#25345;&#32493;&#26102;&#38388;&#65288;&#20998;&#38047;&#65289;</span> <span class="req">*</span></div>
         <input type="number" id="awariaBackfillMin" min="1" placeholder="np. 45">
       </div>
       <button type="button" class="btn-awaria-start" style="width:100%;" onclick="awariaSubmitBackfill()">
@@ -633,9 +633,9 @@ body.hide-cn .cn{display:none}
   <div class="view" id="viewGodzinny">
 
     <div class="data-section">
-      <div class="data-section-title"><span class="icon">&#9881;</span> Produkcja godzinna &#183; &#27599;&#23567;&#26102;&#29983;&#20135;&#25968;&#25454;</div>
+      <div class="data-section-title"><span class="icon">&#9881;</span> Produkcja godzinna <span class="cn">&#183; &#27599;&#23567;&#26102;&#29983;&#20135;&#25968;&#25454;</span></div>
       <div class="field" style="margin-bottom:0;">
-        <div class="lbl">Ilo&#347;&#263; szt. &#183; &#23436;&#25104;&#20214;&#25968; <span class="req">*</span></div>
+        <div class="lbl">Ilo&#347;&#263; szt. <span class="cn">&#183; &#23436;&#25104;&#20214;&#25968;</span> <span class="req">*</span></div>
         <div class="counter-row">
           <button type="button" class="counter-btn" onclick="adjust('godzQtyInput',-1)">&#8722;</button>
           <input class="counter-input" type="number" id="godzQtyInput" min="0" max="9999" placeholder="0" inputmode="numeric">
@@ -643,31 +643,31 @@ body.hide-cn .cn{display:none}
         </div>
       </div>
       <div class="field" style="margin-top:10px;margin-bottom:0;">
-        <div class="lbl">Pow&#243;d op&#243;&#378;nienia &#183; &#24310;&#36831;&#21407;&#22240; <span class="cn">&#8211; opcjonalnie, np. brak materia&#322;u, szkolenie</span></div>
+        <div class="lbl">Pow&#243;d op&#243;&#378;nienia <span class="cn">&#183; &#24310;&#36831;&#21407;&#22240;</span> <span class="cn">&#8211; opcjonalnie, np. brak materia&#322;u, szkolenie</span></div>
         <input type="text" id="godzDelayInput" placeholder="Opisz pow&#243;d... &#183; 请描述原因..." autocomplete="off">
       </div>
     </div>
 
     <button type="button" class="reason-toggle-btn rework compact" id="godzReworkSectionTitle" onclick="toggleReasonSection('godzRework')">
-      <span class="icon">&#128295;</span> Rework &#183; &#36820;&#20462;&#25968;
+      <span class="icon">&#128295;</span> Rework <span class="cn">&#183; &#36820;&#20462;&#25968;</span>
       <span class="count-badge" id="godzReworkTotalBadge">(0)</span>
       <span class="chevron">&#9662;</span>
     </button>
     <div class="reason-panel-body" id="godzReworkReasonsBody">
       <div id="godzReworkReasonsTable"></div>
       <div class="field" id="godzReworkOtherField" style="display:none;margin-top:10px;margin-bottom:0;">
-        <div class="lbl">Opisz "inne" &#183; &#25551;&#36848;&#8220;&#20854;&#20182;&#8221; <span class="req">*</span></div>
+        <div class="lbl">Opisz "inne" <span class="cn">&#183; &#25551;&#36848;&#8220;&#20854;&#20182;&#8221;</span> <span class="req">*</span></div>
         <input type="text" id="godzReworkOtherDesc" placeholder="Opisz pow&#243;d... &#183; 请描述原因..." autocomplete="off">
       </div>
     </div>
 
     <button class="btn-submit" id="btnGodzSubmit" onclick="submitGodzinny()">
-      WY&#346;LIJ RAPORT GODZINNY &#183; &#25552;&#20132;&#23567;&#26102;&#25253;&#21578;<span class="cn">&#21457;&#36865;</span>
+      WY&#346;LIJ RAPORT GODZINNY <span class="cn">&#183; &#25552;&#20132;&#23567;&#26102;&#25253;&#21578;</span><span class="cn">&#21457;&#36865;</span>
     </button>
 
     <div class="data-section" style="margin-top:14px;">
-      <div class="data-section-title"><span class="icon">&#128202;</span> Historia dzisiaj &#183; &#20170;&#26085;&#35760;&#24405;</div>
-      <div id="godzHistoriaContent"><div class="reason-empty-hint">Wybierz stanowisko i operatora &#183; &#35831;&#36873;&#25321;&#24037;&#20301;</div></div>
+      <div class="data-section-title"><span class="icon">&#128202;</span> Historia dzisiaj <span class="cn">&#183; &#20170;&#26085;&#35760;&#24405;</span></div>
+      <div id="godzHistoriaContent"><div class="reason-empty-hint">Wybierz stanowisko i operatora <span class="cn">&#183; &#35831;&#36873;&#25321;&#24037;&#20301;</span></div></div>
     </div>
 
   </div>
@@ -678,7 +678,7 @@ body.hide-cn .cn{display:none}
   <div class="success-icon">&#10003;</div>
   <div class="success-title">WYS&#321;ANO!</div>
   <div class="success-sub" id="successDetails"></div>
-  <button class="btn-next" onclick="resetForm()">Nowy raport &#183; &#26032;&#25253;&#21578;</button>
+  <button class="btn-next" onclick="resetForm()">Nowy raport <span class="cn">&#183; &#26032;&#25253;&#21578;</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -697,7 +697,7 @@ body.hide-cn .cn{display:none}
     <div class="warn-btns">
       <button class="warn-btn-close" onclick="awariaWarnZamknijIStart()">ZAMKNIJ POPRZEDNI&#260; I ZACZNIJ NOW&#260;</button>
       <button class="warn-btn-new" onclick="awariaWarnTylkoStart()">ZACZNIJ NOW&#260; BEZ ZAMYKANIA</button>
-      <button class="warn-btn-cancel" onclick="awariaWarnAnuluj()">Anuluj &#183; &#21462;&#28040;</button>
+      <button class="warn-btn-cancel" onclick="awariaWarnAnuluj()">Anuluj <span class="cn">&#183; &#21462;&#28040;</span></button>
     </div>
   </div>
 </div>
@@ -713,8 +713,8 @@ body.hide-cn .cn{display:none}
       <div class="warn-info-row"><span class="warn-info-lbl">Trwa od:</span><span class="warn-info-val" id="awariaStillOpenCzas">&#8212;</span></div>
     </div>
     <div class="warn-btns">
-      <button class="warn-btn-close" onclick="awariaStillOpenConfirmEnd()">MASZYNA JU&#379; DZIA&#321;A &#8212; ZAKO&#324;CZ AWARI&#280; &#183; &#35774;&#22791;&#24050;&#24674;&#22797; &#8212; &#32467;&#26463;&#25925;&#38556;</button>
-      <button class="warn-btn-new" onclick="awariaStillOpenConfirmContinue()">NADAL TRWA &#8212; KONTYNUUJ RAPORT &#183; &#20173;&#22312;&#32487;&#32493; &#8212; &#32487;&#32493;&#25253;&#21578;</button>
+      <button class="warn-btn-close" onclick="awariaStillOpenConfirmEnd()">MASZYNA JU&#379; DZIA&#321;A &#8212; ZAKO&#324;CZ AWARI&#280; <span class="cn">&#183; &#35774;&#22791;&#24050;&#24674;&#22797;</span> &#8212; &#32467;&#26463;&#25925;&#38556;</button>
+      <button class="warn-btn-new" onclick="awariaStillOpenConfirmContinue()">NADAL TRWA &#8212; KONTYNUUJ RAPORT <span class="cn">&#183; &#20173;&#22312;&#32487;&#32493;</span> &#8212; &#32487;&#32493;&#25253;&#21578;</button>
     </div>
   </div>
 </div>
@@ -723,11 +723,11 @@ body.hide-cn .cn{display:none}
 <div class="pin-overlay" id="pinOverlay">
   <div class="pin-dialog">
     <div class="pin-dialog-title">&#9881; ADMIN</div>
-    <div class="pin-dialog-sub">PIN administratora &#183; &#31649;&#29702;&#21592;&#23494;&#30721;</div>
+    <div class="pin-dialog-sub">PIN administratora <span class="cn">&#183; &#31649;&#29702;&#21592;&#23494;&#30721;</span></div>
     <input class="pin-dialog-input" type="password" id="pinOverlayInput" placeholder="&#8226;&#8226;&#8226;&#8226;" maxlength="8" onkeydown="if(event.key==='Enter')pinOverlayConfirm()">
     <div class="pin-dialog-btns">
       <button class="pin-dialog-cancel" onclick="pinOverlayClose()">&#10005;</button>
-      <button class="pin-dialog-ok" onclick="pinOverlayConfirm()">WEJ&#346; &#183; &#36827;&#20837;</button>
+      <button class="pin-dialog-ok" onclick="pinOverlayConfirm()">WEJ&#346; <span class="cn">&#183; &#36827;&#20837;</span></button>
     </div>
   </div>
 </div>
@@ -735,98 +735,98 @@ body.hide-cn .cn{display:none}
 <!-- ADMIN PANEL -->
 <div class="admin-panel" id="adminPanel">
   <div class="admin-header">
-    <div class="admin-title">&#9881; ADMIN &#183; &#31649;&#29702;</div>
-    <button class="admin-close" onclick="closeAdmin()">&#10005; Zamknij &#183; &#20851;&#38381;</button>
+    <div class="admin-title">&#9881; ADMIN <span class="cn">&#183; &#31649;&#29702;</span></div>
+    <button class="admin-close" onclick="closeAdmin()">&#10005; Zamknij <span class="cn">&#183; &#20851;&#38381;</span></button>
   </div>
   <div class="admin-tabs">
-    <button class="admin-tab active" onclick="adminTab('workers')">Pracownicy &#183; &#21592;&#24037;</button>
-    <button class="admin-tab" onclick="adminTab('stations')">Stanowiska &#183; &#24037;&#20301;</button>
-    <button class="admin-tab" onclick="adminTab('przyczyny')">Przyczyny &#183; &#21407;&#22240;</button>
-    <button class="admin-tab" onclick="adminTab('typy_awarii')">Typy awarii &#183; &#25925;&#38556;&#31867;&#22411;</button>
-    <button class="admin-tab" onclick="adminTab('cele')">Cele &#183; &#30446;&#26631;</button>
-    <button class="admin-tab" onclick="adminTab('zmiany')">Zmiany &#183; &#29677;&#27425;</button>
-    <button class="admin-tab" onclick="adminTab('webhook')">Po&#322;&#261;czenie &#183; &#36830;&#25509;</button>
+    <button class="admin-tab active" onclick="adminTab('workers')">Pracownicy <span class="cn">&#183; &#21592;&#24037;</span></button>
+    <button class="admin-tab" onclick="adminTab('stations')">Stanowiska <span class="cn">&#183; &#24037;&#20301;</span></button>
+    <button class="admin-tab" onclick="adminTab('przyczyny')">Przyczyny <span class="cn">&#183; &#21407;&#22240;</span></button>
+    <button class="admin-tab" onclick="adminTab('typy_awarii')">Typy awarii <span class="cn">&#183; &#25925;&#38556;&#31867;&#22411;</span></button>
+    <button class="admin-tab" onclick="adminTab('cele')">Cele <span class="cn">&#183; &#30446;&#26631;</span></button>
+    <button class="admin-tab" onclick="adminTab('zmiany')">Zmiany <span class="cn">&#183; &#29677;&#27425;</span></button>
+    <button class="admin-tab" onclick="adminTab('webhook')">Po&#322;&#261;czenie <span class="cn">&#183; &#36830;&#25509;</span></button>
     <button class="admin-tab" onclick="adminTab('pin')">PIN</button>
   </div>
 
   <!-- WORKERS -->
   <div class="admin-section active" id="admin-workers">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Lista pracownik&oacute;w &#183; &#21592;&#24037;&#21015;&#34920;</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Lista pracownik&oacute;w <span class="cn">&#183; &#21592;&#24037;&#21015;&#34920;</span></div>
     <div id="workersList"></div>
-    <button class="list-add-btn" onclick="addWorker()">+ Dodaj &#183; &#28155;&#21152;</button>
-    <button class="list-save-btn" onclick="saveWorkers()">Zapisz &#183; &#20445;&#23384;</button>
+    <button class="list-add-btn" onclick="addWorker()">+ Dodaj <span class="cn">&#183; &#28155;&#21152;</span></button>
+    <button class="list-save-btn" onclick="saveWorkers()">Zapisz <span class="cn">&#183; &#20445;&#23384;</span></button>
   </div>
 
   <!-- STATIONS -->
   <div class="admin-section" id="admin-stations">
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">&#9679; Aktywne &nbsp; &#9675; Nieaktywne</div>
     <div id="stationsList"></div>
-    <button class="list-add-btn" onclick="addStation()">+ Dodaj &#183; &#28155;&#21152;</button>
-    <button class="list-save-btn" onclick="saveStations()">Zapisz &#183; &#20445;&#23384;</button>
+    <button class="list-add-btn" onclick="addStation()">+ Dodaj <span class="cn">&#183; &#28155;&#21152;</span></button>
+    <button class="list-save-btn" onclick="saveStations()">Zapisz <span class="cn">&#183; &#20445;&#23384;</span></button>
   </div>
 
   <!-- PRZYCZYNY SCRAP/REWORK -->
   <div class="admin-section" id="admin-przyczyny">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Przyczyny per stanowisko &#183; &#27599;&#24037;&#20301;&#21407;&#22240; <span class="cn">&#8211; dane dla dzia&#322;u jako&#347;ci</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Przyczyny per stanowisko <span class="cn">&#183; &#27599;&#24037;&#20301;&#21407;&#22240;</span> <span class="cn">&#8211; dane dla dzia&#322;u jako&#347;ci</span></div>
     <div class="field">
       <div class="lbl" style="font-size:9px;">Stanowisko do edycji</div>
       <select id="przyczynyStationSel" onchange="renderPrzyczynyForStation()"></select>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin:14px 0 10px;">Przyczyny SCRAP &#183; &#25253;&#24223;&#21407;&#22240;</div>
+    <div style="font-size:11px;color:var(--muted);margin:14px 0 10px;">Przyczyny SCRAP <span class="cn">&#183; &#25253;&#24223;&#21407;&#22240;</span></div>
     <div id="scrapReasonsList"></div>
-    <button class="list-add-btn" onclick="addScrapReason()">+ Dodaj przyczyn&#281; scrap &#183; &#28155;&#21152;&#25253;&#24223;&#21407;&#22240;</button>
+    <button class="list-add-btn" onclick="addScrapReason()">+ Dodaj przyczyn&#281; scrap <span class="cn">&#183; &#28155;&#21152;&#25253;&#24223;&#21407;&#22240;</span></button>
     <div class="div"></div>
-    <div style="font-size:11px;color:var(--muted);margin:14px 0 10px;">Przyczyny REWORK &#183; &#36820;&#20462;&#21407;&#22240;</div>
+    <div style="font-size:11px;color:var(--muted);margin:14px 0 10px;">Przyczyny REWORK <span class="cn">&#183; &#36820;&#20462;&#21407;&#22240;</span></div>
     <div id="reworkReasonsList"></div>
-    <button class="list-add-btn" onclick="addReworkReason()">+ Dodaj przyczyn&#281; rework &#183; &#28155;&#21152;&#36820;&#20462;&#21407;&#22240;</button>
-    <button class="list-save-btn" onclick="saveReasons()">Zapisz przyczyny &#183; &#20445;&#23384;&#21407;&#22240;</button>
+    <button class="list-add-btn" onclick="addReworkReason()">+ Dodaj przyczyn&#281; rework <span class="cn">&#183; &#28155;&#21152;&#36820;&#20462;&#21407;&#22240;</span></button>
+    <button class="list-save-btn" onclick="saveReasons()">Zapisz przyczyny <span class="cn">&#183; &#20445;&#23384;&#21407;&#22240;</span></button>
   </div>
 
   <!-- TYPY AWARII -->
   <div class="admin-section" id="admin-typy_awarii">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Typy zdarze&#324; awaryjnych &#183; &#25925;&#38556;&#31867;&#22411;</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Typy zdarze&#324; awaryjnych <span class="cn">&#183; &#25925;&#38556;&#31867;&#22411;</span></div>
     <div id="awariaTypesList"></div>
-    <button class="list-add-btn" onclick="addAwariaType()">+ Dodaj typ &#183; &#28155;&#21152;&#31867;&#22411;</button>
-    <button class="list-save-btn" onclick="saveAwariaTypes()">Zapisz typy &#183; &#20445;&#23384;&#31867;&#22411;</button>
+    <button class="list-add-btn" onclick="addAwariaType()">+ Dodaj typ <span class="cn">&#183; &#28155;&#21152;&#31867;&#22411;</span></button>
+    <button class="list-save-btn" onclick="saveAwariaTypes()">Zapisz typy <span class="cn">&#183; &#20445;&#23384;&#31867;&#22411;</span></button>
   </div>
 
   <!-- CELE -->
   <div class="admin-section" id="admin-cele">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Cel na zmian&#281; per stanowisko &#183; &#27599;&#24037;&#20301;&#27599;&#29677;&#30446;&#26631;</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Cel/dob&#281; liczony automatycznie: cel na zmian&#281; &#215; liczba zmian &#183; 每日目标自动计算：每班目标 &#215; 班次数</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Cel na zmian&#281; per stanowisko <span class="cn">&#183; &#27599;&#24037;&#20301;&#27599;&#29677;&#30446;&#26631;</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Cel/dob&#281; liczony automatycznie: cel na zmian&#281; &#215; liczba zmian <span class="cn">&#183; 每日目标自动计算：每班目标</span> &#215; 班次数</div>
     <div id="stationTargetsList"></div>
-    <button class="list-save-btn" onclick="saveStationTargets()">Zapisz cele &#183; &#20445;&#23384;&#30446;&#26631;</button>
+    <button class="list-save-btn" onclick="saveStationTargets()">Zapisz cele <span class="cn">&#183; &#20445;&#23384;&#30446;&#26631;</span></button>
   </div>
 
   <!-- ZMIANY -->
   <div class="admin-section" id="admin-zmiany">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Konfiguracja zmian &#183; &#29677;&#27425;&#35774;&#32622;</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Konfiguracja zmian <span class="cn">&#183; &#29677;&#27425;&#35774;&#32622;</span></div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button id="zmBtn1" onclick="setShiftCount(1)" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--fh);font-size:15px;font-weight:700;cursor:pointer;">1 zmiana</button>
       <button id="zmBtn2" onclick="setShiftCount(2)" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--fh);font-size:15px;font-weight:700;cursor:pointer;">2 zmiany</button>
       <button id="zmBtn3" onclick="setShiftCount(3)" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--blue);background:var(--bg);color:#5b9bd5;font-family:var(--fh);font-size:15px;font-weight:700;cursor:pointer;">3 zmiany</button>
     </div>
     <div id="shiftHoursGrid" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
-    <button class="list-save-btn" onclick="saveShifts()">Zapisz zmiany &#183; &#20445;&#23384;</button>
+    <button class="list-save-btn" onclick="saveShifts()">Zapisz zmiany <span class="cn">&#183; &#20445;&#23384;</span></button>
 
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-      <div class="lbl">Nadgodziny per stanowisko &#183; &#27599;&#24037;&#20301;&#21152;&#29677; <span class="cn">&#8211; dzia&#322;a dla ka&#380;dej liczby zmian, tak&#380;e przysz&#322;ych stanowisk</span></div>
+      <div class="lbl">Nadgodziny per stanowisko <span class="cn">&#183; &#27599;&#24037;&#20301;&#21152;&#29677;</span> <span class="cn">&#8211; dzia&#322;a dla ka&#380;dej liczby zmian, tak&#380;e przysz&#322;ych stanowisk</span></div>
       <div id="stationOvertimeList"></div>
-      <button class="list-save-btn" onclick="saveShifts()">Zapisz nadgodziny &#183; &#20445;&#23384;&#21152;&#29677;</button>
+      <button class="list-save-btn" onclick="saveShifts()">Zapisz nadgodziny <span class="cn">&#183; &#20445;&#23384;&#21152;&#29677;</span></button>
     </div>
   </div>
 
   <!-- WEBHOOK / FEISHU -->
   <div class="admin-section" id="admin-webhook">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Po&#322;&#261;czenie z arkuszem &#183; &#36830;&#25509;&#35774;&#32622;</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Po&#322;&#261;czenie z arkuszem <span class="cn">&#183; &#36830;&#25509;&#35774;&#32622;</span></div>
 
     <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">Webhook URL</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Google Apps Script, u&#380;ywany te&#380; przez modu&#322; Awaria</div>
     <input type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px;margin-bottom:8px;" autocomplete="off">
     <div id="webhookStatusLine" style="font-size:12px;margin-bottom:12px;"></div>
-    <button onclick="saveWebhook()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;margin-bottom:8px;">Zapisz i testuj &#183; &#20445;&#23384;</button>
-    <button onclick="pushAllSettingsToServer()" style="width:100%;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;font-family:var(--fh);font-size:13px;font-weight:700;padding:10px;cursor:pointer;margin-bottom:8px;">Wy&#347;lij wszystkie ustawienia do arkusza teraz &#183; 立即发送所有设置到表格</button>
-    <div style="font-size:10px;color:var(--muted);margin-bottom:16px;">U&#380;yj raz po aktualizacji apki, &#380;eby zapisane lokalnie ustawienia (pracownicy, stanowiska, przyczyny, cele, zmiany) trafi&#322;y te&#380; do arkusza i by&#322;y widoczne na innych telefonach. &#183; 更新应用后使用一次，将本地保存的设置（员工、工位、原因、目标、班次）同步到表格，让其他手机也能看到。</div>
+    <button onclick="saveWebhook()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;margin-bottom:8px;">Zapisz i testuj <span class="cn">&#183; &#20445;&#23384;</span></button>
+    <button onclick="pushAllSettingsToServer()" style="width:100%;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;font-family:var(--fh);font-size:13px;font-weight:700;padding:10px;cursor:pointer;margin-bottom:8px;">Wy&#347;lij wszystkie ustawienia do arkusza teraz <span class="cn">&#183; 立即发送所有设置到表格</span></button>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:16px;">U&#380;yj raz po aktualizacji apki, &#380;eby zapisane lokalnie ustawienia (pracownicy, stanowiska, przyczyny, cele, zmiany) trafi&#322;y te&#380; do arkusza i by&#322;y widoczne na innych telefonach. <span class="cn">&#183; 更新应用后使用一次，将本地保存的设置（员工、工位、原因、目标、班次）同步到表格，让其他手机也能看到。</span></div>
 
     <div class="div"></div>
 
@@ -845,43 +845,43 @@ body.hide-cn .cn{display:none}
       <input type="text" id="feishuSheetIdInput" placeholder="RaportDzienny" style="font-size:12px;" autocomplete="off">
     </div>
     <div id="feishuStatusLine" style="margin-bottom:8px;"></div>
-    <button onclick="saveFeishu()" style="width:100%;background:#3370FF;color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz Feishu &#183; &#20445;&#23384;&#39134;&#20070;</button>
+    <button onclick="saveFeishu()" style="width:100%;background:#3370FF;color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;">Zapisz Feishu <span class="cn">&#183; &#20445;&#23384;&#39134;&#20070;</span></button>
   </div>
 
   <!-- PIN -->
   <div class="admin-section" id="admin-pin">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmie&#324; PIN &#183; &#20462;&#25913;&#23494;&#30721;</div>
-    <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN &#183; &#24403;&#21069;PIN: <strong id="currentPinDisplay" style="color:var(--text);">****</strong></div>
-    <div class="pin-row"><input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN &#183; &#26032;PIN"><button class="pin-btn" onclick="savePin()">Zmie&#324; &#183; &#20462;&#25913;</button></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmie&#324; PIN <span class="cn">&#183; &#20462;&#25913;&#23494;&#30721;</span></div>
+    <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN <span class="cn">&#183; &#24403;&#21069;</span>PIN: <strong id="currentPinDisplay" style="color:var(--text);">****</strong></div>
+    <div class="pin-row"><input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN &#183; &#26032;PIN"><button class="pin-btn" onclick="savePin()">Zmie&#324; <span class="cn">&#183; &#20462;&#25913;</span></button></div>
   </div>
 </div>
 
 <div class="admin-panel" id="wypadekPanel">
   <div class="admin-header">
-    <div class="admin-title" style="color:#ff7070;">&#128680; WYPADEK &#183; &#24037;&#20260;&#20107;&#25925;</div>
-    <button class="admin-close" onclick="closeWypadek()">&#10005; Zamknij &#183; &#20851;&#38381;</button>
+    <div class="admin-title" style="color:#ff7070;">&#128680; WYPADEK <span class="cn">&#183; &#24037;&#20260;&#20107;&#25925;</span></div>
+    <button class="admin-close" onclick="closeWypadek()">&#10005; Zamknij <span class="cn">&#183; &#20851;&#38381;</span></button>
   </div>
   <div class="field">
-    <div class="lbl">Stanowisko / obszar &#183; &#24037;&#20301;&#8231;&#21306;&#22495;</div>
+    <div class="lbl">Stanowisko / obszar <span class="cn">&#183; &#24037;&#20301;&#8231;&#21306;&#22495;</span></div>
     <select id="wypadekStationSel"></select>
   </div>
   <div class="field">
-    <div class="lbl">Powaga zdarzenia &#183; &#20107;&#20214;&#20005;&#37325;&#24615;</div>
+    <div class="lbl">Powaga zdarzenia <span class="cn">&#183; &#20107;&#20214;&#20005;&#37325;&#24615;</span></div>
     <select id="wypadekSeveritySel">
-      <option value="Zdarzenie potencjalnie niebezpieczne">Zdarzenie potencjalnie niebezpieczne &#183; &#28966;&#28857;&#38590;&#20107;&#20214;</option>
-      <option value="Pierwsza pomoc">Pierwsza pomoc (bez absencji) &#183; &#26082;&#25937;&#65288;&#26080;&#32536;&#24037;&#65289;</option>
-      <option value="Wypadek z absencją">Wypadek z absencj&#261; &#183; &#24037;&#20260;&#65288;&#26377;&#32536;&#24037;&#65289;</option>
+      <option value="Zdarzenie potencjalnie niebezpieczne">Zdarzenie potencjalnie niebezpieczne <span class="cn">&#183; &#28966;&#28857;&#38590;&#20107;&#20214;</span></option>
+      <option value="Pierwsza pomoc">Pierwsza pomoc (bez absencji) <span class="cn">&#183; &#26082;&#25937;&#65288;&#26080;&#32536;&#24037;&#65289;</span></option>
+      <option value="Wypadek z absencją">Wypadek z absencj&#261; <span class="cn">&#183; &#24037;&#20260;&#65288;&#26377;&#32536;&#24037;&#65289;</span></option>
     </select>
   </div>
   <div class="field">
-    <div class="lbl">Co się stało &#183; &#21457;&#29983;&#20102;&#20160;&#20040;</div>
+    <div class="lbl">Co się stało <span class="cn">&#183; &#21457;&#29983;&#20102;&#20160;&#20040;</span></div>
     <textarea class="awaria-desc-input" id="wypadekDescInput" rows="4" placeholder="Opisz co się stało...&#10;&#35831;&#25551;&#36848;&#21457;&#29983;&#20102;&#20160;&#20040;..." autocomplete="off"></textarea>
   </div>
   <div class="field">
-    <div class="lbl">Zgłaszający &#183; &#25253;&#21578;&#20154;</div>
+    <div class="lbl">Zgłaszający <span class="cn">&#183; &#25253;&#21578;&#20154;</span></div>
     <input type="text" id="wypadekOperatorInput" placeholder="Imię i nazwisko &#183; &#22995;&#21517;" autocomplete="off">
   </div>
-  <button class="list-save-btn" style="background:var(--red);" onclick="submitWypadek()">Zgłoś wypadek &#183; &#25253;&#21578;&#24037;&#20260;</button>
+  <button class="list-save-btn" style="background:var(--red);" onclick="submitWypadek()">Zgłoś wypadek <span class="cn">&#183; &#25253;&#21578;&#24037;&#20260;</span></button>
 </div>
 
 <script>
@@ -910,23 +910,32 @@ var LANG_STATE = (function() {
 // produkcyjne. Uwaga: jesli slowo polskie i liczba siedza w JEDNYM
 // wezle tekstowym (np. "550 szt."), zostana zawiniete razem - to znany,
 // akceptowalny kompromis tego mechanizmu.
-var PL_WRAP_RE = /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/;
+// Owijamy TYLKO tekst ktory jest BEZPOSREDNIM poprzednikiem juz
+// istniejacego .cn - czyli dokladnie "polska polowka" ustalonego wzorca
+// "Polski<span class=cn>Chinski</span>" uzywanego konsekwentnie w calej
+// apce. Poprzednia wersja owijala KAZDY tekst z litera lacinska, co
+// bledy chowalo tez DANE (nazwiska operatorow, kody stanowisk typu
+// "OP60/61", wartosci w dropdownach) przy wylaczeniu PL - to naprawia
+// ten problem: dane bez sasiadujacego .cn nigdy nie sa dotykane, wiec
+// zawsze zostaja widoczne niezaleznie od przelacznika.
 function wrapPlTextNodes(root) {
-  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  var toWrap = [];
-  var node;
-  while ((node = walker.nextNode())) {
-    if (!node.nodeValue || !PL_WRAP_RE.test(node.nodeValue)) continue;
-    var p = node.parentNode;
-    if (!p || p.nodeType !== 1) continue;
-    if (p.closest('.cn, .pl, script, style')) continue;
-    toWrap.push(node);
-  }
-  toWrap.forEach(function(n) {
-    var span = document.createElement('span');
-    span.className = 'pl';
-    n.parentNode.insertBefore(span, n);
-    span.appendChild(n);
+  root.querySelectorAll('.cn, .cn-line, .cn-sub, .awaria-btn-cn, .view-switch-cn, .warn-title-cn').forEach(function(cnEl) {
+    var prev = cnEl.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3) {
+        if (prev.nodeValue.trim()) {
+          var span = document.createElement('span');
+          span.className = 'pl';
+          prev.parentNode.insertBefore(span, prev);
+          span.appendChild(prev);
+          break;
+        }
+        prev = prev.previousSibling;
+        continue;
+      }
+      if (prev.nodeType === 1) break;
+      prev = prev.previousSibling;
+    }
   });
 }
 function applyLangVisibility() {
@@ -1100,7 +1109,7 @@ function selectShift(s) {
 // pomocniczym ustawieniem do liczenia nadgodzin w Panel Admina, nie
 // definicja tego czym jest dana zmiana).
 function updateShiftDisplay() {
-  document.getElementById('shiftDisplay').textContent = 'Zmiana ' + currentShift + ' · ' + currentShift + '班';
+  document.getElementById('shiftDisplay').innerHTML = 'Zmiana ' + currentShift + ' <span class="cn">· ' + currentShift + '班</span>';
   var badge = document.getElementById('shiftBadge');
   badge.classList.remove('shift-a', 'shift-b', 'shift-c');
   badge.classList.add('shift-' + currentShift.toLowerCase());
@@ -1589,7 +1598,7 @@ function computeLocalReworkBuffer(zoneKey) {
 function loadReworkBuffer() {
   if (!currentReworkZone) return;
   var el = document.getElementById('reworkBufferInfo');
-  el.innerHTML = '<div class="hist-loading">Ładowanie... · 加载中...</div>';
+  el.innerHTML = '<div class="hist-loading">Ładowanie... <span class="cn">· 加载中</span>...</div>';
   var wh = getWH();
   var feishu = getFeishuConfig();
   if (wh) {
@@ -1609,9 +1618,9 @@ function loadReworkBuffer() {
 function renderReworkBufferData(data) {
   var el = document.getElementById('reworkBufferInfo');
   el.innerHTML = '<div class="stats-grid">' +
-    '<div class="stat-box"><div class="stat-lbl">Rework total · 累计返修</div><div class="stat-val warn">' + data.rework_total + '</div></div>' +
-    '<div class="stat-box"><div class="stat-lbl">Odzyskane total · 累计修复</div><div class="stat-val ok">' + data.recovered_total + '</div></div>' +
-    '<div class="stat-box"><div class="stat-lbl">Finalny złom · 累计最终报废</div><div class="stat-val bad">' + data.final_scrap_total + '</div></div>' +
+    '<div class="stat-box"><div class="stat-lbl">Rework total <span class="cn">· 累计返修</span></div><div class="stat-val warn">' + data.rework_total + '</div></div>' +
+    '<div class="stat-box"><div class="stat-lbl">Odzyskane total <span class="cn">· 累计修复</span></div><div class="stat-val ok">' + data.recovered_total + '</div></div>' +
+    '<div class="stat-box"><div class="stat-lbl">Finalny złom <span class="cn">· 累计最终报废</span></div><div class="stat-val bad">' + data.final_scrap_total + '</div></div>' +
     '<div class="stat-box"><div class="stat-lbl">Bufor do przetworzenia</div><div class="stat-val" style="color:var(--blue);">' + data.buffer + '</div></div>' +
   '</div>';
   currentReworkBuffer = data.buffer;
@@ -1623,7 +1632,7 @@ function renderReworkBufferByReason(byReason) {
   if (!el) return;
   if (!byReason) { el.innerHTML = ''; return; }
   var reasons = Object.keys(byReason).filter(function(r) { return byReason[r] > 0; });
-  if (!reasons.length) { el.innerHTML = '<div class="reason-empty-hint">Bufor pusty per przyczyna &#183; 缓冲区按原因为空</div>'; return; }
+  if (!reasons.length) { el.innerHTML = '<div class="reason-empty-hint">Bufor pusty per przyczyna <span class="cn">&#183; 缓冲区按原因为空</span></div>'; return; }
   el.innerHTML = reasons.map(function(r) {
     return '<div class="reason-row" style="margin-bottom:6px;"><span class="reason-row-label">' + r + '</span><strong style="font-family:var(--fh);font-size:16px;color:var(--blue);flex-shrink:0;">' + byReason[r] + '</strong></div>';
   }).join('');
@@ -1631,20 +1640,20 @@ function renderReworkBufferByReason(byReason) {
 
 function submitReworkProcessing() {
   var operator = document.getElementById('operatorSel').value;
-  if (!operator) { showToast('Wybierz operatora! · 请选择操作员!', 'err'); return; }
-  if (!currentReworkZone) { showToast('Wybierz strefę! · 请选择区域!', 'err'); return; }
+  if (!operator) { showToast('Wybierz operatora! <span class="cn">· 请选择操作员</span>!', 'err'); return; }
+  if (!currentReworkZone) { showToast('Wybierz strefę! <span class="cn">· 请选择区域</span>!', 'err'); return; }
   var note = document.getElementById('reworkNoteInput').value.trim();
   var notes = document.getElementById('reworkNotesInput').value;
   var finalScrapN = reworkScrapTotal();
   var recoveredN = reworkRecoveredTotal();
   var accounted = recoveredN + finalScrapN;
 
-  if (accounted === 0) { showToast('Podaj ile odzyskano lub ile poszło do złomu! · 请输入修复合格或待报废数量!', 'err'); return; }
+  if (accounted === 0) { showToast('Podaj ile odzyskano lub ile poszło do złomu! <span class="cn">· 请输入修复合格或待报废数量</span>!', 'err'); return; }
 
   var reworkScrapEntries = collectReasonTableEntries('reworkScrapReasonsTable');
   var reworkRecoveredEntries = collectReasonTableEntries('reworkRecoveredReasonsTable');
   if (accounted > effectiveReworkBuffer() && !note) {
-    showToast('Przekroczono bufor — podaj uzasadnienie! · 超出缓冲区数量 — 请填写说明!', 'err');
+    showToast('Przekroczono bufor — podaj uzasadnienie! <span class="cn">· 超出缓冲区数量</span> — 请填写说明!', 'err');
     document.getElementById('reworkNoteInput').focus();
     return;
   }
@@ -1691,8 +1700,8 @@ function submitReworkProcessing() {
 
   setTimeout(function() {
     btn.disabled = false;
-    btn.innerHTML = 'WYŚLIJ PRZETWORZENIE · 提交处理<span class="cn">发送返修处理报告</span>';
-    showToast('Przetworzenie zapisane! · 处理记录已保存!', 'ok');
+    btn.innerHTML = 'WYŚLIJ PRZETWORZENIE <span class="cn">· 提交处理</span><span class="cn">发送返修处理报告</span>';
+    showToast('Przetworzenie zapisane! <span class="cn">· 处理记录已保存</span>!', 'ok');
     resetReworkForm();
     loadReworkBuffer();
     loadReworkHistory();
@@ -1720,7 +1729,7 @@ function resetReworkForm() {
 function loadReworkHistory() {
   if (!currentReworkZone) return;
   var el = document.getElementById('reworkHistoryContent');
-  el.innerHTML = '<div class="hist-loading">Ładowanie... · 加载中...</div>';
+  el.innerHTML = '<div class="hist-loading">Ładowanie... <span class="cn">· 加载中</span>...</div>';
   var wh = getWH();
   var feishu = getFeishuConfig();
   if (wh) {
@@ -1779,20 +1788,20 @@ function editReworkEntry(i) {
   populateReasonTable('reworkScrapReasonsTable', scrapEntries);
   populateReasonTable('reworkRecoveredReasonsTable', recoveredEntries);
   updateReworkProcessSummary();
-  showToast('Edytujesz wpis ' + (r.operator || '') + ' — popraw i wyślij ponownie · 正在编辑 — 修改后重新发送', 'ok');
+  showToast('Edytujesz wpis ' + (r.operator || '') + ' — popraw i wyślij ponownie <span class="cn">· 正在编辑</span> — 修改后重新发送', 'ok');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function deleteReworkEntry(i) {
   var r = reworkHistoriaCache[i];
   if (!r || !r.timestamp) return;
-  if (!confirm('Usunąć wpis przetworzenia (' + r.date + ', przetworzono ' + r.processed + ')? · 删除该处理记录？')) return;
+  if (!confirm('Usunąć wpis przetworzenia (' + r.date + ', przetworzono ' + r.processed + ')? <span class="cn">· 删除该处理记录？</span>')) return;
   var wh = getWH();
   if (!wh) return;
   var payload = { event_type: 'DELETE_REWORK_PROCESSING', timestamp: r.timestamp };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
-  showToast('Wpis usunięty · 记录已删除', 'ok');
+  showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
   setTimeout(function() { loadReworkHistory(); loadReworkBuffer(); }, 800);
 }
 
@@ -1821,9 +1830,9 @@ function doSubmitForm() {
   var st = document.getElementById('stationSel').value;
   var qty = document.getElementById('qtyInput').value;
 
-  if (!op) { showToast('Wybierz operatora! · 请选择操作员!', 'err'); return; }
-  if (!st) { showToast('Wybierz stanowisko! · 请选择工位!', 'err'); return; }
-  if (qty === '') { showToast('Podaj ilość! · 请输入数量!', 'err'); return; }
+  if (!op) { showToast('Wybierz operatora! <span class="cn">· 请选择操作员</span>!', 'err'); return; }
+  if (!st) { showToast('Wybierz stanowisko! <span class="cn">· 请选择工位</span>!', 'err'); return; }
+  if (qty === '') { showToast('Podaj ilość! <span class="cn">· 请输入数量</span>!', 'err'); return; }
 
   // Jesli to edycja juz wyslanego raportu i rework zostal zmniejszony,
   // upewnij sie ze nie "zabraknie pokrycia" dla tego, co juz przetworzono
@@ -1857,7 +1866,7 @@ function checkBufferSafetyBeforeSubmit(zone, newReworkN, onOk) {
           'a po tej zmianie limit z raportów wyniesie tylko ' + wouldBeTotal + ' szt. ' + brakuje + ' szt. zostanie bez pokrycia w bilansie bufora.\n\n' +
           'Aby wszystko się zgadzało, wpisz co najmniej ' + minSafe + ' szt. rework (zamiast ' + newReworkN + ').\n\n' +
           '注意：该区域已处理 ' + processedSoFar + ' 件，此次修改后额度只有 ' + wouldBeTotal + ' 件，' + brakuje + ' 件将无法对应。建议至少填写 ' + minSafe + ' 件返修数。\n\n' +
-          'Czy na pewno chcesz zapisać tę zmianę mimo to? · 仍然要保存此修改吗？'
+          'Czy na pewno chcesz zapisać tę zmianę mimo to? <span class="cn">· 仍然要保存此修改吗？</span>'
         );
         if (potwierdz) onOk();
       } else {
@@ -1944,7 +1953,7 @@ function saveLocal(payload) {
 function showSuccess(op, st, shift, qty, ok, scrap, rework) {
   var btn = document.getElementById('btnSubmit');
   btn.disabled = false;
-  btn.innerHTML = 'WYŚLIJ RAPORT · 提交报告<span class="cn">发送班次报告</span>';
+  btn.innerHTML = 'WYŚLIJ RAPORT <span class="cn">· 提交报告</span><span class="cn">发送班次报告</span>';
   document.getElementById('successDetails').innerHTML =
     st + ' · Zmiana ' + shift + '<br>' +
     'Wyprodukowano: <strong>' + qty + '</strong> szt<br>' +
@@ -1977,19 +1986,19 @@ function odswiezDzisiajWpisy(andMaybePreload) {
   var el = document.getElementById('dzisiajWpisyList');
   if (!el) return;
   var station = document.getElementById('stationSel').value;
-  if (!station) { el.innerHTML = '<div class="hist-loading">Wybierz stanowisko &#183; &#35831;&#36873;&#25321;&#24037;&#20301;</div>'; return; }
+  if (!station) { el.innerHTML = '<div class="hist-loading">Wybierz stanowisko <span class="cn">&#183; &#35831;&#36873;&#25321;&#24037;&#20301;</span></div>'; return; }
   var wh = getWH();
-  if (!wh) { el.innerHTML = '<div class="hist-loading">Brak po&#322;&#261;czenia &#183; &#26410;&#36830;&#25509;</div>'; if (andMaybePreload && !document.getElementById('qtyInput').value) preloadFromGodzinny(); return; }
-  el.innerHTML = '<div class="hist-loading">&#321;adowanie&#8230; &#183; &#21152;&#36733;&#20013;...</div>';
+  if (!wh) { el.innerHTML = '<div class="hist-loading">Brak po&#322;&#261;czenia <span class="cn">&#183; &#26410;&#36830;&#25509;</span></div>'; if (andMaybePreload && !document.getElementById('qtyInput').value) preloadFromGodzinny(); return; }
+  el.innerHTML = '<div class="hist-loading">&#321;adowanie&#8230; <span class="cn">&#183; &#21152;&#36733;&#20013;</span>...</div>';
   fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station) + '&date=' + encodeURIComponent(getRaportDate()))
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data.status !== 'ok') { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia &#183; &#36830;&#25509;&#38169;&#35823;</div>'; return; }
+      if (data.status !== 'ok') { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia <span class="cn">&#183; &#36830;&#25509;&#38169;&#35823;</span></div>'; return; }
       var wpisy = (data.historia || []).filter(function(r) { return r.shift === currentShift; });
       renderDzisiajWpisy(wpisy);
       if (andMaybePreload) maybePreloadIfNotSubmitted();
     })
-    .catch(function() { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia &#183; &#36830;&#25509;&#38169;&#35823;</div>'; if (andMaybePreload) maybePreloadIfNotSubmitted(); });
+    .catch(function() { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia <span class="cn">&#183; &#36830;&#25509;&#38169;&#35823;</span></div>'; if (andMaybePreload) maybePreloadIfNotSubmitted(); });
 }
 
 // OP33A i OP33B to dwa fizyczne stanowiska, ale ZAWSZE obsluguje je jedna
@@ -2034,7 +2043,7 @@ function renderShiftComparison(totals, groupStations) {
   card.style.display = 'block';
   var titleEl = card.querySelector('.historia-title');
   if (titleEl) {
-    titleEl.innerHTML = 'Dzisiaj wg zmian &#183; &#21508;&#29677;&#27425;&#20170;&#26085;&#20135;&#37327;' +
+    titleEl.innerHTML = 'Dzisiaj wg zmian <span class="cn">&#183; &#21508;&#29677;&#27425;&#20170;&#26085;&#20135;&#37327;</span>' +
       (groupStations && groupStations.length > 1 ? '<br><span style="font-size:10px;font-weight:600;color:var(--muted);text-transform:none;">suma ' + groupStations.join(' + ') + ' &#8212; jedna ekipa</span>' : '');
   }
   var shifts = [
@@ -2069,11 +2078,11 @@ var dzisiajWpisyCache = [];
 function renderDzisiajWpisy(wpisy) {
   dzisiajWpisyCache = wpisy;
   var el = document.getElementById('dzisiajWpisyList');
-  if (!wpisy.length) { el.innerHTML = '<div class="hist-loading">Jeszcze nic nie wprowadzono w tej zmianie &#183; &#26412;&#29677;&#27425;&#23578;&#26410;&#24405;&#20837;</div>'; return; }
+  if (!wpisy.length) { el.innerHTML = '<div class="hist-loading">Jeszcze nic nie wprowadzono w tej zmianie <span class="cn">&#183; &#26412;&#29677;&#27425;&#23578;&#26410;&#24405;&#20837;</span></div>'; return; }
   el.innerHTML = wpisy.map(function(r, i) {
     return '<div class="awaria-history-item"><div><div class="awaria-history-station">' + r.station + '</div><div class="awaria-history-type">' + r.qty + ' szt &#183; pass rate ' + r.pass_rate + '%</div></div>' +
       '<div style="display:flex;align-items:center;gap:8px;">' +
-      '<button type="button" class="historia-refresh" onclick="editHistoriaEntry(' + i + ')">Edytuj &#183; &#32534;&#36753;</button>' +
+      '<button type="button" class="historia-refresh" onclick="editHistoriaEntry(' + i + ')">Edytuj <span class="cn">&#183; &#32534;&#36753;</span></button>' +
       '<span style="color:var(--red);font-size:16px;padding:4px;cursor:pointer;" onclick="deleteHistoriaEntry(' + i + ')">&#128465;</span></div></div>';
   }).join('');
 }
@@ -2092,20 +2101,20 @@ function editHistoriaEntry(i) {
   populateReasonTable('scrapReasonsTable', reasons.scrap || []);
   populateReasonTable('reworkReasonsTable', reasons.rework || []);
   updateSummary();
-  showToast('Wczytano ' + r.station + ' do edycji &#183; &#24050;&#21152;&#36733;&#32534;&#36753;', 'ok');
+  showToast('Wczytano ' + r.station + ' do edycji <span class="cn">&#183; &#24050;&#21152;&#36733;&#32534;&#36753;</span>', 'ok');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function deleteHistoriaEntry(i) {
   var r = dzisiajWpisyCache[i];
   if (!r) return;
-  if (!confirm('Usunąć wpis ' + r.station + ' (' + r.qty + ' szt)? · 删除该条记录？')) return;
+  if (!confirm('Usunąć wpis ' + r.station + ' (' + r.qty + ' szt)? <span class="cn">· 删除该条记录？</span>')) return;
   var wh = getWH();
   if (!wh) return;
   var payload = { event_type: 'DELETE_RAPORT_DZIENNY', date: r.date, shift: r.shift, station: r.station, operator: r.operator };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
-  showToast('Wpis usunięty · 记录已删除', 'ok');
+  showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
   setTimeout(function() { odswiezDzisiajWpisy(); loadShiftComparison(); }, 800);
 }
 
@@ -2284,8 +2293,8 @@ function updateAwariaDescBoxForActive() {
 
 function awariaSubmitStart() {
   var station = document.getElementById('stationSel').value;
-  if (!station) { showToast('Wybierz stanowisko! · 请选择工位!', 'err'); return; }
-  if (awariaActiveBreakdown) { showToast('Zamknij obecną awarię! · 请先结束当前故障!', 'err'); return; }
+  if (!station) { showToast('Wybierz stanowisko! <span class="cn">· 请选择工位</span>!', 'err'); return; }
+  if (awariaActiveBreakdown) { showToast('Zamknij obecną awarię! <span class="cn">· 请先结束当前故障</span>!', 'err'); return; }
   var typFull = awariaCurrentType;
   awariaPendingStart = { station: station, typFull: typFull };
 
@@ -2294,7 +2303,7 @@ function awariaSubmitStart() {
   var btn = document.getElementById('btnAwariaStart');
 
   function handleCheckResult(data) {
-    btn.disabled = false; btn.innerHTML = '▶ START AWARII<span class="awaria-btn-cn">故障开始 · 立即登记</span>';
+    btn.disabled = false; btn.innerHTML = '▶ START AWARII<span class="awaria-btn-cn">故障开始 <span class="cn">· 立即登记</span></span>';
     if (data && data.open && data.awaria) {
       awariaOpenExisting = data.awaria;
       document.getElementById('awariaWarnTyp').textContent = data.awaria.typ;
@@ -2313,7 +2322,7 @@ function awariaSubmitStart() {
     fetch(wh + '?event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(station))
       .then(function(r) { return r.json(); })
       .then(handleCheckResult)
-      .catch(function() { btn.disabled = false; btn.innerHTML = '▶ START AWARII<span class="awaria-btn-cn">故障开始 · 立即登记</span>'; awariaDoStart(station, typFull); });
+      .catch(function() { btn.disabled = false; btn.innerHTML = '▶ START AWARII<span class="awaria-btn-cn">故障开始 <span class="cn">· 立即登记</span></span>'; awariaDoStart(station, typFull); });
     return;
   }
   if (feishu.proxy && feishu.sheetToken) {
@@ -2321,7 +2330,7 @@ function awariaSubmitStart() {
     fetch(feishu.proxy.replace(/\/$/, '') + '/api/awaria-check?sheet_token=' + encodeURIComponent(feishu.sheetToken) + '&station=' + encodeURIComponent(station))
       .then(function(r) { return r.json(); })
       .then(handleCheckResult)
-      .catch(function() { btn.disabled = false; btn.innerHTML = '▶ START AWARII<span class="awaria-btn-cn">故障开始 · 立即登记</span>'; awariaDoStart(station, typFull); });
+      .catch(function() { btn.disabled = false; btn.innerHTML = '▶ START AWARII<span class="awaria-btn-cn">故障开始 <span class="cn">· 立即登记</span></span>'; awariaDoStart(station, typFull); });
     return;
   }
   awariaDoStart(station, typFull);
@@ -2342,7 +2351,7 @@ function awariaWarnZamknijIStart() {
         body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaPendingStart.station, operator: awariaOpenExisting.operator || '', type: awariaOpenExisting.typ, start_timestamp: awariaOpenExisting.startIso, koniec_timestamp: localIsoString(now), czas_min: dm, status: 'ZAMKNIETA' })
       }).catch(function() {});
     }
-    showToast('Poprzednia awaria zamknięta: ' + dm + ' min · 上一个故障已关闭: ' + dm + ' 分钟', 'ok');
+    showToast('Poprzednia awaria zamknięta: ' + dm + ' min <span class="cn">· 上一个故障已关闭</span>: ' + dm + ' 分钟', 'ok');
   }
   setTimeout(function() { awariaDoStart(awariaPendingStart.station, awariaPendingStart.typFull); }, 500);
 }
@@ -2375,14 +2384,14 @@ function awariaDoStart(station, typFull) {
 
   awariaShowActiveBanner();
   document.getElementById('btnAwariaEnd').disabled = false;
-  showToast('Awaria zarejestrowana! · 故障已登记!', 'ok');
+  showToast('Awaria zarejestrowana! <span class="cn">· 故障已登记</span>!', 'ok');
 }
 
 function awariaSubmitEnd() {
   if (!awariaActiveBreakdown) return;
   var desc = document.getElementById('awariaDescInput').value.trim();
   if (typeNeedsDesc(awariaActiveBreakdown.type) && !desc) {
-    showToast('Opisz przyczynę przed zamknięciem! · 结束前请描述原因!', 'err');
+    showToast('Opisz przyczynę przed zamknięciem! <span class="cn">· 结束前请描述原因</span>!', 'err');
     document.getElementById('awariaDescInput').focus();
     return;
   }
@@ -2424,9 +2433,9 @@ function awariaSubmitEnd() {
       var min = Math.round((now - new Date(a.startTs)) / 60000);
       return st + ' (' + min + ' min)';
     }).join(', ');
-    showToast('Czas awarii: ' + dm + ' min. Nadal otwarte: ' + lista + ' · 故障时长: ' + dm + ' 分钟。仍开启: ' + lista, 'ok');
+    showToast('Czas awarii: ' + dm + ' min. Nadal otwarte: ' + lista + ' <span class="cn">· 故障时长</span>: ' + dm + ' 分钟。仍开启: ' + lista, 'ok');
   } else {
-    showToast('Czas awarii: ' + dm + ' min · 故障时长: ' + dm + ' 分钟', 'ok');
+    showToast('Czas awarii: ' + dm + ' min <span class="cn">· 故障时长</span>: ' + dm + ' 分钟', 'ok');
   }
 }
 
@@ -2492,15 +2501,15 @@ function awariaBackfillUpdateDescBox() {
 }
 function awariaSubmitBackfill() {
   var station = document.getElementById('stationSel').value;
-  if (!station) { showToast('Wybierz stanowisko! · 请选择工位!', 'err'); return; }
+  if (!station) { showToast('Wybierz stanowisko! <span class="cn">· 请选择工位</span>!', 'err'); return; }
   var dateVal = document.getElementById('awariaBackfillDate').value;
-  if (!dateVal) { showToast('Wybierz datę! · 请选择日期!', 'err'); return; }
-  if (!awariaBackfillShift) { showToast('Wybierz zmianę! · 请选择班次!', 'err'); return; }
+  if (!dateVal) { showToast('Wybierz datę! <span class="cn">· 请选择日期</span>!', 'err'); return; }
+  if (!awariaBackfillShift) { showToast('Wybierz zmianę! <span class="cn">· 请选择班次</span>!', 'err'); return; }
   var minVal = parseFloat(document.getElementById('awariaBackfillMin').value);
-  if (!minVal || minVal <= 0) { showToast('Podaj czas trwania! · 请输入持续时间!', 'err'); return; }
+  if (!minVal || minVal <= 0) { showToast('Podaj czas trwania! <span class="cn">· 请输入持续时间</span>!', 'err'); return; }
   var desc = document.getElementById('awariaBackfillDescInput').value.trim();
   if (typeNeedsDesc(awariaBackfillType) && !desc) {
-    showToast('Opisz przyczynę! · 请描述原因!', 'err');
+    showToast('Opisz przyczynę! <span class="cn">· 请描述原因</span>!', 'err');
     document.getElementById('awariaBackfillDescInput').focus();
     return;
   }
@@ -2519,7 +2528,7 @@ function awariaSubmitBackfill() {
 
   document.getElementById('awariaBackfillMin').value = '';
   document.getElementById('awariaBackfillDescInput').value = '';
-  showToast('Przestój z ' + formatDatePl(dateVal) + ' zapisany: ' + minVal + ' min · 停机已录入', 'ok');
+  showToast('Przestój z ' + formatDatePl(dateVal) + ' zapisany: ' + minVal + ' min <span class="cn">· 停机已录入</span>', 'ok');
   setTimeout(awariaRenderHistory, 800);
 }
 
@@ -2570,7 +2579,7 @@ function awariaRenderHistory() {
   if (!wh) { awariaRenderHistoryItems(awariaLocalHistory, false); return; }
   var station = document.getElementById('stationSel').value;
   var list = document.getElementById('awariaHistoryList');
-  list.innerHTML = '<div class="hist-loading">Ładowanie&#8230; · 加载中...</div>';
+  list.innerHTML = '<div class="hist-loading">Ładowanie&#8230; <span class="cn">· 加载中</span>...</div>';
   fetch(wh + '?event_type=AWARIA_HISTORIA' + (station ? '&stanowisko=' + encodeURIComponent(station) : ''))
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -2586,7 +2595,7 @@ var awariaHistoriaCache = [];
 function awariaRenderHistoryItems(items, editable) {
   awariaHistoriaCache = items;
   var list = document.getElementById('awariaHistoryList');
-  if (!items.length) { list.innerHTML = '<div class="hist-loading">Brak historii · 暂无记录</div>'; return; }
+  if (!items.length) { list.innerHTML = '<div class="hist-loading">Brak historii <span class="cn">· 暂无记录</span></div>'; return; }
   list.innerHTML = items.slice(0, 8).map(function(r, i) {
     var actions = editable ?
       '<span style="color:var(--blue);font-size:14px;padding:4px;cursor:pointer;" onclick="editAwariaEntry(' + i + ')">&#9998;</span>' +
@@ -2600,28 +2609,28 @@ function awariaFormatTs(d) { return d.toLocaleDateString('pl-PL') + ' ' + String
 function editAwariaEntry(i) {
   var r = awariaHistoriaCache[i];
   if (!r || !r.start_timestamp) return;
-  var val = prompt('Popraw czas trwania awarii (min) · 修改故障时长（分钟）:', r.durationMin);
+  var val = prompt('Popraw czas trwania awarii (min) <span class="cn">· 修改故障时长（分钟）</span>:', r.durationMin);
   if (val === null) return;
   var mins = parseFloat(String(val).replace(',', '.'));
-  if (isNaN(mins) || mins < 0) { showToast('Nieprawidłowa wartość · 数值无效', 'err'); return; }
+  if (isNaN(mins) || mins < 0) { showToast('Nieprawidłowa wartość <span class="cn">· 数值无效</span>', 'err'); return; }
   var wh = getWH();
   if (!wh) return;
   var payload = { event_type: 'EDIT_AWARIA_DURATION', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp, czas_min: mins };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
-  showToast('Czas poprawiony · 时长已修改', 'ok');
+  showToast('Czas poprawiony <span class="cn">· 时长已修改</span>', 'ok');
   setTimeout(awariaRenderHistory, 800);
 }
 function deleteAwariaEntry(i) {
   var r = awariaHistoriaCache[i];
   if (!r || !r.start_timestamp) return;
-  if (!confirm('Usunąć wpis awarii ' + r.station + ' (' + r.durationMin + ' min)? · 删除该故障记录？')) return;
+  if (!confirm('Usunąć wpis awarii ' + r.station + ' (' + r.durationMin + ' min)? <span class="cn">· 删除该故障记录？</span>')) return;
   var wh = getWH();
   if (!wh) return;
   var payload = { event_type: 'DELETE_AWARIA', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
-  showToast('Wpis usunięty · 记录已删除', 'ok');
+  showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
   setTimeout(awariaRenderHistory, 800);
 }
 
@@ -2666,16 +2675,16 @@ function toggleStationActive(i) {
   pushSettingToServer('cfm_station_status');
   renderStationsList(); rebuildSelects();
 }
-function addWorker() { var w = getWorkers(); w.push('Nowy · 新员工'); localStorage.setItem('cfm_workers', JSON.stringify(w)); renderWorkersList(); }
+function addWorker() { var w = getWorkers(); w.push('Nowy <span class="cn">· 新员工</span>'); localStorage.setItem('cfm_workers', JSON.stringify(w)); renderWorkersList(); }
 function delWorker(i) { var w = getWorkers(); w.splice(i, 1); localStorage.setItem('cfm_workers', JSON.stringify(w)); renderWorkersList(); }
 function saveWorkers() {
   var w = getWorkers();
   var sv = w.map(function(x, i) { var e = document.getElementById('w-' + i); return e ? e.value.trim() : x; }).filter(Boolean);
   localStorage.setItem('cfm_workers', JSON.stringify(sv));
   pushSettingToServer('cfm_workers');
-  showToast('Zapisano! · 已保存!', 'ok'); rebuildSelects();
+  showToast('Zapisano! <span class="cn">· 已保存</span>!', 'ok'); rebuildSelects();
 }
-function addStation() { var s = getStations(); s.push('NOWE · 新工位'); localStorage.setItem('cfm_stations', JSON.stringify(s)); renderStationsList(); }
+function addStation() { var s = getStations(); s.push('NOWE <span class="cn">· 新工位</span>'); localStorage.setItem('cfm_stations', JSON.stringify(s)); renderStationsList(); }
 function delStation(i) { var s = getStations(); s.splice(i, 1); localStorage.setItem('cfm_stations', JSON.stringify(s)); renderStationsList(); }
 function saveStations() {
   var s = getStations(), os = getStationStatus(), ns = {};
@@ -2684,7 +2693,7 @@ function saveStations() {
   localStorage.setItem('cfm_station_status', JSON.stringify(ns));
   pushSettingToServer('cfm_stations');
   pushSettingToServer('cfm_station_status');
-  showToast('Zapisano! · 已保存!', 'ok'); rebuildSelects();
+  showToast('Zapisano! <span class="cn">· 已保存</span>!', 'ok'); rebuildSelects();
 }
 
 var currentPrzyczynyStation = null;
@@ -2711,7 +2720,7 @@ function renderScrapReasonsList() {
 function addScrapReason() {
   var map = getScrapReasonsMap();
   var r = map[currentPrzyczynyStation] || [];
-  r.push('Nowa przyczyna · 新原因');
+  r.push('Nowa przyczyna <span class="cn">· 新原因</span>');
   map[currentPrzyczynyStation] = r;
   localStorage.setItem('cfm_scrap_reasons', JSON.stringify(map));
   renderScrapReasonsList();
@@ -2734,7 +2743,7 @@ function renderReworkReasonsList() {
 function addReworkReason() {
   var map = getReworkReasonsMap();
   var r = map[currentPrzyczynyStation] || [];
-  r.push('Nowa przyczyna · 新原因');
+  r.push('Nowa przyczyna <span class="cn">· 新原因</span>');
   map[currentPrzyczynyStation] = r;
   localStorage.setItem('cfm_rework_reasons', JSON.stringify(map));
   renderReworkReasonsList();
@@ -2794,7 +2803,7 @@ function saveAwariaTypes() {
   pushSettingToServer('cfm_types');
   awariaCurrentType = null;
   renderAwariaTypeGrid();
-  showToast('Typy awarii zapisane! · 故障类型已保存!', 'ok');
+  showToast('Typy awarii zapisane! <span class="cn">· 故障类型已保存</span>!', 'ok');
 }
 
 // Najczesciej wystepujaca (nie ostatnia z brzegu, zeby jednorazowy wyjatek
@@ -2831,11 +2840,11 @@ function renderStationTargetsList() {
     var celDzien = val ? Math.round(Number(val) * (shifts.liczba || 3)) : null;
     var suggestion = suggestTargetFromPlan(st);
     var placeholder = suggestion ? ('np. ' + suggestion) : 'np. 700';
-    var suggestionHint = suggestion ? ' &#183; <span style="color:var(--blue-soft)">z Planu: ' + suggestion + ' szt &#183; 计划中: ' + suggestion + '</span>' : '';
+    var suggestionHint = suggestion ? ' &#183; <span style="color:var(--blue-soft)">z Planu: ' + suggestion + ' szt <span class="cn">&#183; 计划中</span>: ' + suggestion + '</span>' : '';
     return '<div class="list-item-row" style="align-items:center;">' +
       '<div style="flex:1;">' +
         '<div style="font-size:14px;color:var(--text);font-weight:600;">' + st + '</div>' +
-        '<div style="font-size:10px;color:var(--muted);margin-top:2px;">cel/dobę &#183; 每日目标 (' + shifts.liczba + ' zm.): ' + (celDzien !== null ? celDzien + ' szt' : '—') + suggestionHint + '</div>' +
+        '<div style="font-size:10px;color:var(--muted);margin-top:2px;">cel/dobę <span class="cn">&#183; 每日目标</span> (' + shifts.liczba + ' zm.): ' + (celDzien !== null ? celDzien + ' szt' : '—') + suggestionHint + '</div>' +
       '</div>' +
       '<input type="number" class="list-item-input" id="ct-' + i + '" value="' + val + '" placeholder="' + placeholder + '" min="0" style="max-width:110px;text-align:center;" oninput="previewStationTarget(' + i + ',\'' + st + '\')">' +
     '</div>';
@@ -2847,7 +2856,7 @@ function previewStationTarget(i, station) {
   var sub = row.querySelector('div > div:last-child');
   var shifts = getShifts();
   var v = Number(el.value) || 0;
-  sub.textContent = 'cel/dobę · 每日目标 (' + shifts.liczba + ' zm.): ' + (v > 0 ? Math.round(v * (shifts.liczba || 3)) + ' szt' : '—');
+  sub.innerHTML = 'cel/dobę <span class="cn">· 每日目标</span> (' + shifts.liczba + ' zm.): ' + (v > 0 ? Math.round(v * (shifts.liczba || 3)) + ' szt' : '—');
 }
 function saveStationTargets() {
   var stations = getStations();
@@ -2859,7 +2868,7 @@ function saveStationTargets() {
   });
   localStorage.setItem('cfm_station_targets', JSON.stringify(targets));
   pushSettingToServer('cfm_station_targets');
-  showToast('Cele zapisane! · 目标已保存!', 'ok');
+  showToast('Cele zapisane! <span class="cn">· 目标已保存</span>!', 'ok');
   renderStationTargetsList();
   updateSummary();
 }
@@ -2985,7 +2994,7 @@ function saveShifts() {
   pushSettingToServer('cfm_shifts');
   pushSettingToServer('cfm_station_overtime');
 
-  showToast('Zmiany i nadgodziny zapisane! · 班次和加班已保存!', 'ok');
+  showToast('Zmiany i nadgodziny zapisane! <span class="cn">· 班次和加班已保存</span>!', 'ok');
   renderShiftSelector();
   updateShiftDisplay();
   updateSummary();
@@ -3027,7 +3036,7 @@ function saveFeishu() {
   } else {
     el.innerHTML = '<div class="feishu-status off">● Brak konfiguracji Feishu</div>';
   }
-  showToast('Feishu zapisane! · 飞书已保存!', 'ok');
+  showToast('Feishu zapisane! <span class="cn">· 飞书已保存</span>!', 'ok');
 }
 
 function openAdmin() {
@@ -3070,7 +3079,7 @@ function closeAdmin() { document.getElementById('adminPanel').classList.remove('
 function openWypadek() {
   var s = getStations(), st = getStationStatus();
   var acts = s.filter(function(x) { return st[x] !== false; });
-  document.getElementById('wypadekStationSel').innerHTML = acts.map(function(x) { return '<option>' + x + '</option>'; }).join('') + '<option value="Inne / cały zakład">Inne / cały zakład · 其他&#8231;全厂</option>';
+  document.getElementById('wypadekStationSel').innerHTML = acts.map(function(x) { return '<option>' + x + '</option>'; }).join('') + '<option value="Inne / cały zakład">Inne / cały zakład <span class="cn">· 其他&#8231;全厂</span></option>';
   document.getElementById('wypadekSeveritySel').value = 'Zdarzenie potencjalnie niebezpieczne';
   document.getElementById('wypadekDescInput').value = '';
   document.getElementById('wypadekOperatorInput').value = localStorage.getItem('cfm_operator') || '';
@@ -3082,11 +3091,11 @@ function submitWypadek() {
   var severity = document.getElementById('wypadekSeveritySel').value;
   var description = document.getElementById('wypadekDescInput').value.trim();
   var operator = document.getElementById('wypadekOperatorInput').value.trim();
-  if (!description) { showToast('Opisz co się stało · 请描述发生了什么', 'err'); return; }
+  if (!description) { showToast('Opisz co się stało <span class="cn">· 请描述发生了什么</span>', 'err'); return; }
   var wh = getWH();
-  if (!wh) { showToast('Brak połączenia (Panel Admina → Połączenie) · 未连接', 'err'); return; }
+  if (!wh) { showToast('Brak połączenia (Panel Admina → Połączenie) <span class="cn">· 未连接</span>', 'err'); return; }
   new Image().src = wh + '?event_type=ZGLOS_WYPADEK&stanowisko=' + encodeURIComponent(station) + '&severity=' + encodeURIComponent(severity) + '&description=' + encodeURIComponent(description) + '&operator=' + encodeURIComponent(operator) + '&timestamp=' + encodeURIComponent(localIsoString());
-  showToast('Zgłoszenie wysłane · 已发送报告', 'ok');
+  showToast('Zgłoszenie wysłane <span class="cn">· 已发送报告</span>', 'ok');
   closeWypadek();
 }
 function adminTab(tab) {
@@ -3176,9 +3185,9 @@ function pushSettingToServer(key) {
 
 function pushAllSettingsToServer() {
   var wh = getWH();
-  if (!wh) { showToast('Najpierw skonfiguruj Webhook URL w zakładce Połączenie · 请先在"连接"标签配置Webhook URL', 'err'); return; }
+  if (!wh) { showToast('Najpierw skonfiguruj Webhook URL w zakładce Połączenie <span class="cn">· 请先在</span>"连接"标签配置Webhook URL', 'err'); return; }
   SYNCED_SETTINGS_KEYS.forEach(function(key) { if (PUSH_EXCLUDE_KEYS.indexOf(key) < 0) pushSettingToServer(key); });
-  showToast('Wysłano wszystkie ustawienia do arkusza! · 所有设置已发送到表格!', 'ok');
+  showToast('Wysłano wszystkie ustawienia do arkusza! <span class="cn">· 所有设置已发送到表格</span>!', 'ok');
 }
 
 var REASON_MAP_KEYS = ['cfm_scrap_reasons', 'cfm_rework_reasons'];
@@ -3342,9 +3351,9 @@ function doSubmitGodzinny() {
   var reworkN = sumPieceQty(reworkEntries);
   var otherDesc = document.getElementById('godzReworkOtherDesc').value;
 
-  if (!op) { showToast('Wybierz operatora! · 请选择操作员!', 'err'); return; }
-  if (!st) { showToast('Wybierz stanowisko! · 请选择工位!', 'err'); return; }
-  if (qty === '') { showToast('Podaj ilość! · 请输入数量!', 'err'); return; }
+  if (!op) { showToast('Wybierz operatora! <span class="cn">· 请选择操作员</span>!', 'err'); return; }
+  if (!st) { showToast('Wybierz stanowisko! <span class="cn">· 请选择工位</span>!', 'err'); return; }
+  if (qty === '') { showToast('Podaj ilość! <span class="cn">· 请输入数量</span>!', 'err'); return; }
 
   var btn = document.getElementById('btnGodzSubmit');
   btn.disabled = true;
@@ -3364,14 +3373,14 @@ function doSubmitGodzinny() {
     new Image().src = wh + '?' + qs;
   }
 
-  showToast('Raport godzinny wysłany: ' + qty + ' szt · 小时报告已发送: ' + qty + ' 件', 'ok');
+  showToast('Raport godzinny wysłany: ' + qty + ' szt <span class="cn">· 小时报告已发送</span>: ' + qty + ' 件', 'ok');
   document.getElementById('godzQtyInput').value = '';
   document.getElementById('godzDelayInput').value = '';
   document.getElementById('godzReworkOtherDesc').value = '';
   renderGodzReworkReasonsTable();
   if (isEditingGodz) { isEditingGodz = false; editingGodzOriginalHour = null; manualHour = null; updateHourDisplay(); }
   btn.disabled = false;
-  btn.innerHTML = 'WYŚLIJ RAPORT GODZINNY · 提交小时报告<span class="cn">发送</span>';
+  btn.innerHTML = 'WYŚLIJ RAPORT GODZINNY <span class="cn">· 提交小时报告</span><span class="cn">发送</span>';
   setTimeout(odswiezHistorieGodzinnej, 1200);
 }
 
@@ -3381,15 +3390,15 @@ function odswiezHistorieGodzinnej() {
   if (!station) { el.innerHTML = '<div class="reason-empty-hint">Wybierz stanowisko &#8212; 请选择工位</div>'; return; }
   var wh = getWH();
   var cel = getCelGodzine();
-  if (!wh) { el.innerHTML = '<div class="reason-empty-hint">Brak połączenia (Panel Admina &#8594; Połączenie) &#183; 未连接（管理面板 &#8594; 连接）</div>'; return; }
-  el.innerHTML = '<div class="reason-empty-hint">Ładowanie&#8230; &#183; 加载中...</div>';
+  if (!wh) { el.innerHTML = '<div class="reason-empty-hint">Brak połączenia (Panel Admina &#8594; Połączenie) <span class="cn">&#183; 未连接（管理面板</span> &#8594; 连接）</div>'; return; }
+  el.innerHTML = '<div class="reason-empty-hint">Ładowanie&#8230; <span class="cn">&#183; 加载中</span>...</div>';
   fetch(wh + '?event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&shift=' + encodeURIComponent(currentShift) + '&date=' + encodeURIComponent(getGodzDate()))
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data.status !== 'ok') { el.innerHTML = '<div class="reason-empty-hint">Błąd połączenia · 连接错误</div>'; return; }
+      if (data.status !== 'ok') { el.innerHTML = '<div class="reason-empty-hint">Błąd połączenia <span class="cn">· 连接错误</span></div>'; return; }
       renderGodzHistoria(data.historia || [], data.suma || 0, data.rework || 0, cel);
     })
-    .catch(function() { el.innerHTML = '<div class="reason-empty-hint">Błąd połączenia · 连接错误</div>'; });
+    .catch(function() { el.innerHTML = '<div class="reason-empty-hint">Błąd połączenia <span class="cn">· 连接错误</span></div>'; });
 }
 
 var godzHistoriaData = [];
@@ -3397,8 +3406,8 @@ function renderGodzHistoria(historia, suma, rework, cel) {
   godzHistoriaData = historia;
   var el = document.getElementById('godzHistoriaContent');
   var h = '<div class="summary-grid" style="margin-bottom:10px;">' +
-    '<div class="summary-item"><div class="summary-lbl">Suma zmiany &#183; &#26412;&#29677;&#27425;&#21512;&#35745;</div><div class="summary-val ok">' + suma + '</div></div>' +
-    '<div class="summary-item"><div class="summary-lbl">Rework &#183; &#36820;&#20462;</div><div class="summary-val' + (rework > 0 ? ' warn' : '') + '">' + rework + '</div></div>' +
+    '<div class="summary-item"><div class="summary-lbl">Suma zmiany <span class="cn">&#183; &#26412;&#29677;&#27425;&#21512;&#35745;</span></div><div class="summary-val ok">' + suma + '</div></div>' +
+    '<div class="summary-item"><div class="summary-lbl">Rework <span class="cn">&#183; &#36820;&#20462;</span></div><div class="summary-val' + (rework > 0 ? ' warn' : '') + '">' + rework + '</div></div>' +
   '</div>';
   if (!historia.length) {
     h += '<div class="reason-empty-hint">Brak wpisów w tej zmianie &#8212; &#26412;&#29677;&#27425;&#26242;&#26080;&#35760;&#24405;</div>';
@@ -3434,20 +3443,20 @@ function editGodzEntry(i) {
   populateReasonTable('godzReworkReasonsTable', entries);
   document.getElementById('godzReworkOtherDesc').value = r.rework_other_desc || '';
   checkGodzReworkOther();
-  showToast('Edytujesz wpis ' + r.godzina + ' — popraw i wyślij ponownie · 正在编辑 ' + r.godzina + ' — 修改后重新发送', 'ok');
+  showToast('Edytujesz wpis ' + r.godzina + ' — popraw i wyślij ponownie <span class="cn">· 正在编辑</span> ' + r.godzina + ' — 修改后重新发送', 'ok');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function deleteGodzEntry(i) {
   var r = godzHistoriaData[i];
   if (!r) return;
-  if (!confirm('Usunąć wpis ' + r.godzina + ' (' + r.qty + ' szt)? · 删除该条记录？')) return;
+  if (!confirm('Usunąć wpis ' + r.godzina + ' (' + r.qty + ' szt)? <span class="cn">· 删除该条记录？</span>')) return;
   var wh = getWH();
   if (!wh) return;
   var payload = { event_type: 'DELETE_RAPORT_GODZINNY', station: document.getElementById('stationSel').value, operator: document.getElementById('operatorSel').value, shift: currentShift, hour: r.godzina, date: getGodzDate() };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
-  showToast('Wpis usunięty · 记录已删除', 'ok');
+  showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
   setTimeout(odswiezHistorieGodzinnej, 800);
 }
 
@@ -3483,7 +3492,7 @@ function preloadFromGodzinny() {
         if (!notesEl.value) notesEl.value = otherDescs.join(' · ');
       }
       updateSummary();
-      showToast('Wypełniono z ' + data.historia.length + ' wpisów godzinowych · 已从' + data.historia.length + '条小时记录填充', 'ok');
+      showToast('Wypełniono z ' + data.historia.length + ' wpisów godzinowych <span class="cn">· 已从</span>' + data.historia.length + '条小时记录填充', 'ok');
     })
     .catch(function() {});
 }

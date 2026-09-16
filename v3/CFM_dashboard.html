@@ -187,7 +187,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .langflag:hover{border-color:var(--muted)}
 .langflag.off{opacity:.3;filter:grayscale(1)}
 body.hide-pl .pl{display:none}
-body.hide-cn .cn{display:none}
+body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria-btn-cn,body.hide-cn .view-switch-cn,body.hide-cn .warn-title-cn{display:none}
 </style>
 </head>
 <body>
@@ -198,14 +198,14 @@ body.hide-cn .cn{display:none}
     <div class="navmenu-wrap">
       <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
       <div class="navmenu-dropdown" id="navmenuDropdown">
-      <a href="CFM_dashboard.html" class="on">&#128202; Dashboard · 仪表盘</a>
-      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny · 日报</a>
-      <a href="CFM_statystyki.html">&#128200; Statystyki · 统计</a>
-      <a href="CFM_oee.html">&#9881;&#65039; OEE · 效率</a>
-      <a href="CFM_premie.html">&#128176; Premie · 奖金</a>
-      <a href="CFM_plan.html">&#128197; Plan · 计划</a>
-      <a href="CFM_obsada.html">&#128101; Obsada · 排班</a>
-      <a href="CFM_inwentarz.html">&#128230; Inwentarz · 库存</a>
+      <a href="CFM_dashboard.html" class="on">&#128202; Dashboard <span class="cn">· 仪表盘</span></a>
+      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny <span class="cn">· 日报</span></a>
+      <a href="CFM_statystyki.html">&#128200; Statystyki <span class="cn">· 统计</span></a>
+      <a href="CFM_oee.html">&#9881;&#65039; OEE <span class="cn">· 效率</span></a>
+      <a href="CFM_premie.html">&#128176; Premie <span class="cn">· 奖金</span></a>
+      <a href="CFM_plan.html">&#128197; Plan <span class="cn">· 计划</span></a>
+      <a href="CFM_obsada.html">&#128101; Obsada <span class="cn">· 排班</span></a>
+      <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">· 库存</span></a>
       </div>
     </div>
     <div class="langtoggle">
@@ -249,23 +249,32 @@ var LANG_STATE = (function() {
 // produkcyjne. Uwaga: jesli slowo polskie i liczba siedza w JEDNYM
 // wezle tekstowym (np. "550 szt."), zostana zawiniete razem - to znany,
 // akceptowalny kompromis tego mechanizmu.
-var PL_WRAP_RE = /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/;
+// Owijamy TYLKO tekst ktory jest BEZPOSREDNIM poprzednikiem juz
+// istniejacego .cn - czyli dokladnie "polska polowka" ustalonego wzorca
+// "Polski<span class=cn>Chinski</span>" uzywanego konsekwentnie w calej
+// apce. Poprzednia wersja owijala KAZDY tekst z litera lacinska, co
+// bledy chowalo tez DANE (nazwiska operatorow, kody stanowisk typu
+// "OP60/61", wartosci w dropdownach) przy wylaczeniu PL - to naprawia
+// ten problem: dane bez sasiadujacego .cn nigdy nie sa dotykane, wiec
+// zawsze zostaja widoczne niezaleznie od przelacznika.
 function wrapPlTextNodes(root) {
-  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  var toWrap = [];
-  var node;
-  while ((node = walker.nextNode())) {
-    if (!node.nodeValue || !PL_WRAP_RE.test(node.nodeValue)) continue;
-    var p = node.parentNode;
-    if (!p || p.nodeType !== 1) continue;
-    if (p.closest('.cn, .pl, script, style')) continue;
-    toWrap.push(node);
-  }
-  toWrap.forEach(function(n) {
-    var span = document.createElement('span');
-    span.className = 'pl';
-    n.parentNode.insertBefore(span, n);
-    span.appendChild(n);
+  root.querySelectorAll('.cn, .cn-line, .cn-sub, .awaria-btn-cn, .view-switch-cn, .warn-title-cn').forEach(function(cnEl) {
+    var prev = cnEl.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3) {
+        if (prev.nodeValue.trim()) {
+          var span = document.createElement('span');
+          span.className = 'pl';
+          prev.parentNode.insertBefore(span, prev);
+          span.appendChild(prev);
+          break;
+        }
+        prev = prev.previousSibling;
+        continue;
+      }
+      if (prev.nodeType === 1) break;
+      prev = prev.previousSibling;
+    }
   });
 }
 function applyLangVisibility() {
@@ -700,7 +709,7 @@ function sqdipHtml(days) {
   return '<div class="sqdipgrid">' +
     sqdipSafetyCard(sqdipSafetyWindow()) +
     sqdipTrendCard('Produktywność', '生产率', 'wykonanie planu GP12 &#183; dziennie', sqdipProductivityPerDay(rows, days), SQDIP_TARGETS.productivity, function(v) { return v + '%'; }, days) +
-    sqdipTrendCard('Jakość', '质量 &#183; 合格率', 'pass rate GP12 &#183; dziennie', sqdipQualityPerDay(rows, days), SQDIP_TARGETS.quality, function(v) { return v + '%'; }, days) +
+    sqdipTrendCard('Jakość', '质量 <span class="cn">&#183; 合格率</span>', 'pass rate GP12 &#183; dziennie', sqdipQualityPerDay(rows, days), SQDIP_TARGETS.quality, function(v) { return v + '%'; }, days) +
     sqdipTrendCard('Wydajność', '性能开动率', 'performance (OEE) GP12 &#183; dziennie', sqdipPerformancePerDay(rows, days), SQDIP_TARGETS.performance, function(v) { return v + '%'; }, days) +
     sqdipTrendCard('Inwentarz', '库存', 'gotowe sztuki &#183; dziennie', sqdipInventoryPerDay(days), SQDIP_TARGETS.inventory, function(v) { return fmt(v); }, days) +
     sqdipOeeCard(rows, days, SQDIP_TARGETS.oee) +
@@ -731,7 +740,7 @@ function render(days) {
   var sqdipLbl = STATE.weekOffset === 0
     ? 'SQDIP &#183; bieżący tydzień do wczoraj'
     : 'SQDIP &#183; Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days);
-  var sqdipLblCn = STATE.weekOffset === 0 ? 'SQDIP &#183; 本周至昨日' : 'SQDIP &#183; 第' + isoWeekNumber(days[0]) + '周';
+  var sqdipLblCn = STATE.weekOffset === 0 ? 'SQDIP <span class="cn">&#183; 本周至昨日</span>' : 'SQDIP <span class="cn">&#183; 第</span>' + isoWeekNumber(days[0]) + '周';
 
   app.innerHTML =
     '<div class="pagehead"><h1>Dashboard produkcji <span class="cn">生产仪表盘</span></h1><div class="sub">GP12 = ostatnie stanowisko, liczy się do wykonania planu/jakości &#183; <span class="cn">GP12=末端工位</span></div></div>' +
@@ -739,7 +748,7 @@ function render(days) {
       '<button type="button" onclick="prevWeek()">&#8592;</button>' +
       '<span class="wlabel">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + ' <span class="cn">第' + isoWeekNumber(days[0]) + '周</span></span>' +
       '<button type="button" onclick="nextWeek()"' + (STATE.weekOffset >= 0 ? ' disabled' : '') + '>&#8594;</button>' +
-      (STATE.weekOffset !== 0 ? '<button type="button" class="wtoday" onclick="goToCurrentWeek()">Ten tydzień &#183; 本周</button>' : '') +
+      (STATE.weekOffset !== 0 ? '<button type="button" class="wtoday" onclick="goToCurrentWeek()">Ten tydzień <span class="cn">&#183; 本周</span></button>' : '') +
     '</div>' +
     '<div id="awarieBanner"></div>' +
     '<div class="kpirowlbl">' + sqdipLbl + ' <span class="cn">' + sqdipLblCn + '</span></div>' +

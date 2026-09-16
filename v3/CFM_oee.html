@@ -149,7 +149,7 @@ tbody tr.grouphead td{padding-top:16px}
 .langflag:hover{border-color:var(--muted)}
 .langflag.off{opacity:.3;filter:grayscale(1)}
 body.hide-pl .pl{display:none}
-body.hide-cn .cn{display:none}
+body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria-btn-cn,body.hide-cn .view-switch-cn,body.hide-cn .warn-title-cn{display:none}
 </style>
 </head>
 <body>
@@ -160,14 +160,14 @@ body.hide-cn .cn{display:none}
     <div class="navmenu-wrap">
       <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
       <div class="navmenu-dropdown" id="navmenuDropdown">
-      <a href="CFM_dashboard.html">&#128202; Dashboard · 仪表盘</a>
-      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny · 日报</a>
-      <a href="CFM_statystyki.html">&#128200; Statystyki · 统计</a>
-      <a href="CFM_oee.html" class="on">&#9881;&#65039; OEE · 效率</a>
-      <a href="CFM_premie.html">&#128176; Premie · 奖金</a>
-      <a href="CFM_plan.html">&#128197; Plan · 计划</a>
-      <a href="CFM_obsada.html">&#128101; Obsada · 排班</a>
-      <a href="CFM_inwentarz.html">&#128230; Inwentarz · 库存</a>
+      <a href="CFM_dashboard.html">&#128202; Dashboard <span class="cn">· 仪表盘</span></a>
+      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny <span class="cn">· 日报</span></a>
+      <a href="CFM_statystyki.html">&#128200; Statystyki <span class="cn">· 统计</span></a>
+      <a href="CFM_oee.html" class="on">&#9881;&#65039; OEE <span class="cn">· 效率</span></a>
+      <a href="CFM_premie.html">&#128176; Premie <span class="cn">· 奖金</span></a>
+      <a href="CFM_plan.html">&#128197; Plan <span class="cn">· 计划</span></a>
+      <a href="CFM_obsada.html">&#128101; Obsada <span class="cn">· 排班</span></a>
+      <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">· 库存</span></a>
       </div>
     </div>
     <div class="langtoggle">
@@ -211,23 +211,32 @@ var LANG_STATE = (function() {
 // produkcyjne. Uwaga: jesli slowo polskie i liczba siedza w JEDNYM
 // wezle tekstowym (np. "550 szt."), zostana zawiniete razem - to znany,
 // akceptowalny kompromis tego mechanizmu.
-var PL_WRAP_RE = /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/;
+// Owijamy TYLKO tekst ktory jest BEZPOSREDNIM poprzednikiem juz
+// istniejacego .cn - czyli dokladnie "polska polowka" ustalonego wzorca
+// "Polski<span class=cn>Chinski</span>" uzywanego konsekwentnie w calej
+// apce. Poprzednia wersja owijala KAZDY tekst z litera lacinska, co
+// bledy chowalo tez DANE (nazwiska operatorow, kody stanowisk typu
+// "OP60/61", wartosci w dropdownach) przy wylaczeniu PL - to naprawia
+// ten problem: dane bez sasiadujacego .cn nigdy nie sa dotykane, wiec
+// zawsze zostaja widoczne niezaleznie od przelacznika.
 function wrapPlTextNodes(root) {
-  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  var toWrap = [];
-  var node;
-  while ((node = walker.nextNode())) {
-    if (!node.nodeValue || !PL_WRAP_RE.test(node.nodeValue)) continue;
-    var p = node.parentNode;
-    if (!p || p.nodeType !== 1) continue;
-    if (p.closest('.cn, .pl, script, style')) continue;
-    toWrap.push(node);
-  }
-  toWrap.forEach(function(n) {
-    var span = document.createElement('span');
-    span.className = 'pl';
-    n.parentNode.insertBefore(span, n);
-    span.appendChild(n);
+  root.querySelectorAll('.cn, .cn-line, .cn-sub, .awaria-btn-cn, .view-switch-cn, .warn-title-cn').forEach(function(cnEl) {
+    var prev = cnEl.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3) {
+        if (prev.nodeValue.trim()) {
+          var span = document.createElement('span');
+          span.className = 'pl';
+          prev.parentNode.insertBefore(span, prev);
+          span.appendChild(prev);
+          break;
+        }
+        prev = prev.previousSibling;
+        continue;
+      }
+      if (prev.nodeType === 1) break;
+      prev = prev.previousSibling;
+    }
   });
 }
 function applyLangVisibility() {
@@ -337,7 +346,7 @@ function loadMonth(opts) {
       }
       liveEl.className = 'live';
       liveEl.innerHTML = '<span class="live-pulse"></span>zasilane z RaportDzienny <span class="cn">数据来自日报表</span>';
-      document.getElementById('lastUpdate').textContent = 'odświeżono: ' + new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) + ' · 已更新';
+      document.getElementById('lastUpdate').innerHTML = 'odświeżono: ' + new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }) + ' <span class="cn">· 已更新</span>';
       STATE.rows = data.historia || [];
       STATE.awarieRows = data.awarie_historia || [];
       render();
@@ -420,7 +429,7 @@ function getAwarieForDay(station, shift, dateIso) {
   });
 }
 function awarieChipsHtml(entries, showDate) {
-  if (!entries.length) return '<span class="reason-chip off">brak szczegółów &#183; 无详情</span>';
+  if (!entries.length) return '<span class="reason-chip off">brak szczegółów <span class="cn">&#183; 无详情</span></span>';
   return entries.map(function(a) {
     var dateLbl = '';
     if (showDate && a.date) { var dd = a.date.split('-'); dateLbl = dd[2] + '/' + dd[1] + ' &#183; '; }
@@ -532,7 +541,7 @@ function render() {
   wireMonthNav();
   renderWeekPicker();
   var filledCount = periodGroups.filter(function(g) { return Object.keys(g.byDate).length > 0; }).length;
-  document.getElementById('weekLabel').textContent = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + filledCount + '/' + periodGroups.length + ' pozycji z wpisami · ' + filledCount + '/' + periodGroups.length + ' 项有记录';
+  document.getElementById('weekLabel').innerHTML = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + filledCount + '/' + periodGroups.length + ' pozycji z wpisami <span class="cn">· ' + filledCount + '/' + periodGroups.length + ' 项有记录</span>';
   renderOeeKpis(periodGroups, days, periodLabel);
   renderOeeShiftComparison(periodGroups, days);
   renderOeeStations(periodGroups, days);
@@ -584,10 +593,10 @@ function renderOeeKpis(groups, days) {
   var av = avg('availability'), pf = avg('performance'), ql = avg('quality'), oe = avg('oee');
   var totalAwarieMin = results.reduce(function(s, r) { return s + r.sumAwarieMin; }, 0);
   var kpis = [
-    { lbl: 'OEE', lblCn: 'OEE综合效率', val: oe === null ? '&#8212;' : oe + '%', sub: 'śr. z ' + results.length + ' stanowisko/zmiana · 工位/班次平均', bar: oe || 0, color: oe === null ? 'var(--faint)' : oe >= 85 ? 'var(--green)' : oe >= 60 ? 'var(--orange)' : 'var(--red)' },
-    { lbl: 'Dostępność', lblCn: '时间开动率', val: av === null ? '&#8212;' : av + '%', sub: 'przestoje z Awarii: ' + fmt(totalAwarieMin) + ' min · 故障停机', bar: av || 0, color: 'var(--blue)' },
-    { lbl: 'Wydajność', lblCn: '性能开动率', val: pf === null ? '&#8212;' : pf + '%', sub: 'wynik vs Cel w dostępnym czasie · 实际/目标', bar: pf || 0, color: 'var(--blue)' },
-    { lbl: 'Jakość', lblCn: '合格率', val: ql === null ? '&#8212;' : ql + '%', sub: 'zgodne / wszystkie sztuki · 合格/总数', bar: ql || 0, color: 'var(--blue)' }
+    { lbl: 'OEE', lblCn: 'OEE综合效率', val: oe === null ? '&#8212;' : oe + '%', sub: 'śr. z ' + results.length + ' stanowisko/zmiana <span class="cn">· 工位</span>/班次平均', bar: oe || 0, color: oe === null ? 'var(--faint)' : oe >= 85 ? 'var(--green)' : oe >= 60 ? 'var(--orange)' : 'var(--red)' },
+    { lbl: 'Dostępność', lblCn: '时间开动率', val: av === null ? '&#8212;' : av + '%', sub: 'przestoje z Awarii: ' + fmt(totalAwarieMin) + ' min <span class="cn">· 故障停机</span>', bar: av || 0, color: 'var(--blue)' },
+    { lbl: 'Wydajność', lblCn: '性能开动率', val: pf === null ? '&#8212;' : pf + '%', sub: 'wynik vs Cel w dostępnym czasie <span class="cn">· 实际</span>/目标', bar: pf || 0, color: 'var(--blue)' },
+    { lbl: 'Jakość', lblCn: '合格率', val: ql === null ? '&#8212;' : ql + '%', sub: 'zgodne / wszystkie sztuki <span class="cn">· 合格</span>/总数', bar: ql || 0, color: 'var(--blue)' }
   ];
   el.innerHTML = kpis.map(function(k) {
     return '<div class="kpi"><div class="kpi-lbl">' + k.lbl + '<span class="cn">' + k.lblCn + '</span></div><div class="kpi-val">' + k.val + '</div><div class="kpi-sub">' + k.sub + '</div><div class="kpi-bar"><i style="width:' + Math.max(3, Math.min(k.bar, 100)) + '%;background:' + k.color + '"></i></div></div>';
@@ -608,7 +617,7 @@ function renderOeeShiftComparison(groups, days) {
   var avg = function(arr) { return arr.length ? Math.round(arr.reduce(function(a, x) { return a + x; }, 0) / arr.length) : null; };
   var rows = shiftsOrder.map(function(s) { return { shift: s, oee: avg(byShift[s]) }; });
   rows.sort(function(a, b) { return b.oee - a.oee; });
-  var hint = '<div class="wthint">OEE &#8212; śr. ze wszystkich stanowisk tej zmiany &#183; 该班次平均OEE</div>';
+  var hint = '<div class="wthint">OEE &#8212; śr. ze wszystkich stanowisk tej zmiany <span class="cn">&#183; 该班次平均</span>OEE</div>';
   el.innerHTML = hint + rows.map(function(r, i) {
     var color = r.oee >= 85 ? 'var(--green)' : r.oee >= 60 ? 'var(--orange)' : 'var(--red)';
     var crown = i === 0 && rows.length > 1 ? ' &#9733;' : '';

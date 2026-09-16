@@ -132,18 +132,18 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .langflag:hover{border-color:var(--muted)}
 .langflag.off{opacity:.3;filter:grayscale(1)}
 body.hide-pl .pl{display:none}
-body.hide-cn .cn{display:none}
+body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria-btn-cn,body.hide-cn .view-switch-cn,body.hide-cn .warn-title-cn{display:none}
 </style>
 </head>
 <body>
 <div class="pin-overlay" id="pinGateOverlay">
   <div class="pin-dialog">
     <div class="pin-dialog-title">&#128274; DOSTĘP</div>
-    <div class="pin-dialog-sub">Podaj PIN, żeby wejść &#183; 请输入PIN进入</div>
+    <div class="pin-dialog-sub">Podaj PIN, żeby wejść <span class="cn">&#183; 请输入</span>PIN进入</div>
     <input class="pin-dialog-input" type="password" id="pinGateInput" placeholder="&#8226;&#8226;&#8226;&#8226;" maxlength="8" onkeydown="if(event.key==='Enter')pinGateConfirm()">
     <div class="pin-dialog-err" id="pinGateErr">Błędny PIN &#183; PIN错误</div>
-    <button class="pin-dialog-ok" onclick="pinGateConfirm()">WEJDŹ &#183; 进入</button>
-    <a href="CFM_R_DZIENNY_V3.html" class="pin-dialog-back">&#8592; Wróć do Raportu dziennego &#183; 返回日报</a>
+    <button class="pin-dialog-ok" onclick="pinGateConfirm()">WEJDŹ <span class="cn">&#183; 进入</span></button>
+    <a href="CFM_R_DZIENNY_V3.html" class="pin-dialog-back">&#8592; Wróć do Raportu dziennego <span class="cn">&#183; 返回日报</span></a>
   </div>
 </div>
 <script>if(sessionStorage.getItem('cfm_page_unlocked')==='1'){document.getElementById('pinGateOverlay').classList.add('hidden');}</script>
@@ -155,14 +155,14 @@ body.hide-cn .cn{display:none}
     <div class="navmenu-wrap">
       <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
       <div class="navmenu-dropdown" id="navmenuDropdown">
-      <a href="CFM_dashboard.html">&#128202; Dashboard · 仪表盘</a>
-      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny · 日报</a>
-      <a href="CFM_statystyki.html">&#128200; Statystyki · 统计</a>
-      <a href="CFM_oee.html">&#9881;&#65039; OEE · 效率</a>
-      <a href="CFM_premie.html">&#128176; Premie · 奖金</a>
-      <a href="CFM_plan.html">&#128197; Plan · 计划</a>
-      <a href="CFM_obsada.html" class="on">&#128101; Obsada · 排班</a>
-      <a href="CFM_inwentarz.html">&#128230; Inwentarz · 库存</a>
+      <a href="CFM_dashboard.html">&#128202; Dashboard <span class="cn">· 仪表盘</span></a>
+      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny <span class="cn">· 日报</span></a>
+      <a href="CFM_statystyki.html">&#128200; Statystyki <span class="cn">· 统计</span></a>
+      <a href="CFM_oee.html">&#9881;&#65039; OEE <span class="cn">· 效率</span></a>
+      <a href="CFM_premie.html">&#128176; Premie <span class="cn">· 奖金</span></a>
+      <a href="CFM_plan.html">&#128197; Plan <span class="cn">· 计划</span></a>
+      <a href="CFM_obsada.html" class="on">&#128101; Obsada <span class="cn">· 排班</span></a>
+      <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">· 库存</span></a>
       </div>
     </div>
     <div class="langtoggle">
@@ -207,23 +207,32 @@ var LANG_STATE = (function() {
 // produkcyjne. Uwaga: jesli slowo polskie i liczba siedza w JEDNYM
 // wezle tekstowym (np. "550 szt."), zostana zawiniete razem - to znany,
 // akceptowalny kompromis tego mechanizmu.
-var PL_WRAP_RE = /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/;
+// Owijamy TYLKO tekst ktory jest BEZPOSREDNIM poprzednikiem juz
+// istniejacego .cn - czyli dokladnie "polska polowka" ustalonego wzorca
+// "Polski<span class=cn>Chinski</span>" uzywanego konsekwentnie w calej
+// apce. Poprzednia wersja owijala KAZDY tekst z litera lacinska, co
+// bledy chowalo tez DANE (nazwiska operatorow, kody stanowisk typu
+// "OP60/61", wartosci w dropdownach) przy wylaczeniu PL - to naprawia
+// ten problem: dane bez sasiadujacego .cn nigdy nie sa dotykane, wiec
+// zawsze zostaja widoczne niezaleznie od przelacznika.
 function wrapPlTextNodes(root) {
-  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  var toWrap = [];
-  var node;
-  while ((node = walker.nextNode())) {
-    if (!node.nodeValue || !PL_WRAP_RE.test(node.nodeValue)) continue;
-    var p = node.parentNode;
-    if (!p || p.nodeType !== 1) continue;
-    if (p.closest('.cn, .pl, script, style')) continue;
-    toWrap.push(node);
-  }
-  toWrap.forEach(function(n) {
-    var span = document.createElement('span');
-    span.className = 'pl';
-    n.parentNode.insertBefore(span, n);
-    span.appendChild(n);
+  root.querySelectorAll('.cn, .cn-line, .cn-sub, .awaria-btn-cn, .view-switch-cn, .warn-title-cn').forEach(function(cnEl) {
+    var prev = cnEl.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3) {
+        if (prev.nodeValue.trim()) {
+          var span = document.createElement('span');
+          span.className = 'pl';
+          prev.parentNode.insertBefore(span, prev);
+          span.appendChild(prev);
+          break;
+        }
+        prev = prev.previousSibling;
+        continue;
+      }
+      if (prev.nodeType === 1) break;
+      prev = prev.previousSibling;
+    }
   });
 }
 function applyLangVisibility() {
@@ -297,7 +306,7 @@ function init() {
       } catch (e) {}
       try { STATE.workers = JSON.parse(u.cfm_workers || '[]'); } catch (e) { STATE.workers = []; }
       try { STATE.crew = JSON.parse(u.cfm_crew || '{}'); } catch (e) { STATE.crew = {}; }
-      if (!STATE.stations.length) { showConnError('Brak skonfigurowanych stanowisk · 未配置工位'); return; }
+      if (!STATE.stations.length) { showConnError('Brak skonfigurowanych stanowisk <span class="cn">· 未配置工位</span>'); return; }
       liveEl.className = 'live';
       liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
       render();
@@ -334,7 +343,7 @@ function render() {
       '<div class="bulksub">Wklej listę imion i nazwisk (po jednym w wierszu) i zapisz &#8212; trafią do "Szybki wybór" na każdym stanowisku, żebyś mógł ich sam przypisać poniżej. Zapisuje się od razu do Ustawień na serwerze, więc pojawią się we wszystkich aplikacjach.<br><span class="cn">粘贴姓名列表（每行一个）并保存 &#8212; 会出现在每个工位的"快速选择"中。立即保存到服务器设置，所有设备都能看到。</span></div>' +
       '<textarea class="bulktextarea" id="bulkTextarea" placeholder="Jan Kowalski&#10;Anna Nowak&#10;..."></textarea>' +
       '<div class="bulkrow"><span class="bulkcount" id="bulkCount"></span><button type="button" class="bulkbtn" id="btnBulkAdd">Dodaj do wspólnej listy<small style="display:block;font-family:var(--fc);font-weight:400;font-size:10px">添加到共享列表</small></button></div>' +
-      '<div class="quicklbl" style="margin-top:14px">Aktualna wspólna lista &#8212; kliknij &#215; żeby usunąć na stałe &#183; 当前共享列表 &#8212; 点击&#215;永久删除</div>' +
+      '<div class="quicklbl" style="margin-top:14px">Aktualna wspólna lista &#8212; kliknij &#215; żeby usunąć na stałe <span class="cn">&#183; 当前共享列表</span> &#8212; 点击&#215;永久删除</div>' +
       '<div class="crewtags" id="workersList">' + workersListHtml() + '</div>' +
     '</div>' +
     '<div id="stationlist"></div>' +
@@ -351,7 +360,7 @@ function render() {
         '<div class="shiftcard-head"><span class="shiftpill"><i style="background:' + shiftColor(sh) + '"></i>Zmiana ' + sh + '</span><span class="crewcount">' + crewList.length + ' os.</span></div>' +
         '<div class="crewtags">' + crewTagsHtml(crewList) + '</div>' +
         '<div class="addrow"><input type="text" class="addinput" placeholder="Imię i nazwisko&#8230; · 姓名&#8230;"><button type="button" class="addbtn">Dodaj<small style="display:block;font-family:var(--fc);font-weight:400;font-size:9px">添加</small></button></div>' +
-        (quickOptions.length ? '<div class="quicklbl">Szybki wybór &#183; 快速选择</div><div class="quickpick">' + quickOptions.map(function(w) {
+        (quickOptions.length ? '<div class="quicklbl">Szybki wybór <span class="cn">&#183; 快速选择</span></div><div class="quickpick">' + quickOptions.map(function(w) {
           return '<button type="button" class="quickchip" data-worker="' + w.replace(/"/g, '&quot;') + '">+ ' + w + '</button>';
         }).join('') + '</div>' : '') +
       '</div>';
@@ -397,7 +406,7 @@ function render() {
 }
 
 function workersListHtml() {
-  if (!STATE.workers.length) return '<span class="crewtags-empty">brak pracowników na wspólnej liście &#183; 共享列表为空</span>';
+  if (!STATE.workers.length) return '<span class="crewtags-empty">brak pracowników na wspólnej liście <span class="cn">&#183; 共享列表为空</span></span>';
   return STATE.workers.map(function(n) {
     return '<span class="crewtag" data-name="' + n.replace(/"/g, '&quot;') + '">' + n + '<button type="button" title="Usuń na stałe">&#10005;</button></span>';
   }).join('');
@@ -417,10 +426,10 @@ function removeWorkerGlobally(name) {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_workers', wartosc: JSON.stringify(STATE.workers) })
   }).then(function() {
-    showToast('Usunięto ze wspólnej listy · 已从共享列表删除', 'ok');
+    showToast('Usunięto ze wspólnej listy <span class="cn">· 已从共享列表删除</span>', 'ok');
     rerenderKeepingCrew();
   }).catch(function() {
-    showToast('Usunięto lokalnie, błąd wysyłki · 已本地删除，发送失败', 'err');
+    showToast('Usunięto lokalnie, błąd wysyłki <span class="cn">· 已本地删除，发送失败</span>', 'err');
     rerenderKeepingCrew();
   });
 }
@@ -454,7 +463,7 @@ function rerenderKeepingCrew() {
 
 function bulkAddWorkers() {
   var names = parseBulkNames();
-  if (!names.length) { showToast('Wklej najpierw listę nazwisk · 请先粘贴姓名列表', 'err'); return; }
+  if (!names.length) { showToast('Wklej najpierw listę nazwisk <span class="cn">· 请先粘贴姓名列表</span>', 'err'); return; }
   var added = 0;
   names.forEach(function(n) {
     if (STATE.workers.indexOf(n) < 0) { STATE.workers.push(n); added++; }
@@ -466,16 +475,16 @@ function bulkAddWorkers() {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_workers', wartosc: JSON.stringify(STATE.workers) })
   }).then(function() {
-    showToast(added + ' pracowników dodanych do wspólnej listy! · 已添加 ' + added + ' 名员工!', 'ok');
+    showToast(added + ' pracowników dodanych do wspólnej listy! <span class="cn">· 已添加</span> ' + added + ' 名员工!', 'ok');
     rerenderKeepingCrew();
   }).catch(function() {
-    showToast('Zapisano lokalnie, błąd wysyłki · 已本地保存，发送失败', 'err');
+    showToast('Zapisano lokalnie, błąd wysyłki <span class="cn">· 已本地保存，发送失败</span>', 'err');
     rerenderKeepingCrew();
   });
 }
 
 function crewTagsHtml(names) {
-  if (!names.length) return '<span class="crewtags-empty">brak obsady &#183; 无人员</span>';
+  if (!names.length) return '<span class="crewtags-empty">brak obsady <span class="cn">&#183; 无人员</span></span>';
   return names.map(function(n) {
     return '<span class="crewtag" data-name="' + n.replace(/"/g, '&quot;') + '">' + n + '<button type="button" title="Usuń">&#10005;</button></span>';
   }).join('');
@@ -484,14 +493,14 @@ function crewTagsHtml(names) {
 function refreshCrewCount(card) {
   var tags = card.querySelectorAll('.crewtag');
   card.querySelector('.crewcount').textContent = tags.length + ' os.';
-  if (!tags.length) card.querySelector('.crewtags').innerHTML = '<span class="crewtags-empty">brak obsady &#183; 无人员</span>';
+  if (!tags.length) card.querySelector('.crewtags').innerHTML = '<span class="crewtags-empty">brak obsady <span class="cn">&#183; 无人员</span></span>';
 }
 
 function addNameToCard(card, name) {
   name = (name || '').trim();
   if (!name) return;
   var existing = Array.prototype.map.call(card.querySelectorAll('.crewtag'), function(t) { return t.dataset.name; });
-  if (existing.indexOf(name) >= 0) { showToast('Ta osoba jest już na liście · 此人已在名单中', 'err'); return; }
+  if (existing.indexOf(name) >= 0) { showToast('Ta osoba jest już na liście <span class="cn">· 此人已在名单中</span>', 'err'); return; }
   var tagsEl = card.querySelector('.crewtags');
   var emptyEl = tagsEl.querySelector('.crewtags-empty');
   if (emptyEl) emptyEl.remove();
@@ -534,9 +543,9 @@ function savePlan() {
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_crew', wartosc: JSON.stringify(STATE.crew) })
   }).then(function() {
-    showToast('Obsada zapisana! · 人员配置已保存!', 'ok');
+    showToast('Obsada zapisana! <span class="cn">· 人员配置已保存</span>!', 'ok');
   }).catch(function() {
-    showToast('Zapisano lokalnie, błąd wysyłki · 已本地保存，发送失败', 'err');
+    showToast('Zapisano lokalnie, błąd wysyłki <span class="cn">· 已本地保存，发送失败</span>', 'err');
   });
 }
 

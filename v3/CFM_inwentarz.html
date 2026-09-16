@@ -46,7 +46,7 @@ body{padding-bottom:60px}
 .langflag:hover{border-color:var(--muted)}
 .langflag.off{opacity:.3;filter:grayscale(1)}
 body.hide-pl .pl{display:none}
-body.hide-cn .cn{display:none}
+body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria-btn-cn,body.hide-cn .view-switch-cn,body.hide-cn .warn-title-cn{display:none}
 .live-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
@@ -159,11 +159,11 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 <div class="pin-overlay" id="pinGateOverlay">
   <div class="pin-dialog">
     <div class="pin-dialog-title">&#128274; DOSTĘP</div>
-    <div class="pin-dialog-sub">Podaj PIN, żeby wejść &#183; 请输入PIN进入</div>
+    <div class="pin-dialog-sub">Podaj PIN, żeby wejść <span class="cn">&#183; 请输入</span>PIN进入</div>
     <input class="pin-dialog-input" type="password" id="pinGateInput" placeholder="&#8226;&#8226;&#8226;&#8226;" maxlength="8" onkeydown="if(event.key==='Enter')pinGateConfirm()">
     <div class="pin-dialog-err" id="pinGateErr">Błędny PIN &#183; PIN错误</div>
-    <button class="pin-dialog-ok" onclick="pinGateConfirm()">WEJDŹ &#183; 进入</button>
-    <a href="CFM_R_DZIENNY_V3.html" class="pin-dialog-back">&#8592; Wróć do Raportu dziennego &#183; 返回日报</a>
+    <button class="pin-dialog-ok" onclick="pinGateConfirm()">WEJDŹ <span class="cn">&#183; 进入</span></button>
+    <a href="CFM_R_DZIENNY_V3.html" class="pin-dialog-back">&#8592; Wróć do Raportu dziennego <span class="cn">&#183; 返回日报</span></a>
   </div>
 </div>
 <script>if(sessionStorage.getItem('cfm_page_unlocked')==='1'){document.getElementById('pinGateOverlay').classList.add('hidden');}</script>
@@ -175,14 +175,14 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
     <div class="navmenu-wrap">
       <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
       <div class="navmenu-dropdown" id="navmenuDropdown">
-      <a href="CFM_dashboard.html">&#128202; Dashboard · 仪表盘</a>
-      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny · 日报</a>
-      <a href="CFM_statystyki.html">&#128200; Statystyki · 统计</a>
-      <a href="CFM_oee.html">&#9881;&#65039; OEE · 效率</a>
-      <a href="CFM_premie.html">&#128176; Premie · 奖金</a>
-      <a href="CFM_plan.html">&#128197; Plan · 计划</a>
-      <a href="CFM_obsada.html">&#128101; Obsada · 排班</a>
-      <a href="CFM_inwentarz.html" class="on">&#128230; Inwentarz · 库存</a>
+      <a href="CFM_dashboard.html">&#128202; Dashboard <span class="cn">· 仪表盘</span></a>
+      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny <span class="cn">· 日报</span></a>
+      <a href="CFM_statystyki.html">&#128200; Statystyki <span class="cn">· 统计</span></a>
+      <a href="CFM_oee.html">&#9881;&#65039; OEE <span class="cn">· 效率</span></a>
+      <a href="CFM_premie.html">&#128176; Premie <span class="cn">· 奖金</span></a>
+      <a href="CFM_plan.html">&#128197; Plan <span class="cn">· 计划</span></a>
+      <a href="CFM_obsada.html">&#128101; Obsada <span class="cn">· 排班</span></a>
+      <a href="CFM_inwentarz.html" class="on">&#128230; Inwentarz <span class="cn">· 库存</span></a>
       </div>
     </div>
     <div class="langtoggle">
@@ -229,23 +229,32 @@ var LANG_STATE = (function() {
 // produkcyjne. Uwaga: jesli slowo polskie i liczba siedza w JEDNYM
 // wezle tekstowym (np. "550 szt."), zostana zawiniete razem - to znany,
 // akceptowalny kompromis tego mechanizmu.
-var PL_WRAP_RE = /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]/;
+// Owijamy TYLKO tekst ktory jest BEZPOSREDNIM poprzednikiem juz
+// istniejacego .cn - czyli dokladnie "polska polowka" ustalonego wzorca
+// "Polski<span class=cn>Chinski</span>" uzywanego konsekwentnie w calej
+// apce. Poprzednia wersja owijala KAZDY tekst z litera lacinska, co
+// bledy chowalo tez DANE (nazwiska operatorow, kody stanowisk typu
+// "OP60/61", wartosci w dropdownach) przy wylaczeniu PL - to naprawia
+// ten problem: dane bez sasiadujacego .cn nigdy nie sa dotykane, wiec
+// zawsze zostaja widoczne niezaleznie od przelacznika.
 function wrapPlTextNodes(root) {
-  var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  var toWrap = [];
-  var node;
-  while ((node = walker.nextNode())) {
-    if (!node.nodeValue || !PL_WRAP_RE.test(node.nodeValue)) continue;
-    var p = node.parentNode;
-    if (!p || p.nodeType !== 1) continue;
-    if (p.closest('.cn, .pl, script, style')) continue;
-    toWrap.push(node);
-  }
-  toWrap.forEach(function(n) {
-    var span = document.createElement('span');
-    span.className = 'pl';
-    n.parentNode.insertBefore(span, n);
-    span.appendChild(n);
+  root.querySelectorAll('.cn, .cn-line, .cn-sub, .awaria-btn-cn, .view-switch-cn, .warn-title-cn').forEach(function(cnEl) {
+    var prev = cnEl.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3) {
+        if (prev.nodeValue.trim()) {
+          var span = document.createElement('span');
+          span.className = 'pl';
+          prev.parentNode.insertBefore(span, prev);
+          span.appendChild(prev);
+          break;
+        }
+        prev = prev.previousSibling;
+        continue;
+      }
+      if (prev.nodeType === 1) break;
+      prev = prev.previousSibling;
+    }
   });
 }
 function applyLangVisibility() {
@@ -416,9 +425,9 @@ function render(firstDate, todayISO) {
   app.innerHTML =
     '<div class="pagehead"><h1>Inwentarz <span class="cn">库存</span></h1><div class="sub">Stan liczony na żywo: ostatnia inwentaryzacja + dobre sztuki z GP12 &#8722; wysłano (z Planu). <span class="cn">实时库存 = 上次盘点 + GP12合格数量 &#8722; 实际发货数量。</span></div></div>' +
     '<div class="kpis">' +
-      '<div class="kpi"><div class="kpi-lbl">Stan dzisiaj (liczony)<span class="cn">今日库存（计算）</span></div><div class="kpi-val">' + fmt(todayRow.balance) + '</div><div class="kpi-sub">szt. &#183; 件</div></div>' +
+      '<div class="kpi"><div class="kpi-lbl">Stan dzisiaj (liczony)<span class="cn">今日库存（计算）</span></div><div class="kpi-val">' + fmt(todayRow.balance) + '</div><div class="kpi-sub">szt. <span class="cn">&#183; 件</span></div></div>' +
       '<div class="kpi"><div class="kpi-lbl">Ostatnia inwentaryzacja<span class="cn">上次盘点</span></div><div class="kpi-val">' + fmt(Number(STATE.inventoryCounts[lastCountDate])) + '</div><div class="kpi-sub">' + fmtDateLabel(lastCountDate) + ' &#183; ' + daysSince + ' dni temu</div></div>' +
-      '<div class="kpi"><div class="kpi-lbl">Od inwentaryzacji<span class="cn">自盘点以来</span></div><div class="kpi-val">' + (todayRow.balance - Number(STATE.inventoryCounts[lastCountDate]) >= 0 ? '+' : '') + fmt(todayRow.balance - Number(STATE.inventoryCounts[lastCountDate])) + '</div><div class="kpi-sub">produkcja &#8722; wysyłki &#183; 生产-发货</div></div>' +
+      '<div class="kpi"><div class="kpi-lbl">Od inwentaryzacji<span class="cn">自盘点以来</span></div><div class="kpi-val">' + (todayRow.balance - Number(STATE.inventoryCounts[lastCountDate]) >= 0 ? '+' : '') + fmt(todayRow.balance - Number(STATE.inventoryCounts[lastCountDate])) + '</div><div class="kpi-sub">produkcja &#8722; wysyłki <span class="cn">&#183; 生产</span>-发货</div></div>' +
     '</div>' +
     '<div class="section"><div class="section-head"><h2>Nowa inwentaryzacja<span class="cn">新盘点</span></h2></div>' + formHtml() + '</div>' +
     '<div class="section"><div class="section-head"><h2>Saldo dzień po dniu<span class="cn">逐日库存余额</span></h2></div>' +
@@ -446,8 +455,8 @@ function fmtDateLabel(iso) {
 function formHtml() {
   var todayISO = toISO(new Date());
   return '<div class="formcard">' +
-    '<div class="field"><label>Data &#183; 日期</label><input type="date" id="invDate" value="' + todayISO + '"></div>' +
-    '<div class="field"><label>Ilość policzona fizycznie &#183; 实际盘点数量</label><input type="number" min="0" id="invQty" placeholder="np. 15000"></div>' +
+    '<div class="field"><label>Data <span class="cn">&#183; 日期</span></label><input type="date" id="invDate" value="' + todayISO + '"></div>' +
+    '<div class="field"><label>Ilość policzona fizycznie <span class="cn">&#183; 实际盘点数量</span></label><input type="number" min="0" id="invQty" placeholder="np. 15000"></div>' +
     '<button type="button" class="btn-save" id="btnSaveInv">Zapisz inwentaryzację<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存盘点</small></button>' +
   '</div>';
 }
@@ -462,18 +471,18 @@ function saveInventoryCount() {
   var qtyEl = document.getElementById('invQty');
   var d = dateEl.value;
   var q = Number(qtyEl.value);
-  if (!d) { showToast('Wybierz datę &#183; 请选择日期', 'err'); return; }
-  if (!q || q < 0) { showToast('Wpisz poprawną ilość &#183; 请输入正确数量', 'err'); return; }
+  if (!d) { showToast('Wybierz datę <span class="cn">&#183; 请选择日期</span>', 'err'); return; }
+  if (!q || q < 0) { showToast('Wpisz poprawną ilość <span class="cn">&#183; 请输入正确数量</span>', 'err'); return; }
   STATE.inventoryCounts[d] = q;
   var wh = getWH();
   fetch(wh, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_inventory_counts', wartosc: JSON.stringify(STATE.inventoryCounts) })
   }).then(function() {
-    showToast('Inwentaryzacja zapisana! &#183; 盘点已保存!', 'ok');
+    showToast('Inwentaryzacja zapisana! <span class="cn">&#183; 盘点已保存</span>!', 'ok');
     loadAndRender();
   }).catch(function() {
-    showToast('Błąd zapisu &#183; 保存失败', 'err');
+    showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err');
   });
 }
 
@@ -688,19 +697,19 @@ function computeSolderWalk(firstDate, endIso, cfg) {
 }
 function solderConfigHtml(cfg) {
   return '<div class="configrow">' +
-    '<div class="field"><label>Stanowisko - produkcja (lutowanie) &#183; 生产工位（焊接）</label><input type="text" id="cfgProdukcja" value="' + cfg.produkcja + '"></div>' +
-    '<div class="field"><label>Stanowisko - zużycie (montaż) &#183; 消耗工位（装配）</label><input type="text" id="cfgZuzycie" value="' + cfg.zuzycie + '"></div>' +
-    '<div class="field"><label>Partia produkcji — min &#183; 批量最小值</label><input type="number" min="0" id="cfgBatchMin" value="' + (cfg.batchMin || '') + '" placeholder="np. 2500"></div>' +
-    '<div class="field"><label>Partia produkcji — max &#183; 批量最大值</label><input type="number" min="0" id="cfgBatchMax" value="' + (cfg.batchMax || '') + '" placeholder="np. 2700"></div>' +
+    '<div class="field"><label>Stanowisko - produkcja (lutowanie) <span class="cn">&#183; 生产工位（焊接）</span></label><input type="text" id="cfgProdukcja" value="' + cfg.produkcja + '"></div>' +
+    '<div class="field"><label>Stanowisko - zużycie (montaż) <span class="cn">&#183; 消耗工位（装配）</span></label><input type="text" id="cfgZuzycie" value="' + cfg.zuzycie + '"></div>' +
+    '<div class="field"><label>Partia produkcji — min <span class="cn">&#183; 批量最小值</span></label><input type="number" min="0" id="cfgBatchMin" value="' + (cfg.batchMin || '') + '" placeholder="np. 2500"></div>' +
+    '<div class="field"><label>Partia produkcji — max <span class="cn">&#183; 批量最大值</span></label><input type="number" min="0" id="cfgBatchMax" value="' + (cfg.batchMax || '') + '" placeholder="np. 2700"></div>' +
     '<button type="button" class="btn-save" id="btnSaveSolderCfg">Zapisz nazwy<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存名称</small></button>' +
-    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan &#183; 请输入与管理面板中完全一致的工位名称<br>Partia produkcji (opcjonalnie): jeśli stanowisko produkcji lutuje TYLKO pełnymi partiami (np. 2500&#8211;2700 szt., nigdy mniej), wpisz tu ten zakres — tryb "Licz potrzebę od Wysyłek" będzie wtedy planował całe partie zamiast dowolnych ilości. Puste = bez ograniczenia. &#183; 生产批量（可选）：如果生产工位只能整批生产（如2500&#8211;2700件，不能更少），请在此填写范围 — "按发运计算需求"模式将按整批规划，而非任意数量。留空表示不限制。</div>' +
+    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan <span class="cn">&#183; 请输入与管理面板中完全一致的工位名称</span><br>Partia produkcji (opcjonalnie): jeśli stanowisko produkcji lutuje TYLKO pełnymi partiami (np. 2500&#8211;2700 szt., nigdy mniej), wpisz tu ten zakres — tryb "Licz potrzebę od Wysyłek" będzie wtedy planował całe partie zamiast dowolnych ilości. Puste = bez ograniczenia. <span class="cn">&#183; 生产批量（可选）：如果生产工位只能整批生产（如</span>2500&#8211;2700件，不能更少），请在此填写范围 — "按发运计算需求"模式将按整批规划，而非任意数量。留空表示不限制。</div>' +
   '</div>';
 }
 function solderFormHtml() {
   var todayISO = toISO(new Date());
   return '<div class="formcard">' +
-    '<div class="field"><label>Data &#183; 日期</label><input type="date" id="solderInvDate" value="' + todayISO + '"></div>' +
-    '<div class="field"><label>Ilość policzona fizycznie &#183; 实际盘点数量</label><input type="number" min="0" id="solderInvQty" placeholder="np. 1980"></div>' +
+    '<div class="field"><label>Data <span class="cn">&#183; 日期</span></label><input type="date" id="solderInvDate" value="' + todayISO + '"></div>' +
+    '<div class="field"><label>Ilość policzona fizycznie <span class="cn">&#183; 实际盘点数量</span></label><input type="number" min="0" id="solderInvQty" placeholder="np. 1980"></div>' +
     '<button type="button" class="btn-save" id="btnSaveSolderInv">Zapisz inwentaryzację<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存盘点</small></button>' +
   '</div>';
 }
@@ -714,7 +723,7 @@ function wireSolderConfig() {
       batchMax: Number(document.getElementById('cfgBatchMax').value) || 0,
     };
     saveSolderConfig(cfg);
-    showToast('Nazwy zapisane! &#183; 名称已保存!', 'ok');
+    showToast('Nazwy zapisane! <span class="cn">&#183; 名称已保存</span>!', 'ok');
     loadSolderAndRender();
   };
 }
@@ -725,18 +734,18 @@ function wireSolderForm() {
 function saveSolderInventoryCount() {
   var d = document.getElementById('solderInvDate').value;
   var q = Number(document.getElementById('solderInvQty').value);
-  if (!d) { showToast('Wybierz datę &#183; 请选择日期', 'err'); return; }
-  if (!q || q < 0) { showToast('Wpisz poprawną ilość &#183; 请输入正确数量', 'err'); return; }
+  if (!d) { showToast('Wybierz datę <span class="cn">&#183; 请选择日期</span>', 'err'); return; }
+  if (!q || q < 0) { showToast('Wpisz poprawną ilość <span class="cn">&#183; 请输入正确数量</span>', 'err'); return; }
   STATE.solderInventoryCounts[d] = q;
   var wh = getWH();
   fetch(wh, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_solder_inventory_counts', wartosc: JSON.stringify(STATE.solderInventoryCounts) })
   }).then(function() {
-    showToast('Inwentaryzacja zapisana! &#183; 盘点已保存!', 'ok');
+    showToast('Inwentaryzacja zapisana! <span class="cn">&#183; 盘点已保存</span>!', 'ok');
     loadSolderAndRender();
   }).catch(function() {
-    showToast('Błąd zapisu &#183; 保存失败', 'err');
+    showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err');
   });
 }
 function prevSolderMonth() { STATE.solderMonthDate = new Date(STATE.solderMonthDate.getFullYear(), STATE.solderMonthDate.getMonth() - 1, 1); renderSolderSection(STATE.solderFirstDate); }
@@ -804,13 +813,13 @@ function renderSolderSection(firstDate) {
         var dd = r.date.split('-');
         var wd = isoToDate(r.date).getDay();
         var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (r.isToday ? ' &#183; dziś' : '') +
-          (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual &#183; 实际' : 'plan &#183; 计划') + '</span>');
+          (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual <span class="cn">&#183; 实际</span>' : 'plan <span class="cn">&#183; 计划</span>') + '</span>');
         var balCls = r.balance < 0 ? 'neg' : 'ok';
         var prodCell = '<input type="number" class="cellinput' + (r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
         var useCell = '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
         var shipCell = chain ? '<td class="shipcell">' + fmt(r.shipPlan) + '</td>' : '';
         return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td>' + shipCell + '<td>' + useCell + '</td><td>' + prodCell + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
-      }).join('') : '<tr><td colspan="' + (chain ? 5 : 4) + '" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora &#183; 该月早于第一次盘点</td></tr>') +
+      }).join('') : '<tr><td colspan="' + (chain ? 5 : 4) + '" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora <span class="cn">&#183; 该月早于第一次盘点</span></td></tr>') +
     '</tbody></table></div></div>' +
     solderFormHtml() +
     '</div>';
@@ -860,7 +869,7 @@ function renderAutoAdjustPanel() {
     }).join('') +
     '</tbody></table></div></div>' +
     '<button type="button" class="btn-save" onclick="applyAutoAdjustPlan()">Zapisz do Planu (' + diffs.length + ')<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存到计划</small></button>' +
-    '<button type="button" class="btn-clearsim" onclick="cancelAutoAdjustPreview()">Anuluj &#183; 取消</button>' +
+    '<button type="button" class="btn-clearsim" onclick="cancelAutoAdjustPreview()">Anuluj <span class="cn">&#183; 取消</span></button>' +
   '</div>';
 }
 function cancelAutoAdjustPreview() {
@@ -883,11 +892,11 @@ function applyAutoAdjustPlan() {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_monthly_plan', wartosc: JSON.stringify(STATE.monthlyPlan) })
   }).then(function() {
-    showToast('Plan zaktualizowany! &#183; 计划已更新!', 'ok');
+    showToast('Plan zaktualizowany! <span class="cn">&#183; 计划已更新</span>!', 'ok');
     STATE.autoAdjustDiffs = null;
     renderSolderSection(STATE.solderFirstDate);
   }).catch(function() {
-    showToast('Błąd zapisu &#183; 保存失败', 'err');
+    showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err');
   });
 }
 function setSolderOverride(dateIso, role, valueStr) {

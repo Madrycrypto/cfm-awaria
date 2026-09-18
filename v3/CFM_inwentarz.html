@@ -120,6 +120,8 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 .cellinput:hover{border-color:var(--border)}
 .cellinput:focus{border-color:var(--blue-soft);outline:none;background:var(--surface-2)}
 .cellinput.overridden{color:#f0a030;border-color:rgba(240,160,48,0.4);background:rgba(240,160,48,0.08)}
+.togglerow{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.togglerow .chaintoggle{flex:1 1 260px;margin-bottom:0}
 .chaintoggle{display:block;font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;cursor:pointer;line-height:1.5}
 .chaintoggle input{margin-right:6px}
 .chainhint{background:rgba(47,127,224,0.08);border:1px solid rgba(47,127,224,0.25);border-radius:10px;padding:10px 14px}
@@ -288,7 +290,7 @@ applyLangVisibility();
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
 
-var STATE = { inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null, solderOverrides: {}, chainMode: false };
+var STATE = { inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null, solderOverrides: {}, chainMode: false, sameDayMode: false };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -686,7 +688,15 @@ function computeSolderWalk(firstDate, endIso, cfg) {
     var overrideProd = ov && ov.produkcja !== undefined;
     var overrideUse = ov && ov.zuzycie !== undefined;
     if (overrideProd) prod = ov.produkcja;
-    if (idx > 0) running += prevProd - prevUse;
+    // Domyslnie: dzisiejsza aktywnosc wplywa na JUTRZEJSZE saldo (patrz
+    // komentarz przy computeSolderWalk) - tak dziala arkusz usera. W
+    // trybie "efekt tego samego dnia" (symulacja na zyczenie) dzisiejsza
+    // produkcja/zuzycie od razu zmieniaja saldo pokazane PRZY TYM dniu —
+    // TO DOTYCZY TEZ dnia bazowego (idx===0): inwentaryzacje robi sie
+    // rano, a produkcja/zuzycie dzieje sie W CIAGU tego samego dnia, wiec
+    // ten dzien tez powinien juz pokazywac swoj wlasny efekt w tym trybie.
+    if (STATE.sameDayMode) running += prod - use;
+    else if (idx > 0) running += prevProd - prevUse;
     var countToday = STATE.solderInventoryCounts[d] !== undefined ? Number(STATE.solderInventoryCounts[d]) : null;
     if (countToday !== null && idx > 0) running = countToday;
     if (wentNegativeAt === null && running < 0 && d > todayISO) wentNegativeAt = d;
@@ -794,8 +804,12 @@ function renderSolderSection(firstDate) {
     '<div class="hero"><span class="n" style="color:' + heroColor + '">' + heroText + '</span></div>' +
     '<div class="hero-sub">stan dzisiaj: ' + fmt(todayRow ? todayRow.balance : null) + ' szt. &#183; ' + heroSub + '</div>' +
     solderConfigHtml(cfg) +
+    '<div class="togglerow">' +
     '<label class="chaintoggle"><input type="checkbox" id="chainModeToggle" ' + (chain ? 'checked' : '') + '> Licz potrzebę od Wysyłek: Wysyłki &#8594; ' + cfg.zuzycie + ' &#8594; ' + cfg.produkcja +
       '<br><span class="cn">从发运倒推需求：发运 &#8594; ' + cfg.zuzycie + ' &#8594; ' + cfg.produkcja + '</span></label>' +
+    '<label class="chaintoggle"><input type="checkbox" id="sameDayModeToggle" ' + (STATE.sameDayMode ? 'checked' : '') + '> Symulacja: efekt tego samego dnia (zamiast na następny dzień)' +
+      '<br><span class="cn">模拟：当天即生效（而非次日生效）</span></label>' +
+    '</div>' +
     (chain ? '<div class="simhint chainhint">W tym trybie ' + cfg.zuzycie + ' i ' + cfg.produkcja + ' NIE pokazują już własnego Planu — pokazują, ile trzeba wyprodukować, żeby nadążyć za Planem wysyłek (dopóki nie ma prawdziwego raportu). Plan tych stacji w Panelu Admina pozostaje bez zmian, dopóki nie klikniesz "Zapisz do Planu" poniżej.' +
       '<br><span class="cn">此模式下' + cfg.zuzycie + '和' + cfg.produkcja + '不再显示各自的计划，而是显示为跟上发运计划所需的产量（在收到真实报告之前）。除非点击下方"保存到计划"，否则管理面板中的计划不会改变。</span></div>' : '') +
     '<div class="monthnav"><button type="button" onclick="prevSolderMonth()">&#8249;</button><div class="mlabel">' + SOLDER_MONTH_NAMES[STATE.solderMonthDate.getMonth()] + ' ' + STATE.solderMonthDate.getFullYear() + '<span class="cn">' + SOLDER_MONTH_NAMES_CN[STATE.solderMonthDate.getMonth()] + '</span></div><button type="button" onclick="nextSolderMonth()">&#8250;</button></div>' +
@@ -826,6 +840,8 @@ function renderSolderSection(firstDate) {
   wireSolderConfig(); wireSolderForm(); wireSolderCells();
   var toggle = document.getElementById('chainModeToggle');
   if (toggle) toggle.onchange = function() { STATE.chainMode = toggle.checked; renderSolderSection(STATE.solderFirstDate); };
+  var sdToggle = document.getElementById('sameDayModeToggle');
+  if (sdToggle) sdToggle.onchange = function() { STATE.sameDayMode = sdToggle.checked; renderSolderSection(STATE.solderFirstDate); };
 }
 // "Auto-dopasuj Plan" — pokazuje PODGLAD roznic miedzy tym, co jest teraz
 // jawnie wpisane w Planie (dla przyszlych dni), a tym, co wychodzi z

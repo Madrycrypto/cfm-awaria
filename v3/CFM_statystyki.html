@@ -137,7 +137,7 @@ tbody tr.grouphead td{padding-top:16px}
    na wezszych ekranach spada do 1 kolumny (patrz media query nizej). */
 .weekgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .weekgrid .weekblock{margin-bottom:0}
-.barrow{display:grid;grid-template-columns:64px 1fr 84px;align-items:center;gap:8px;max-width:420px}
+.barrow{display:grid;grid-template-columns:64px 1fr 84px;align-items:center;gap:8px}
 #shiftComparison .barrow{grid-template-columns:96px 1fr 110px}
 #reworkBalance .barrow{grid-template-columns:100px 1fr 140px}
 #reworkBalance .barrow-pct{white-space:normal;line-height:1.4}
@@ -146,7 +146,7 @@ tbody tr.grouphead td{padding-top:16px}
 .barfill{position:absolute;left:0;top:0;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.3,.8,.4,1)}
 .barrow-pct{text-align:right;font-variant-numeric:tabular-nums;font-size:10px;color:var(--muted);white-space:nowrap}
 .barrow-pct b{font-family:var(--fh);font-size:12.5px;font-weight:800}
-.zonerow{margin-bottom:9px;max-width:420px}
+.zonerow{margin-bottom:9px}
 .zonerow:last-child{margin-bottom:0}
 .zonerow-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px}
 .zonerow-lbl{font-family:var(--fh);font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -637,7 +637,6 @@ function render() {
   var isMonth = STATE.viewMode === 'month';
   var days = isMonth ? monthDays(STATE.monthDate) : STATE.weeks[STATE.selectedWeekIdx].days;
   var periodLabel = isMonth ? 'mies.' : 'tyg.';
-  var groups = buildGroups(STATE.rows);
   var periodGroups = buildGroups(STATE.rows.filter(function(r) { return days.indexOf(r.date) >= 0; }));
 
   app.innerHTML =
@@ -653,7 +652,6 @@ function render() {
     '<div class="section"><div class="section-head"><h2>Porównanie zmian &#183; która lepsza<span class="cn">班次对比 &#183; 哪个更好</span></h2></div><div class="barsgrid" id="shiftComparison"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Bilans dzienny<span class="cn">每日计划平衡</span></h2></div><div id="dailyBalance"></div></div>' +
     '<div class="section"><div class="section-head"><h2>Bilans tygodniowy<span class="cn">每周计划平衡</span></h2></div><div id="weeklyBalance"></div></div>' +
-    '<div class="section"><div class="section-head"><h2>Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn">月度计划平衡 &#183; ' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></h2></div><div class="barsgrid" id="bars"></div></div>' +
     '<div class="twosectiongrid">' +
       '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>' +
       '<div class="section"><div class="section-head"><h2>Awarie &#183; przestoje w okresie<span class="cn">故障 &#183; 本期停机</span></h2></div><div class="barsgrid" id="awarieSummary"></div></div>' +
@@ -670,7 +668,6 @@ function render() {
   renderPivot(periodGroups, days, periodLabel);
   renderDailyBalance(days);
   renderWeeklyBalance();
-  renderBars(groups);
   renderReworkBalance(days);
   renderAwarieSummary(days);
 }
@@ -1228,17 +1225,19 @@ function barsHtml(groups, days) {
       '<div class="barrow-pct"><b style="color:' + color + '">' + pct + '%</b> &nbsp;' + subText + '</div></div>';
   }).join('');
 }
-function renderBars(groups) {
-  document.getElementById('bars').innerHTML = barsHtml(groups, monthDays(STATE.monthDate));
-}
-
 function renderWeeklyBalance() {
   var el = document.getElementById('weeklyBalance');
   if (!STATE.weeks.length) { el.innerHTML = '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>'; return; }
-  el.innerHTML = '<div class="weekgrid">' + STATE.weeks.map(function(w) {
+  var weekBlocks = STATE.weeks.map(function(w) {
     var weekGroups = buildGroups(STATE.rows.filter(function(r) { return r.date >= w.start && r.date <= w.end; }));
     return '<div class="weekblock"><div class="weekblock-head">' + fmtWeekRange(w) + '</div><div class="barsgrid">' + barsHtml(weekGroups, w.days) + '</div></div>';
-  }).join('') + '</div>';
+  }).join('');
+  // Miesieczny bilans jako dodatkowy blok w TEJ SAMEJ siatce co tygodnie
+  // (nie osobna sekcja nizej) — przy 3 kolumnach na wiersz naturalnie
+  // ląduje w wolnym miejscu obok ostatnich tygodni.
+  var monthGroups = buildGroups(STATE.rows);
+  var monthBlock = '<div class="weekblock"><div class="weekblock-head">Miesięczny bilans planu &#183; ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + ' <span class="cn">&#183; 月度计划平衡 &#183; ' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></div><div class="barsgrid">' + barsHtml(monthGroups, monthDays(STATE.monthDate)) + '</div></div>';
+  el.innerHTML = '<div class="weekgrid">' + weekBlocks + monthBlock + '</div>';
 }
 
 // Siatka stanowisko x zmiana dla POJEDYNCZEGO dnia — stanowiska jako

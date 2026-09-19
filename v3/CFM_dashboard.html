@@ -657,9 +657,16 @@ function sqdipSafetyCard(days) {
     '</div>';
 }
 function sqdipOeeCard(rows, days, target) {
+  // Wczesniej: neutralne odcienie szarosci + wzorce kresek (bez koloru na
+  // liniach, kolor tylko na punktach/legendzie) - w praktyce przy 5
+  // stanowiskach nieczytelne (user: "ciezko rozroznic ktora linia jest
+  // ktora"). Zamiast tego kazde stanowisko dostaje WLASNY, wyrazny kolor
+  // - celowo unikamy czerwieni/zieleni/pomaranczu (to juz zajete przez
+  // znaczenie "zle/dobre/ostrzezenie" w tej samej karcie i gdzie indziej
+  // w apce), zeby kolor linii = tozsamosc stanowiska, a nie status.
   var styles = [
-    { stroke: '#f2f2f2', dash: '' }, { stroke: '#cfcfcf', dash: '' }, { stroke: '#a8a8a8', dash: '5,4' },
-    { stroke: '#e8e8e8', dash: '2,3' }, { stroke: '#888', dash: '8,3' },
+    { stroke: '#5AA9FF' }, { stroke: '#B48CFF' }, { stroke: '#4DD8C4' },
+    { stroke: '#FF8FD8' }, { stroke: '#FFD166' },
   ];
   var series = SQDIP_OEE_STATIONS.map(function(st) { return { name: st, values: sqdipStationOeePerDay(rows, st, days) }; });
   var W = 280, H = 90;
@@ -682,7 +689,7 @@ function sqdipOeeCard(rows, days, target) {
       s.values.forEach(function(v, i) { if (v === null) { if (cur.length) { segs.push(cur); cur = []; } return; } cur.push([10 + i * stepX, y(v)]); });
       if (cur.length) segs.push(cur);
       var st = styles[si % styles.length];
-      return segs.map(function(seg) { return '<polyline points="' + seg.map(function(p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '" fill="none" stroke="' + st.stroke + '" stroke-width="1.6" stroke-dasharray="' + st.dash + '"/>'; }).join('');
+      return segs.map(function(seg) { return '<polyline points="' + seg.map(function(p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '" fill="none" stroke="' + st.stroke + '" stroke-width="1.8"/>'; }).join('');
     }).join('');
     var targetY = y(target);
     svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="display:block;width:100%;height:' + H + 'px;overflow:visible">' +
@@ -693,7 +700,7 @@ function sqdipOeeCard(rows, days, target) {
     var k = s.values.filter(function(v) { return v !== null; });
     var last = k.length ? k[k.length - 1] : null;
     var color = last === null ? 'var(--faint)' : (last >= target ? '#3fd17a' : '#ff7070');
-    return '<div class="legend-item"><span class="legend-swatch" style="border-color:' + st.stroke + ';' + (st.dash ? 'border-top-style:dashed' : '') + '"></span>' +
+    return '<div class="legend-item"><span class="legend-swatch" style="border-color:' + st.stroke + '"></span>' +
       '<span class="legend-name">' + s.name + '</span><span class="legend-val" style="color:' + color + '">' + (last === null ? '&#8212;' : last + '%') + '</span></div>';
   }).join('');
   return '<div class="card">' +

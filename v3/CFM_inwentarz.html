@@ -390,6 +390,12 @@ function loadAndRender() {
       if (data.status !== 'ok') { showConnError(); return; }
       STATE.rows = (data.historia || []).filter(function(r) { return r.station === 'GP12'; });
       render(firstDate, todayISO);
+      // computeGp12RequiredWalk (tryb lancucha w Buforze) czyta STATE.rows
+      // - jesli ten fetch zakonczy sie PO tym jak sekcja Bufor juz sie
+      // wyrenderowala (dwa niezalezne fetch'e wystartowane rownolegle w
+      // init()), trzeba ja przerenderowac, zeby zlapala te dane zamiast
+      // zostac na falszywym "brak danych" z pierwszej proby.
+      if (STATE.chainMode && STATE.solderFirstDate) renderSolderSection(STATE.solderFirstDate);
     })
     .catch(function() { showConnError(); });
 }
@@ -604,7 +610,13 @@ function computeGp12RequiredWalk(gp12Station, endIso) {
     var countToday = STATE.inventoryCounts[d] !== undefined ? Number(STATE.inventoryCounts[d]) : null;
     if (countToday !== null && idx > 0) running = countToday;
     var isFuture = d > todayISO;
-    var aProd = isFuture ? null : actualSumForDay(STATE.solderRows, gp12Station, d);
+    // STATE.rows (nie solderRows!) - to dane GP12 pobrane od PIERWSZEJ
+    // inwentaryzacji GOTOWYCH WYROBOW (gorna sekcja strony), ktora moze
+    // byc WCZESNIEJSZA niz pierwsza inwentaryzacja bufora lutowania.
+    // solderRows zaczyna sie dopiero od TEJ drugiej daty, wiec dla dni
+    // miedzy nimi zwracalby null (brak danych) i falszywie zakladal zero
+    // produkcji - psujac cala reszte tego walku.
+    var aProd = isFuture ? null : actualSumForDay(STATE.rows, gp12Station, d);
     var ship = isFuture ? shipPlanForDay(d) : shippingActualFor(d);
     // Produkuj TYLKO brakujaca roznice ponad to, co juz jest w buforze —
     // dokladnie ta sama zasada "dzis wplywa na jutro" co reszta modelu:

@@ -104,6 +104,7 @@ tbody tr.today td{background:rgba(26,110,216,0.08)}
 .tag{font-size:10px;padding:1px 6px;border-radius:4px;font-weight:700;margin-left:6px}
 .tag.plan{background:rgba(154,154,154,0.15);color:var(--muted)}
 .tag.actual{background:rgba(47,127,224,0.18);color:var(--blue-soft)}
+.weeksum{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
 tbody tr.negative td{background:rgba(217,43,43,0.14)}
 .balance.neg{color:var(--red)}
 .balance.ok{color:#3fd17a}
@@ -772,6 +773,21 @@ function saveSolderInventoryCount() {
 }
 function prevSolderMonth() { STATE.solderMonthDate = new Date(STATE.solderMonthDate.getFullYear(), STATE.solderMonthDate.getMonth() - 1, 1); renderSolderSection(STATE.solderFirstDate); }
 function nextSolderMonth() { STATE.solderMonthDate = new Date(STATE.solderMonthDate.getFullYear(), STATE.solderMonthDate.getMonth() + 1, 1); renderSolderSection(STATE.solderFirstDate); }
+// Suma Wysylek i potrzeby GP12 za caly tydzien (pon-nd) zawierajacy dany
+// piatek — pokazywana TYLKO w wierszu piatku, jako doraznie podsumowanie
+// "ile w sumie na caly tydzien" bez liczenia recznie z 5-7 osobnych
+// wierszy. byDate pochodzi z pelnego, nieprzerwanego walku (patrz
+// computeSolderWalk), wiec ma dane nawet gdy tydzien przecina granice
+// miesiaca.
+function weekSummaryFor(byDate, fridayIso) {
+  var monday = addDays(isoToDate(fridayIso), -4);
+  var sumShip = 0, sumGp12 = 0, any = false;
+  for (var i = 0; i < 7; i++) {
+    var r = byDate[toISO(addDays(monday, i))];
+    if (r) { sumShip += r.shipPlan || 0; sumGp12 += r.zuzycie || 0; any = true; }
+  }
+  return any ? { ship: sumShip, gp12: sumGp12 } : null;
+}
 function renderSolderSection(firstDate) {
   STATE.solderFirstDate = firstDate;
   var cfg = getSolderConfig();
@@ -838,8 +854,14 @@ function renderSolderSection(firstDate) {
       (visible.length ? visible.map(function(r) {
         var dd = r.date.split('-');
         var wd = isoToDate(r.date).getDay();
+        var isFriday = (wd + 6) % 7 === 4;
         var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (r.isToday ? ' &#183; dziś' : '') +
           (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual <span class="cn">&#183; 实际</span>' : 'plan <span class="cn">&#183; 计划</span>') + '</span>');
+        if (chain && isFriday) {
+          var weekSum = weekSummaryFor(byDate, r.date);
+          if (weekSum) label += '<div class="weeksum">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) +
+            '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + '</span></div>';
+        }
         var balCls = r.balance < 0 ? 'neg' : 'ok';
         var prodCell = '<input type="number" class="cellinput' + (r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
         var useCell = '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';

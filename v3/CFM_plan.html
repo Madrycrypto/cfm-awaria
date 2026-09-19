@@ -887,24 +887,46 @@ function copyFromPrevMonth() {
   var prev = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1);
   var prevEntry = STATE.plan[monthKey(prev)];
   if (!prevEntry) { showToast('Brak planu w poprzednim miesiącu · 上月无计划', 'err'); return; }
-  var prevDays = daysInMonth(prev);
   var thisDays = daysInMonth(STATE.viewMonth);
   var y = STATE.viewMonth.getFullYear(), m = STATE.viewMonth.getMonth();
   var newEntry = {};
+  // Kopiujemy wg DNIA TYGODNIA, nie surowego numeru dnia miesiaca — dwa
+  // miesiace rzadko zaczynaja sie w ten sam dzien tygodnia, wiec "5
+  // wrzesnia -> 5 pazdziernika" przesuwaloby caly nieregularny wzorzec
+  // (np. lutowanie pon/sr/pt 2500, wt/czw brak) na zupelnie inne dni
+  // tygodnia. Zamiast tego dla kazdego dnia tygodnia bierzemy NAJCZESTSZA
+  // wartosc z poprzedniego miesiaca (dominanta, jak w suggestTargetFromPlan)
+  // i przypisujemy ja do WSZYSTKICH wystapien tego dnia tygodnia w nowym
+  // miesiacu.
   Object.keys(prevEntry).forEach(function(st) {
     newEntry[st] = {};
     Object.keys(prevEntry[st]).forEach(function(sh) {
-      newEntry[st][sh] = {};
+      var byWeekday = {}; // 0=pon..6=nd -> { wartosc: liczba wystapien }
       Object.keys(prevEntry[st][sh]).forEach(function(iso) {
-        var dayNum = Number(iso.split('-')[2]);
-        if (dayNum <= thisDays) newEntry[st][sh][dateISO(y, m, dayNum)] = prevEntry[st][sh][iso];
+        var v = Number(prevEntry[st][sh][iso]) || 0;
+        if (v <= 0) return;
+        var p = iso.split('-');
+        var wd = (new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay() + 6) % 7;
+        if (!byWeekday[wd]) byWeekday[wd] = {};
+        byWeekday[wd][v] = (byWeekday[wd][v] || 0) + 1;
       });
+      var modeByWeekday = {};
+      Object.keys(byWeekday).forEach(function(wd) {
+        var counts = byWeekday[wd], best = null, bestCount = 0;
+        Object.keys(counts).forEach(function(v) { if (counts[v] > bestCount) { bestCount = counts[v]; best = Number(v); } });
+        modeByWeekday[wd] = best;
+      });
+      newEntry[st][sh] = {};
+      for (var d = 1; d <= thisDays; d++) {
+        var wd2 = (new Date(y, m, d).getDay() + 6) % 7;
+        if (modeByWeekday[wd2] !== undefined) newEntry[st][sh][dateISO(y, m, d)] = modeByWeekday[wd2];
+      }
     });
   });
   STATE.plan[monthKey(STATE.viewMonth)] = newEntry;
   render();
   markDirty();
-  showToast('Skopiowano z poprzedniego miesiąca — pamiętaj kliknąć "Zapisz plan"! · 已从上月复制 — 别忘了点击"保存计划"!', 'ok');
+  showToast('Skopiowano z poprzedniego miesiąca (wg dni tygodnia) — pamiętaj kliknąć "Zapisz plan"! · 已按星期从上月复制 — 别忘了点击"保存计划"!', 'ok');
 }
 
 function getFeishuConfig() {

@@ -306,6 +306,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
         <a href="CFM_plan.html">&#128197; Plan <span class="cn">· 计划</span></a>
         <a href="CFM_obsada.html">&#128101; Obsada <span class="cn">· 排班</span></a>
         <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">· 库存</span></a>
+      <a href="CFM_magazyn.html">&#128712; Magazyn <span class="cn">· 仓库</span></a>
       </div>
     </div>
   </div>
@@ -864,9 +865,19 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
 
   <!-- PIN -->
   <div class="admin-section" id="admin-pin">
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Zmie&#324; PIN <span class="cn">&#183; &#20462;&#25913;&#23494;&#30721;</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Trzy niezale&#380;ne PINy — ka&#380;dy chroni inn&#261; grup&#281; stron. <span class="cn">&#183; 三个独立密码 — 各自保护不同页面。</span></div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">Panel Admina <span class="cn">&#183; &#31649;&#29702;&#38754;&#26495;</span></div>
     <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN <span class="cn">&#183; &#24403;&#21069;</span>PIN: <strong id="currentPinDisplay" style="color:var(--text);">****</strong></div>
-    <div class="pin-row"><input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN &#183; &#26032;PIN"><button class="pin-btn" onclick="savePin()">Zmie&#324; <span class="cn">&#183; &#20462;&#25913;</span></button></div>
+    <div class="pin-row" style="margin-bottom:20px;"><input class="pin-input" type="password" id="newPinInput" placeholder="Nowy PIN &#183; &#26032;PIN"><button class="pin-btn" onclick="savePinFor('cfm_pin', 'newPinInput', 'currentPinDisplay')">Zmie&#324; <span class="cn">&#183; &#20462;&#25913;</span></button></div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">Raporty <span class="cn">(Premie/Plan/Obsada/Inwentarz) &#183; &#25253;&#34920;</span></div>
+    <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN <span class="cn">&#183; &#24403;&#21069;</span>PIN: <strong id="currentPinRaportyDisplay" style="color:var(--text);">****</strong></div>
+    <div class="pin-row" style="margin-bottom:20px;"><input class="pin-input" type="password" id="newPinRaportyInput" placeholder="Nowy PIN &#183; &#26032;PIN"><button class="pin-btn" onclick="savePinFor('cfm_pin_raporty', 'newPinRaportyInput', 'currentPinRaportyDisplay')">Zmie&#324; <span class="cn">&#183; &#20462;&#25913;</span></button></div>
+
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">Magazyn <span class="cn">&#183; &#20179;&#24211;</span></div>
+    <div style="font-size:11px;color:#555;margin-bottom:8px;">Obecny PIN <span class="cn">&#183; &#24403;&#21069;</span>PIN: <strong id="currentPinMagazynDisplay" style="color:var(--text);">****</strong></div>
+    <div class="pin-row"><input class="pin-input" type="password" id="newPinMagazynInput" placeholder="Nowy PIN &#183; &#26032;PIN"><button class="pin-btn" onclick="savePinFor('cfm_pin_magazyn', 'newPinMagazynInput', 'currentPinMagazynDisplay')">Zmie&#324; <span class="cn">&#183; &#20462;&#25913;</span></button></div>
   </div>
 </div>
 
@@ -3206,7 +3217,7 @@ function pinOverlayConfirm() {
   var el = document.getElementById('feishuStatusLine');
   if (fc.proxy && fc.sheetToken) el.innerHTML = '<div class="feishu-status ok">● Feishu skonfigurowane</div>';
   else el.innerHTML = '<div class="feishu-status off">● Brak konfiguracji Feishu</div>';
-  var d = document.getElementById('currentPinDisplay'); if (d) d.textContent = localStorage.getItem('cfm_pin') || '1234';
+  refreshPinDisplays();
 }
 function pinOverlayClose() { document.getElementById('pinOverlay').classList.remove('open'); document.getElementById('pinOverlayInput').value = ''; }
 function closeAdmin() { document.getElementById('adminPanel').classList.remove('open'); document.getElementById('gearBtn').classList.remove('active'); rebuildSelects(); updateShiftDisplay(); renderScrapReasonsTable(); renderReworkReasonsTable(); renderGodzReworkReasonsTable(); }
@@ -3242,14 +3253,22 @@ function adminTab(tab) {
   document.getElementById('admin-' + tab).classList.add('active');
   if (tab === 'cele') renderStationTargetsList();
   if (tab === 'zmiany') renderShiftsUI();
-  if (tab === 'pin') { var d = document.getElementById('currentPinDisplay'); if (d) d.textContent = localStorage.getItem('cfm_pin') || '1234'; }
+  if (tab === 'pin') { refreshPinDisplays(); }
 }
-function savePin() {
-  var p = document.getElementById('newPinInput').value.trim();
+function refreshPinDisplays() {
+  var pairs = [['cfm_pin', 'currentPinDisplay'], ['cfm_pin_raporty', 'currentPinRaportyDisplay'], ['cfm_pin_magazyn', 'currentPinMagazynDisplay']];
+  pairs.forEach(function(pair) {
+    var d = document.getElementById(pair[1]);
+    if (d) d.textContent = localStorage.getItem(pair[0]) || '1234';
+  });
+}
+function savePinFor(key, inputId, displayId) {
+  var input = document.getElementById(inputId);
+  var p = input.value.trim();
   if (!p || p.length < 4) { showToast('PIN min. 4 znaki · PIN至少4位', 'err'); return; }
-  localStorage.setItem('cfm_pin', p);
-  document.getElementById('newPinInput').value = '';
-  var d = document.getElementById('currentPinDisplay'); if (d) d.textContent = p;
+  localStorage.setItem(key, p);
+  input.value = '';
+  var d = document.getElementById(displayId); if (d) d.textContent = p;
   showToast('PIN zmieniony! · PIN已修改!', 'ok');
 }
 

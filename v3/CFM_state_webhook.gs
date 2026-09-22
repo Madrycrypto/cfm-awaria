@@ -89,6 +89,37 @@ function sendFeishuBotMessage_(text, webhookUrl) {
   }
 }
 
+// ── TELEGRAM BOT (push do magazyniera na zablokowany telefon) ─────────
+// Feishu (wyzej) trafia na chat, ale na ZABLOKOWANYM telefonie nie budzi
+// go dzwiekiem/wibracja jesli magazynier nie ma tam konta/appki. Telegram
+// jako pelnoprawny komunikator POKAZUJE prawdziwe powiadomienie systemowe
+// (dzwiek+wibracja) nawet na zablokowanym ekranie - dlatego TYLKO alerty
+// "Brak materialu" (wymagajace natychmiastowej reakcji magazyniera) ida
+// dodatkowo i tutaj, patrz koniec handleAwariaStart ponizej.
+//
+// Jednorazowa konfiguracja (u Ciebie, nie u magazyniera):
+//   1. W Telegramie wyszukaj @BotFather, wyslij /newbot, podaj nazwe bota
+//      - dostaniesz TOKEN (cos jak "123456789:ABCdef...").
+//   2. Zaloz grupe (np. "CFM Magazyn"), dodaj do niej magazyniera i tego
+//      bota, wyslij w niej dowolna wiadomosc (bot musi "zobaczyc" grupe).
+//   3. Wejdz w przegladarce na
+//      https://api.telegram.org/bot<TWOJ_TOKEN>/getUpdates
+//      i znajdz w odpowiedzi "chat":{"id": -100..., ...} - to CHAT_ID.
+//   4. Wklej oba ponizej i zapisz w edytorze Apps Script.
+var TELEGRAM_BOT_TOKEN = '8685869577:AAEXqWNXgGRQD9akz193C6pmOoKMW_3BZsk';
+var TELEGRAM_CHAT_ID = '-5140411164'; // grupa "CFM Magazyn"
+function sendTelegramMessage_(text) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+  try {
+    UrlFetchApp.fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text }),
+      muteHttpExceptions: true
+    });
+  } catch (e) {}
+}
+
 function doGet(e) {
   var p = (e && e.parameter) || {};
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -650,6 +681,9 @@ function handleAwariaStart(ss, p) {
     status: 'OTWARTA', operator: p.operator || '', shift: p.shift || '', type_cn: tr.cn,
   });
   sendFeishuBotMessage_('🔧 ALERT START / 警报开始\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
+  if (String(p.typ || '').indexOf('Brak materiału') === 0) {
+    sendTelegramMessage_('🚨 BRAK MATERIAŁU\n' + (p.stanowisko || '?') + ' — ' + (p.typ || '') + (p.operator ? '\nZgłosił: ' + p.operator : ''));
+  }
   return jsonResponse({ status: 'ok' });
 }
 

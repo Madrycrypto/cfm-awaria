@@ -327,6 +327,13 @@ applyLangVisibility();
 // CFM_R_DZIENNY_V3.html (applyFactoryDefaults) i CFM_awaria_app.html.
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
+// Prosty token wspoldzielony z backendem (Script Properties, API_TOKEN) -
+// dopoki nie ustawisz go w obu miejscach (tu i w Apps Script), wszystko
+// dziala jak wczesniej (backend ignoruje brak tokenu, gdy sam nie ma go
+// skonfigurowanego). Ustawiany raz w Panelu Admina (Raport dzienny),
+// wspoldzielony przez localStorage z pozostalymi stronami tego samego
+// pochodzenia (originu).
+function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
 
 var STATE = { monthDate: new Date(), rows: [], reworkRows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {} };
 
@@ -358,7 +365,7 @@ function init() {
   // nawet tych bez wpisow w danym okresie — nie tylko OP40 OUT, ktore
   // celowo pomijamy, bo jego cel i tak jest zawsze kopia OP40 IN) — nie
   // trzeba tego odswiezac co 45s razem z reszta, wystarczy raz na start.
-  fetch(wh + '?event_type=GET_USTAWIENIA')
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=GET_USTAWIENIA')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var u = (data && data.ustawienia) || {};
@@ -406,7 +413,7 @@ function loadStockLevel() {
   var firstDate = countDates[0];
   var todayISO = toISO(new Date());
   var wh = getWH();
-  fetch(wh + '?event_type=STATYSTYKI&start=' + firstDate + '&end=' + todayISO)
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=STATYSTYKI&start=' + firstDate + '&end=' + todayISO)
     .then(function(res) { return res.json(); })
     .then(function(data) {
       if (data.status !== 'ok') return;
@@ -464,7 +471,7 @@ function loadMonth(opts) {
   var start = STATE.weeks.length ? STATE.weeks[0].start : mr.start;
   var end = STATE.weeks.length ? STATE.weeks[STATE.weeks.length - 1].end : mr.end;
   if (!opts.silent) document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
-  fetch(wh + '?event_type=STATYSTYKI&start=' + start + '&end=' + end)
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=STATYSTYKI&start=' + start + '&end=' + end)
     .then(function(res) { return res.json(); })
     .then(function(data) {
       var liveEl = document.getElementById('liveStatus');
@@ -1350,7 +1357,7 @@ function saveWorktimeKorekta(station, shift, dateIso, value) {
   var wh = getWH();
   fetch(wh, {
     method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_statystyki_worktime', wartosc: JSON.stringify(STATE.worktimeKorekty) })
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_statystyki_worktime', wartosc: JSON.stringify(STATE.worktimeKorekty) })
   }).catch(function() {});
   render();
 }

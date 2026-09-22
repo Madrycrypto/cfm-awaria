@@ -272,6 +272,13 @@ applyLangVisibility();
 // profilu/trybu incognito). Ten sam wzorzec co CFM_R_DZIENNY_V3.html.
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
+// Prosty token wspoldzielony z backendem (Script Properties, API_TOKEN) -
+// dopoki nie ustawisz go w obu miejscach (tu i w Apps Script), wszystko
+// dziala jak wczesniej (backend ignoruje brak tokenu, gdy sam nie ma go
+// skonfigurowanego). Ustawiany raz w Panelu Admina (Raport dzienny),
+// wspoldzielony przez localStorage z pozostalymi stronami tego samego
+// pochodzenia (originu).
+function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
 
 var STATE = { monthDate: new Date(), rows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {} };
 
@@ -299,7 +306,7 @@ function init() {
     document.getElementById('app').innerHTML = '<div class="empty">Nie skonfigurowano połączenia na tym urządzeniu.<br><span class="cn">此设备尚未配置连接。</span><br><br>Otwórz główną apkę CFM &#8594; Panel Admina &#8594; Połączenie, skonfiguruj Webhook URL, wróć tutaj i odśwież stronę.<br><span class="cn">打开CFM主应用 &#8594; 管理面板 &#8594; 连接，配置Webhook网址，然后返回此页面刷新。</span></div>';
     return;
   }
-  fetch(wh + '?event_type=GET_USTAWIENIA')
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=GET_USTAWIENIA')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var u = (data && data.ustawienia) || {};
@@ -334,7 +341,7 @@ function loadMonth(opts) {
   var start = STATE.weeks.length ? STATE.weeks[0].start : mr.start;
   var end = STATE.weeks.length ? STATE.weeks[STATE.weeks.length - 1].end : mr.end;
   if (!opts.silent) document.getElementById('app').innerHTML = '<div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>';
-  fetch(wh + '?event_type=STATYSTYKI&start=' + start + '&end=' + end)
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=STATYSTYKI&start=' + start + '&end=' + end)
     .then(function(res) { return res.json(); })
     .then(function(data) {
       var liveEl = document.getElementById('liveStatus');

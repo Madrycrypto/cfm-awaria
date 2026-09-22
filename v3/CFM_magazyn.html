@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0d0d0d">
+<title>CFM · Magazyn</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
+  --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
+  --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
+  --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
+body{padding-bottom:60px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+.cn{font-family:var(--fc);color:var(--faint);font-weight:400}
+::selection{background:var(--blue);color:#fff}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar-inner{max-width:1000px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
+.navmenu-wrap{position:relative}
+.navmenu-btn{background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:16px;padding:3px 9px;cursor:pointer;line-height:1.6}
+.navmenu-btn:hover{color:var(--text)}
+.navmenu-dropdown{display:none;position:absolute;top:calc(100% + 6px);left:0;background:#161616;border:1px solid var(--border);border-radius:10px;padding:6px;min-width:180px;flex-direction:column;gap:2px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.navmenu-dropdown.open{display:flex}
+.navmenu-dropdown a{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:var(--muted);text-decoration:none;padding:9px 10px;border-radius:7px;white-space:nowrap}
+.navmenu-dropdown a:hover{color:var(--text);background:var(--surface-2)}
+.navmenu-dropdown a.on{color:#fff;background:var(--blue)}
+.topbar-right{margin-left:auto;font-size:12px;color:var(--faint);text-align:right;line-height:1.4}
+.topbar-right .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-weight:600}
+.topbar-right .live.off{color:var(--red)}
+.langtoggle{display:flex;gap:6px}
+.langflag{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:15px;line-height:1;cursor:pointer;transition:opacity .15s,filter .15s}
+.langflag:hover{border-color:var(--muted)}
+.langflag.off{opacity:.3;filter:grayscale(1)}
+body.hide-pl .pl{display:none}
+body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria-btn-cn,body.hide-cn .view-switch-cn,body.hide-cn .warn-title-cn{display:none}
+.live-pulse{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live-pulse{animation:none}}
+
+.pagehead{padding:28px 0 18px}
+h1{font-family:var(--fh);font-weight:800;font-size:30px;letter-spacing:0.2px}
+h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
+.sub{color:var(--muted);font-size:14px;margin-top:4px;line-height:1.6}
+
+.section{margin-bottom:26px}
+.section-head{margin-bottom:12px}
+.section-head h2{font-family:var(--fh);font-weight:700;font-size:19px;letter-spacing:0.2px}
+.section-head h2 .cn{font-family:var(--fc);font-size:13px;font-weight:500;margin-left:6px}
+
+.tablewrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.tablescroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px}
+thead th{font-family:var(--fb);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);text-align:right;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+thead th:first-child{text-align:left}
+tbody td{padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums;font-size:13.5px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
+tbody td:first-child{text-align:left;font-weight:600;white-space:normal}
+tbody tr:last-child td{border-bottom:none}
+.countinput{width:90px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:7px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:14px;padding:7px 8px;text-align:right;font-variant-numeric:tabular-nums}
+.countinput:focus{outline:none;border-color:var(--blue)}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+.field input{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:14px;padding:9px 10px;font-variant-numeric:tabular-nums}
+.field input:focus{outline:none;border-color:var(--blue)}
+.btn-save{font-family:var(--fh);font-weight:800;font-size:13px;letter-spacing:0.03em;text-transform:uppercase;color:#fff;background:var(--blue);border:none;padding:11px 20px;border-radius:9px;cursor:pointer;margin-top:14px}
+.btn-save:hover{filter:brightness(1.1)}
+
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:40}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(26,158,80,0.4);color:#3fd17a}
+.toast.err{border-color:rgba(217,43,43,0.4);color:#ff7070}
+
+.empty{text-align:center;padding:60px 20px;color:var(--muted);line-height:1.8}
+
+/* Alert pilny "Brak materialu" — pulsujaca czerwona karta, widoczna od
+   razu nad reszta strony, zeby magazynier nie musial jej szukac. */
+.alertbanner{background:rgba(217,43,43,0.1);border:1.5px solid rgba(217,43,43,0.4);border-radius:12px;padding:14px 16px;margin-bottom:20px;animation:alertpulse 1.6s ease-in-out infinite}
+@keyframes alertpulse{0%,100%{border-color:rgba(217,43,43,0.4)}50%{border-color:rgba(217,43,43,0.85)}}
+@media (prefers-reduced-motion:reduce){.alertbanner{animation:none}}
+.alertbanner-title{font-family:var(--fh);font-weight:800;font-size:15px;color:#ff7070;letter-spacing:0.02em;margin-bottom:10px}
+.alertitem{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.alertitem:last-child{margin-bottom:0}
+.alertitem-txt{font-size:13.5px;line-height:1.4}
+.alertitem-txt b{font-weight:700}
+.alertitem-time{font-size:11px;color:var(--muted)}
+.btn-ack{flex-shrink:0;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-family:var(--fh);font-weight:700;font-size:12px;letter-spacing:0.03em;text-transform:uppercase;padding:8px 14px;border-radius:7px;cursor:pointer}
+.btn-ack:hover{border-color:var(--blue-soft)}
+
+/* Przeglad dzienny — lista czesci z obliczona projekcja + OK/NOK */
+.partrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.partrow-info{flex:1 1 220px;min-width:180px}
+.partrow-name{font-weight:700;font-size:14px}
+.partrow-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
+.partrow-qty{flex:0 0 auto;text-align:right;min-width:130px}
+.partrow-qty .n{font-family:var(--fh);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums}
+.partrow-qty .n.neg{color:var(--red)}
+.partrow-qty .cov{font-size:11px;color:var(--muted)}
+.partrow-actions{display:flex;gap:8px;flex:0 0 auto}
+.btn-ok,.btn-nok{font-family:var(--fh);font-weight:800;font-size:13px;letter-spacing:0.03em;text-transform:uppercase;border:none;padding:10px 16px;border-radius:8px;cursor:pointer}
+.btn-ok{background:var(--green);color:#fff}
+.btn-nok{background:rgba(217,43,43,0.15);border:1px solid rgba(217,43,43,0.4);color:#ff7070}
+.btn-ok:hover,.btn-nok:hover{filter:brightness(1.1)}
+.partrow.confirmed-ok{border-color:rgba(26,158,80,0.35)}
+.partrow.confirmed-nok{border-color:rgba(217,43,43,0.5)}
+.confirm-badge{font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;padding:3px 8px;border-radius:5px;flex:0 0 auto}
+.confirm-badge.ok{background:rgba(26,158,80,0.18);color:#3fd17a}
+.confirm-badge.nok{background:rgba(217,43,43,0.18);color:#ff7070}
+.confirm-badge.none{background:rgba(154,154,154,0.15);color:var(--muted)}
+.nodata-hint{font-size:12px;color:var(--faint)}
+
+/* Modal wpisania rzeczywistego braku przy NOK */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:340px;max-width:100%}
+.modal-title{font-family:var(--fh);font-weight:800;font-size:18px;margin-bottom:4px}
+.modal-sub{font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.modal-actions{display:flex;gap:8px;margin-top:16px}
+.modal-actions button{flex:1;font-family:var(--fh);font-weight:800;font-size:14px;letter-spacing:0.03em;text-transform:uppercase;border:none;padding:11px;border-radius:8px;cursor:pointer}
+.modal-btn-cancel{background:var(--surface-2);color:var(--muted);border:1px solid var(--border) !important}
+.modal-btn-confirm{background:var(--red);color:#fff}
+
+@media (max-width:760px){
+  h1{font-size:24px}
+  .partrow-qty{text-align:left;min-width:0}
+  /* flex-direction:column obraca os glowna na pionowa - flex-basis
+     ustawiony na desktopie z mysla o SZEROKOSCI (np. "220px" na
+     .partrow-info) zaczalby wtedy dzialac jako WYSOKOSC, robiac karte
+     absurdalnie wysoka. flex:0 0 auto na wszystkich dzieciach usuwa ten
+     bazowy rozmiar, zeby wysokosc kazdego wynikala tylko z tresci. */
+  .partrow{flex-direction:column;align-items:stretch;gap:8px}
+  .partrow-info,.partrow-qty,.nodata-hint{flex:0 0 auto}
+  .partrow-actions{width:100%;flex:0 0 auto}
+  .btn-ok,.btn-nok{flex:1}
+}
+
+/* Brama PINem — WLASNY PIN "Magazyn" (localStorage cfm_pin_magazyn),
+   osobny od PIN-u Panelu Admina i od PIN-u Raporty (Premie/Plan/Obsada/
+   Inwentarz). Overlay WIDOCZNY DOMYSLNIE, jak w pozostalych chronionych
+   stronach — patrz identyczny komentarz w CFM_inwentarz.html. */
+.pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:500;display:flex;align-items:center;justify-content:center}
+.pin-overlay.hidden{display:none}
+.pin-dialog{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 22px;width:300px;max-width:90vw;text-align:center}
+.pin-dialog-title{font-family:var(--fh);font-size:22px;font-weight:900;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px}
+.pin-dialog-sub{font-size:12px;color:var(--muted);margin-bottom:18px;font-family:var(--fb)}
+.pin-dialog-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fh);font-size:28px;letter-spacing:0.25em;text-align:center;padding:14px;margin-bottom:14px}
+.pin-dialog-err{display:none;color:var(--red);font-size:12px;margin-bottom:10px}
+.pin-dialog-ok{width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:18px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;padding:13px;cursor:pointer}
+.pin-dialog-back{display:block;margin-top:14px;font-size:12px;color:var(--muted);text-decoration:none}
+.pin-dialog-back:hover{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="pin-overlay" id="pinGateOverlay">
+  <div class="pin-dialog">
+    <div class="pin-dialog-title">&#128274; DOSTĘP</div>
+    <div class="pin-dialog-sub">Podaj PIN, żeby wejść <span class="cn">&#183; 请输入</span>PIN进入</div>
+    <input class="pin-dialog-input" type="password" id="pinGateInput" placeholder="&#8226;&#8226;&#8226;&#8226;" maxlength="8" onkeydown="if(event.key==='Enter')pinGateConfirm()">
+    <div class="pin-dialog-err" id="pinGateErr">Błędny PIN &#183; PIN错误</div>
+    <button class="pin-dialog-ok" onclick="pinGateConfirm()">WEJDŹ <span class="cn">&#183; 进入</span></button>
+    <a href="CFM_R_DZIENNY_V3.html" class="pin-dialog-back">&#8592; Wróć do Raportu dziennego <span class="cn">&#183; 返回日报</span></a>
+  </div>
+</div>
+<script>if(sessionStorage.getItem('cfm_magazyn_unlocked')==='1'){document.getElementById('pinGateOverlay').classList.add('hidden');}</script>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo"><span class="dot"></span>CFM</div>
+    <div class="navmenu-wrap">
+      <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
+      <div class="navmenu-dropdown" id="navmenuDropdown">
+      <a href="CFM_dashboard.html">&#128202; Dashboard <span class="cn">· 仪表盘</span></a>
+      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny <span class="cn">· 日报</span></a>
+      <a href="CFM_statystyki.html">&#128200; Statystyki <span class="cn">· 统计</span></a>
+      <a href="CFM_oee.html">&#9881;&#65039; OEE <span class="cn">· 效率</span></a>
+      <a href="CFM_premie.html">&#128176; Premie <span class="cn">· 奖金</span></a>
+      <a href="CFM_plan.html">&#128197; Plan <span class="cn">· 计划</span></a>
+      <a href="CFM_obsada.html">&#128101; Obsada <span class="cn">· 排班</span></a>
+      <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">· 库存</span></a>
+      <a href="CFM_magazyn.html" class="on">&#128712; Magazyn <span class="cn">· 仓库</span></a>
+      </div>
+    </div>
+    <div class="langtoggle">
+      <button type="button" class="langflag" data-lang="pl" title="Polski">&#127477;&#127473;</button>
+      <button type="button" class="langflag" data-lang="cn" title="&#20013;&#25991;">&#127464;&#127475;</button>
+    </div>
+    <div class="topbar-right">
+      <div class="live" id="liveStatus"><span class="live-pulse"></span>łączenie&#8230; <span class="cn">连接中&#8230;</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="app">
+  <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="nokModal">
+  <div class="modal-box">
+    <div class="modal-title">Ile faktycznie brakuje? <span class="cn">·实际缺少多少？</span></div>
+    <div class="modal-sub" id="nokModalPart"></div>
+    <div class="field"><label>Ilość <span class="cn">&#183; 数量</span></label><input type="number" min="0" id="nokQtyInput" placeholder="np. 200"></div>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" onclick="closeNokModal()">Anuluj <span class="cn">&#183; 取消</span></button>
+      <button class="modal-btn-confirm" onclick="confirmNok()">Zatwierdź NOK <span class="cn">&#183; 确认NOK</span></button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── PRZELACZNIK JEZYKA (PL/CN) — identyczny mechanizm jak w reszcie apki,
+// patrz obszerny komentarz w CFM_inwentarz.html.
+var LANG_STATE = (function() {
+  try { return Object.assign({ pl: true, cn: true }, JSON.parse(localStorage.getItem('cfm_lang_visibility') || '{}')); }
+  catch (e) { return { pl: true, cn: true }; }
+})();
+function wrapPlTextNodes(root) {
+  root.querySelectorAll('.cn, .cn-line, .cn-sub, .awaria-btn-cn, .view-switch-cn, .warn-title-cn').forEach(function(cnEl) {
+    var prev = cnEl.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3) {
+        if (prev.nodeValue.trim()) {
+          var span = document.createElement('span');
+          span.className = 'pl';
+          prev.parentNode.insertBefore(span, prev);
+          span.appendChild(prev);
+          break;
+        }
+        prev = prev.previousSibling;
+        continue;
+      }
+      if (prev.nodeType === 1) break;
+      prev = prev.previousSibling;
+    }
+  });
+}
+function applyLangVisibility() {
+  document.body.classList.toggle('hide-pl', !LANG_STATE.pl);
+  document.body.classList.toggle('hide-cn', !LANG_STATE.cn);
+  document.querySelectorAll('.langflag').forEach(function(b) { b.classList.toggle('off', !LANG_STATE[b.dataset.lang]); });
+}
+function toggleLang(lang) {
+  LANG_STATE[lang] = !LANG_STATE[lang];
+  if (!LANG_STATE.pl && !LANG_STATE.cn) LANG_STATE[lang] = true;
+  try { localStorage.setItem('cfm_lang_visibility', JSON.stringify(LANG_STATE)); } catch (e) {}
+  applyLangVisibility();
+}
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest && e.target.closest('.langflag');
+  if (btn) toggleLang(btn.dataset.lang);
+});
+(function() {
+  var busy = false;
+  new MutationObserver(function() {
+    if (busy) return;
+    busy = true;
+    wrapPlTextNodes(document.body);
+    applyLangVisibility();
+    busy = false;
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+wrapPlTextNodes(document.body);
+applyLangVisibility();
+
+function toggleNavMenu() { document.getElementById('navmenuDropdown').classList.toggle('open'); }
+document.addEventListener('click', function(e) {
+  var wrap = document.querySelector('.navmenu-wrap');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('navmenuDropdown').classList.remove('open');
+});
+
+// ── BRAMA PINEM ──────────────────────────────────────────────────────
+function pinGateConfirm() {
+  var p = document.getElementById('pinGateInput').value;
+  var sp = localStorage.getItem('cfm_pin_magazyn') || '1234';
+  var err = document.getElementById('pinGateErr');
+  if (p !== sp) { err.style.display = 'block'; document.getElementById('pinGateInput').value = ''; return; }
+  err.style.display = 'none';
+  try { sessionStorage.setItem('cfm_magazyn_unlocked', '1'); } catch (e) {}
+  document.getElementById('pinGateOverlay').classList.add('hidden');
+}
+if (sessionStorage.getItem('cfm_magazyn_unlocked') === '1') { /* juz odslonione inline w <head> */ }
+else { setTimeout(function() { var el = document.getElementById('pinGateInput'); if (el) el.focus(); }, 100); }
+
+var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
+function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
+(function() {
+  var t = new URLSearchParams(location.search).get('token');
+  if (t === null) return;
+  try { localStorage.setItem('cfm_api_token', t); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+})();
+
+// Ten sam domyslny katalog czesci co w Panelu Admina (Raport dzienny) —
+// zeby to urzadzenie widzialo sensowna liste nawet zanim ktokolwiek
+// otworzyl tam zakladke Magazyn (localStorage jest wspolny w ramach tego
+// samego originu, wiec po pierwszym zapisie tam i tak nadpisze ten default).
+var DEFAULT_MAGAZYN_PARTS = [
+  { number: '65310150-01', desc: 'Right tank', station: 'OP51/52', qty: 1, weight: '' },
+  { number: '6530149-01', desc: 'Left tank', station: 'OP51/52', qty: 1, weight: '' },
+  { number: '6530151-01', desc: 'Gasket', station: 'OP51/52', qty: 1, weight: '' },
+  { number: '6530154-01', desc: 'Core', station: 'OP51/52', qty: 1, weight: '' },
+  { number: '6530153-01', desc: 'Stone guard', station: 'GP12', qty: 1, weight: '' },
+  { number: '6530152-01', desc: 'Sealing (x1)', station: 'GP12', qty: 1, weight: '' },
+  { number: '6530152-32', desc: 'Sealing (x2)', station: 'GP12', qty: 2, weight: '' },
+  { number: '6530152-03', desc: 'Sealing (x2)', station: 'GP12', qty: 2, weight: '' },
+  { number: '6530159-01', desc: 'Header', station: 'OP33A,OP33B', qty: 1, weight: '' },
+  { number: '6530160-01', desc: 'Side plate', station: 'OP33A,OP33B', qty: 1, weight: '' },
+  { number: '90330858', desc: 'Aluminium 铝材', station: 'OP33A,OP33B', qty: 1, weight: 0.6603 },
+  { number: '90340837', desc: 'Aluminium 铝材', station: 'OP30', qty: 1, weight: 1.33308 },
+];
+function getMagazynParts() {
+  var s = localStorage.getItem('cfm_magazyn_parts');
+  if (!s) return DEFAULT_MAGAZYN_PARTS.slice();
+  try { var arr = JSON.parse(s); return arr.length ? arr : DEFAULT_MAGAZYN_PARTS.slice(); } catch (e) { return DEFAULT_MAGAZYN_PARTS.slice(); }
+}
+
+var STATE = { parts: [], magazynStany: {}, potwierdzenia: {}, monthlyPlan: {}, stationTargets: {}, rows: [], openAlertsSeen: [] };
+var HORIZON_DAYS = 30;
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function isoToDate(iso) { var p = iso.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
+function enumerateDays(startIso, endIso) {
+  var days = [];
+  var cursor = isoToDate(startIso);
+  var end = isoToDate(endIso);
+  while (cursor <= end) { days.push(toISO(cursor)); cursor = addDays(cursor, 1); }
+  return days;
+}
+function fmt(n) { return n === null || n === undefined ? '&#8212;' : Math.round(n).toLocaleString('pl-PL'); }
+function showToast(msg, kind) {
+  var t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.className = 'toast show ' + (kind || '');
+  setTimeout(function() { t.className = 'toast ' + (kind || ''); }, 2400);
+}
+
+// ── PROJEKCJA ZUZYCIA CZESCI (dokladnie ten sam "walk" co Bufor w
+// Inwentarzu, ale ODEJMUJACY od fizycznego stanu zamiast dokladajacy —
+// magazyn czesci NIE ma tu sledzonych dostaw, wiec model jest czysto
+// deplecyjny: ostatnia inwentaryzacja - zuzycie (Plan x BOM) dzien po
+// dniu. "Efekt tego samego dnia" WBUDOWANY na stale (nie ma przelacznika
+// jak w Buforze) — inwentaryzacje robi sie rano, a zuzycie danego dnia
+// dzieje sie W CIAGU tego samego dnia, wiec od razu obniza saldo tego
+// dnia, nie dopiero nastepnego (patrz ustalenia z Bufora chlodnic).
+function planSumForDayWithFallback(station, dateIso) {
+  station = String(station || '').trim();
+  var mk = dateIso.slice(0, 7);
+  var stPlan = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station];
+  var sum = 0, any = false;
+  if (stPlan) {
+    Object.keys(stPlan).forEach(function(shift) {
+      var v = stPlan[shift] && stPlan[shift][dateIso];
+      if (v !== undefined) { sum += Number(v) || 0; any = true; }
+    });
+  }
+  if (any) return sum;
+  return Number(STATE.stationTargets[station]) || 0;
+}
+function actualSumForDay(rows, station, dateIso) {
+  var target = String(station || '').trim();
+  var sum = 0, has = false;
+  rows.forEach(function(r) { if (String(r.station || '').trim() === target && r.date === dateIso) { sum += Number(r.qty) || 0; has = true; } });
+  return has ? sum : null;
+}
+// Zuzycie CZESCI danego dnia = suma (produkcja stanowiska(-) x ilosc czesci
+// na sztuke) po wszystkich stanowiskach zmapowanych do tej czesci (przy
+// kilku, np. "OP33A,OP33B" - obie razem, bo to ten sam fizyczny zapas).
+function partConsumptionForDay(part, dateIso, rows, todayISO) {
+  var stations = String(part.station || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+  var units = 0;
+  var isFuture = dateIso > todayISO;
+  stations.forEach(function(st) {
+    var a = isFuture ? null : actualSumForDay(rows, st, dateIso);
+    units += a !== null ? a : planSumForDayWithFallback(st, dateIso);
+  });
+  return units * (Number(part.qty) || 1);
+}
+// Zwraca { balanceToday, runOutDate, coverageDays, lastCountDate } albo
+// null jesli dla tej czesci nie ma jeszcze ZADNEJ zapisanej inwentaryzacji.
+function computePartProjection(part, todayISO) {
+  var stany = STATE.magazynStany[part.number] || {};
+  var pastCountDates = Object.keys(stany).filter(function(d) { return d <= todayISO; }).sort();
+  if (!pastCountDates.length) return null;
+  var lastCountDate = pastCountDates[pastCountDates.length - 1];
+  var endIso = toISO(addDays(isoToDate(todayISO), HORIZON_DAYS));
+  var days = enumerateDays(lastCountDate, endIso);
+  var running = Number(stany[lastCountDate]) || 0;
+  var balanceToday = running;
+  var runOutDate = null;
+  days.forEach(function(d) {
+    var countToday = stany[d] !== undefined ? Number(stany[d]) : null;
+    if (countToday !== null && d !== lastCountDate) running = countToday;
+    running -= partConsumptionForDay(part, d, STATE.rows, todayISO);
+    if (d <= todayISO) balanceToday = running;
+    if (runOutDate === null && running < 0) runOutDate = d;
+  });
+  var coverageDays = null;
+  if (runOutDate) coverageDays = enumerateDays(todayISO, runOutDate).length - 1;
+  return { balanceToday: balanceToday, runOutDate: runOutDate, coverageDays: coverageDays, lastCountDate: lastCountDate };
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────
+function init() {
+  STATE.parts = getMagazynParts();
+  var liveEl = document.getElementById('liveStatus');
+  var wh = getWH();
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { showConnError(); return; }
+      var u = data.ustawienia || {};
+      try { STATE.magazynStany = JSON.parse(u.cfm_magazyn_stany || '{}'); } catch (e) { STATE.magazynStany = {}; }
+      try { STATE.potwierdzenia = JSON.parse(u.cfm_magazyn_potwierdzenia || '{}'); } catch (e) { STATE.potwierdzenia = {}; }
+      try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
+      try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
+      if (u.cfm_magazyn_parts) { try { localStorage.setItem('cfm_magazyn_parts', u.cfm_magazyn_parts); STATE.parts = getMagazynParts(); } catch (e) {} }
+      try { STATE.openAlertsSeen = JSON.parse(localStorage.getItem('cfm_magazyn_seen_alerts') || '[]'); } catch (e) { STATE.openAlertsSeen = []; }
+      liveEl.className = 'live';
+      liveEl.innerHTML = '<span class="live-pulse"></span>połączono <span class="cn">已连接</span>';
+      loadActualsAndRender();
+      pollAlerts();
+      setInterval(pollAlerts, 20000);
+    })
+    .catch(function() { showConnError(); });
+}
+function showConnError() {
+  var liveEl = document.getElementById('liveStatus');
+  liveEl.className = 'live off';
+  liveEl.innerHTML = '<span class="live-pulse"></span>błąd połączenia <span class="cn">连接错误</span>';
+  document.getElementById('app').innerHTML = '<div class="empty">Błąd połączenia z serwerem. <span class="cn">服务器连接错误。</span></div>';
+}
+// Pobiera RZECZYWISTA produkcje (wszystkie stanowiska, nie tylko jedno)
+// od najwczesniejszej zapisanej inwentaryzacji czesci do dzis — potrzebna
+// jako "actual" polowa modelu depletion w computePartProjection.
+function loadActualsAndRender() {
+  var todayISO = toISO(new Date());
+  var allCountDates = [];
+  Object.keys(STATE.magazynStany).forEach(function(num) {
+    Object.keys(STATE.magazynStany[num]).forEach(function(d) { allCountDates.push(d); });
+  });
+  var startIso = allCountDates.length ? allCountDates.sort()[0] : todayISO;
+  var wh = getWH();
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=STATYSTYKI&start=' + startIso + '&end=' + todayISO)
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      STATE.rows = (data.status === 'ok' && data.historia) || [];
+      renderApp();
+    })
+    .catch(function() { STATE.rows = []; renderApp(); });
+}
+
+// ── ALERT "BRAK MATERIALU" (czas rzeczywisty) ───────────────────────
+// Odswiezany pollingiem co 20s (magazynier nie ma Feishu, wiec to jedyny
+// kanal) — kazdy nowy, jeszcze niewidziany alert dostaje dzwiek. "Widziany"
+// = lokalna, per-urzadzenie lista w localStorage (nie synchronizowana z
+// serwerem): awaria sama znika z AWARIE_OTWARTE gdy operator na hali ja
+// zamknie (material dojechal, produkcja wznowiona), wiec nie potrzeba
+// trwalego, wspoldzielonego statusu "odebrane" - to czysto UI wygoda,
+// zeby nie piszczalo przy KAZDYM pollu dla tej samej, juz zauwazonej awarii.
+function alertKey(a) { return a.station + '|' + a.start_timestamp; }
+function pollAlerts() {
+  var wh = getWH();
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=AWARIE_OTWARTE')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') return;
+      var brak = (data.otwarte || []).filter(function(a) { return String(a.type || '').indexOf('Brak materiału') === 0; });
+      var unseen = brak.filter(function(a) { return STATE.openAlertsSeen.indexOf(alertKey(a)) < 0; });
+      renderAlertBanner(unseen);
+      if (unseen.length) playAlertSound();
+    })
+    .catch(function() {});
+}
+function renderAlertBanner(brak) {
+  var el = document.getElementById('alertBannerSlot');
+  if (!el) return;
+  if (!brak.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="alertbanner"><div class="alertbanner-title">&#128680; ZGŁOSZENIE BRAKU MATERIAŁU <span class="cn">· 缺料报告</span></div>' +
+    brak.map(function(a) {
+      var d = new Date(a.start_timestamp);
+      var t = isNaN(d) ? a.start_timestamp : pad(d.getHours()) + ':' + pad(d.getMinutes());
+      return '<div class="alertitem"><div class="alertitem-txt"><b>' + a.station + '</b> &#8212; ' + a.type +
+        (a.operator ? ' &#183; ' + a.operator : '') + '<br><span class="alertitem-time">zgłoszono ' + t + '</span></div>' +
+        '<button class="btn-ack" onclick="ackAlert(\'' + alertKey(a).replace(/'/g, "\\'") + '\')">Odebrano <span class="cn">&#183; 已收到</span></button></div>';
+    }).join('') + '</div>';
+}
+function ackAlert(key) {
+  if (STATE.openAlertsSeen.indexOf(key) < 0) STATE.openAlertsSeen.push(key);
+  try { localStorage.setItem('cfm_magazyn_seen_alerts', JSON.stringify(STATE.openAlertsSeen)); } catch (e) {}
+  pollAlerts();
+}
+function playAlertSound() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.22].forEach(function(delay) {
+      var osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.type = 'square'; osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + delay); osc.stop(ctx.currentTime + delay + 0.2);
+    });
+  } catch (e) {}
+}
+
+// ── RENDER GLOWNY ────────────────────────────────────────────────────
+function renderApp() {
+  var app = document.getElementById('app');
+  app.innerHTML =
+    '<div class="pagehead"><h1>Magazyn <span class="cn">仓库</span></h1><div class="sub">Alerty o braku materiału z hali oraz comiesięczna inwentaryzacja części z automatyczną projekcją zapotrzebowania z Planu. <span class="cn">来自车间的缺料警报，以及每月零件盘点，自动根据计划预测需求。</span></div></div>' +
+    '<div id="alertBannerSlot"></div>' +
+    '<div class="section"><div class="section-head"><h2>Inwentaryzacja fizyczna<span class="cn">实物盘点</span></h2></div>' + inventoryFormHtml() + '</div>' +
+    '<div class="section"><div class="section-head"><h2>Przegląd dzienny<span class="cn">每日审核</span></h2></div>' + projectionListHtml() + '</div>';
+  wireInventoryForm();
+}
+function inventoryFormHtml() {
+  var todayISO = toISO(new Date());
+  return '<div class="tablewrap"><div class="tablescroll"><table><thead><tr>' +
+    '<th>Część<span class="cn">零件</span></th><th>Ostatnia inwent.<span class="cn">上次盘点</span></th><th>Ilość dzisiaj<span class="cn">今日数量</span></th>' +
+    '</tr></thead><tbody>' +
+    STATE.parts.map(function(p, i) {
+      var stany = STATE.magazynStany[p.number] || {};
+      var dates = Object.keys(stany).sort();
+      var last = dates.length ? dates[dates.length - 1] : null;
+      var lastTxt = last ? fmt(stany[last]) + ' (' + last.split('-').slice(1).reverse().join('/') + ')' : '&#8212;';
+      return '<tr><td>' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + '</td><td>' + lastTxt + '</td>' +
+        '<td><input type="number" min="0" class="countinput" id="inv-' + i + '" placeholder="&#8212;"></td></tr>';
+    }).join('') +
+    '</tbody></table></div></div>' +
+    '<div class="field" style="max-width:200px;margin-top:14px;"><label>Data spisu <span class="cn">&#183; 盘点日期</span></label><input type="date" id="invDate" value="' + todayISO + '"></div>' +
+    '<button type="button" class="btn-save" onclick="saveInventoryBatch()">Zapisz inwentaryzację <span class="cn">&#183; 保存盘点</span></button>';
+}
+function wireInventoryForm() {}
+function saveInventoryBatch() {
+  var d = document.getElementById('invDate').value;
+  if (!d) { showToast('Wybierz datę <span class="cn">&#183; 请选择日期</span>', 'err'); return; }
+  var any = false;
+  STATE.parts.forEach(function(p, i) {
+    var el = document.getElementById('inv-' + i);
+    if (!el || el.value === '') return;
+    var q = Number(el.value);
+    if (isNaN(q) || q < 0) return;
+    if (!STATE.magazynStany[p.number]) STATE.magazynStany[p.number] = {};
+    STATE.magazynStany[p.number][d] = q;
+    any = true;
+  });
+  if (!any) { showToast('Wpisz przynajmniej jedną ilość <span class="cn">&#183; 请至少输入一个数量</span>', 'err'); return; }
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_magazyn_stany', wartosc: JSON.stringify(STATE.magazynStany) })
+  }).then(function() {
+    showToast('Inwentaryzacja zapisana! <span class="cn">&#183; 盘点已保存</span>!', 'ok');
+    loadActualsAndRender();
+  }).catch(function() { showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err'); });
+}
+
+function projectionListHtml() {
+  var todayISO = toISO(new Date());
+  var todaysConfirm = STATE.potwierdzenia[todayISO] || {};
+  return STATE.parts.map(function(p) {
+    var proj = computePartProjection(p, todayISO);
+    var confirm = todaysConfirm[p.number];
+    var rowClass = confirm ? (confirm.status === 'OK' ? 'confirmed-ok' : 'confirmed-nok') : '';
+    var badge = confirm
+      ? '<span class="confirm-badge ' + (confirm.status === 'OK' ? 'ok' : 'nok') + '">' + confirm.status + '</span>'
+      : '<span class="confirm-badge none">niepotwierdzone <span class="cn">&#183; 未确认</span></span>';
+    if (!proj) {
+      return '<div class="partrow ' + rowClass + '"><div class="partrow-info"><div class="partrow-name">' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + '</div>' +
+        '<div class="partrow-meta">' + (p.station || '') + '</div></div>' +
+        '<div class="nodata-hint">Brak inwentaryzacji &#8212; wpisz ją powyżej <span class="cn">&#183; 尚无盘点数据，请在上方输入</span></div></div>';
+    }
+    var qtyClass = proj.balanceToday < 0 ? 'neg' : '';
+    var covTxt = proj.coverageDays === null ? ('starczy > ' + HORIZON_DAYS + ' dni') :
+      proj.coverageDays <= 0 ? 'BRAKUJE JUŻ DZIŚ' : 'starczy na ~' + proj.coverageDays + ' dni';
+    return '<div class="partrow ' + rowClass + '">' +
+      '<div class="partrow-info"><div class="partrow-name">' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + ' ' + badge + '</div>' +
+      '<div class="partrow-meta">' + (p.station || '') + ' &#183; inwent. ' + proj.lastCountDate.split('-').slice(1).reverse().join('/') + '</div></div>' +
+      '<div class="partrow-qty"><div class="n ' + qtyClass + '">' + fmt(proj.balanceToday) + ' szt.</div><div class="cov">' + covTxt + '</div></div>' +
+      '<div class="partrow-actions">' +
+        '<button class="btn-ok" onclick="confirmOk(\'' + p.number + '\', ' + Math.round(proj.balanceToday) + ')">OK</button>' +
+        '<button class="btn-nok" onclick="openNokModal(\'' + p.number + '\')">NOK</button>' +
+      '</div></div>';
+  }).join('');
+}
+function saveConfirmation(partNumber, status, qty) {
+  var todayISO = toISO(new Date());
+  if (!STATE.potwierdzenia[todayISO]) STATE.potwierdzenia[todayISO] = {};
+  STATE.potwierdzenia[todayISO][partNumber] = { status: status, qty: qty, ts: new Date().toISOString() };
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_magazyn_potwierdzenia', wartosc: JSON.stringify(STATE.potwierdzenia) })
+  }).then(function() {
+    showToast('Potwierdzone: ' + status + '! <span class="cn">&#183; 已确认</span>', status === 'OK' ? 'ok' : 'err');
+    renderApp();
+  }).catch(function() { showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err'); });
+}
+function confirmOk(partNumber, qty) { saveConfirmation(partNumber, 'OK', qty); }
+var nokTargetPart = null;
+function openNokModal(partNumber) {
+  nokTargetPart = partNumber;
+  var p = STATE.parts.filter(function(x) { return x.number === partNumber; })[0];
+  document.getElementById('nokModalPart').textContent = partNumber + (p && p.desc ? ' — ' + p.desc : '');
+  document.getElementById('nokQtyInput').value = '';
+  document.getElementById('nokModal').classList.add('open');
+  setTimeout(function() { document.getElementById('nokQtyInput').focus(); }, 50);
+}
+function closeNokModal() { document.getElementById('nokModal').classList.remove('open'); nokTargetPart = null; }
+function confirmNok() {
+  var q = Number(document.getElementById('nokQtyInput').value);
+  if (isNaN(q) || q < 0) { showToast('Wpisz poprawną ilość <span class="cn">&#183; 请输入正确数量</span>', 'err'); return; }
+  var part = nokTargetPart;
+  closeNokModal();
+  saveConfirmation(part, 'NOK', q);
+}
+
+init();
+</script>
+</body>
+</html>

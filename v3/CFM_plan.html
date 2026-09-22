@@ -122,6 +122,15 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .difftable td{padding:5px 8px;border-bottom:1px solid var(--border-soft);font-variant-numeric:tabular-nums}
 .difftable tr.new td{color:#3fd17a}
 .difftable tr.changed td{color:#f0a030}
+.weeklydiffbox{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.weeklydiffbox-head{font-family:var(--fh);font-weight:700;font-size:12px;color:var(--muted);margin-bottom:6px}
+.weeklydiffbox-head .cn{font-family:var(--fc);font-weight:500;color:var(--faint);margin-left:4px}
+.weeklydiffrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;padding:3px 0}
+.weeklydiffrow .wlabel{font-weight:700;min-width:110px}
+.weeklydiffrow .wnums{color:var(--muted);font-variant-numeric:tabular-nums}
+.weeklydiffrow .wdelta{margin-left:auto;font-weight:800;font-variant-numeric:tabular-nums}
+.weeklydiffrow .wdelta.up{color:#ff7070}
+.weeklydiffrow .wdelta.down{color:#3fd17a}
 .diffpanel-actions{display:flex;gap:10px;margin-top:12px}
 .btn-diff{font-family:var(--fh);font-weight:800;font-size:12px;letter-spacing:0.03em;text-transform:uppercase;border-radius:8px;padding:9px 16px;cursor:pointer;border:none}
 .btn-diff.approve{background:var(--green);color:#fff}
@@ -298,6 +307,13 @@ applyLangVisibility();
 // profilu/trybu incognito). Ten sam wzorzec co CFM_R_DZIENNY_V3.html.
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
+// Prosty token wspoldzielony z backendem (Script Properties, API_TOKEN) -
+// dopoki nie ustawisz go w obu miejscach (tu i w Apps Script), wszystko
+// dziala jak wczesniej (backend ignoruje brak tokenu, gdy sam nie ma go
+// skonfigurowanego). Ustawiany raz w Panelu Admina (Raport dzienny),
+// wspoldzielony przez localStorage z pozostalymi stronami tego samego
+// pochodzenia (originu).
+function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
 var MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 var MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 var WD = ['pn','wt','śr','cz','pt','so','nd'];
@@ -353,7 +369,7 @@ function init() {
     document.getElementById('app').innerHTML = '<div class="empty">Nie skonfigurowano połączenia na tym urządzeniu.<br><span class="cn">此设备尚未配置连接。</span><br><br>Otwórz główną apkę CFM &#8594; Panel Admina &#8594; Połączenie, skonfiguruj Webhook URL, wróć tutaj i odśwież stronę.<br><span class="cn">打开CFM主应用 &#8594; 管理面板 &#8594; 连接，配置Webhook网址，然后返回此页面刷新。</span></div>';
     return;
   }
-  fetch(wh + '?event_type=GET_USTAWIENIA')
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=GET_USTAWIENIA')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { showConnError(); return; }
@@ -839,6 +855,49 @@ function computeShippingDiff(newPlan) {
   });
   return { changes: changes, sameCount: sameCount };
 }
+// Poniedzialek tygodnia zawierajacego dany dzien (klucz grupujacy) — nie
+// wystarczy patrzec na pojedyncze dni z tabeli "Bylo/Z pliku": klient
+// czesto tylko PRZESUWA ilosc miedzy dniami tego samego tygodnia (np.
+// wtorek -560, sroda +560), co dla dnia po dniu wyglada jak "duza zmiana",
+// a naprawde suma tygodnia jest identyczna. User potrzebuje odwrotnego
+// pytania: "czy w sumie na caly tydzien musze wyslac wiecej/mniej niz
+// mysalem" - stad osobne podsumowanie PO TYGODNIACH, tylko tam gdzie suma
+// faktycznie sie zmienila.
+function mondayOfWeek_(iso) {
+  var d = isoToDateLocal_(iso);
+  var day = d.getDay(); // 0=Nd..6=Sob
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return dateISO(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function isoToDateLocal_(iso) {
+  var p = iso.split('-');
+  return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+}
+function computeWeeklyShipDiff(newPlan) {
+  var allDates = {};
+  Object.keys(newPlan).forEach(function(mk) { Object.keys(newPlan[mk]).forEach(function(iso) { allDates[iso] = true; }); });
+  Object.keys(STATE.shippingPlan).forEach(function(mk) { Object.keys(STATE.shippingPlan[mk]).forEach(function(iso) { allDates[iso] = true; }); });
+  var byWeek = {};
+  Object.keys(allDates).forEach(function(iso) {
+    var wk = mondayOfWeek_(iso);
+    if (!byWeek[wk]) byWeek[wk] = { oldTotal: 0, newTotal: 0 };
+    var mk = iso.slice(0, 7);
+    var oldVal = STATE.shippingPlan[mk] && STATE.shippingPlan[mk][iso] !== undefined ? Number(STATE.shippingPlan[mk][iso]) : 0;
+    var newVal = newPlan[mk] && newPlan[mk][iso] !== undefined ? Number(newPlan[mk][iso]) : 0;
+    byWeek[wk].oldTotal += oldVal;
+    byWeek[wk].newTotal += newVal;
+  });
+  return Object.keys(byWeek).sort().map(function(wk) {
+    var o = byWeek[wk];
+    return { weekStart: wk, oldTotal: o.oldTotal, newTotal: o.newTotal, delta: o.newTotal - o.oldTotal };
+  }).filter(function(w) { return w.delta !== 0; });
+}
+function weekRangeLabel_(mondayIso) {
+  var mon = isoToDateLocal_(mondayIso);
+  var sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+  var f = function(d) { return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); };
+  return f(mon) + '&#8211;' + f(sun);
+}
 
 var pendingShipPlan = null;
 function showShipDiff(newPlan) {
@@ -854,9 +913,21 @@ function showShipDiff(newPlan) {
     var dd = c.date.split('-');
     return '<tr class="' + c.kind + '"><td>' + dd[2] + '/' + dd[1] + '/' + dd[0] + '</td><td>' + (c.oldVal === null ? '&#8212;' : c.oldVal) + '</td><td>' + c.newVal + '</td></tr>';
   }).join('');
+  var weeklyDiff = computeWeeklyShipDiff(newPlan);
+  var weeklyHtml = weeklyDiff.length ? (
+    '<div class="weeklydiffbox"><div class="weeklydiffbox-head">Zmiana w sumie tygodniowej <span class="cn">周总量变化</span></div>' +
+    weeklyDiff.map(function(w) {
+      var sign = w.delta > 0 ? '+' : '';
+      var cls = w.delta > 0 ? 'up' : 'down';
+      return '<div class="weeklydiffrow"><span class="wlabel">Tydz. ' + weekRangeLabel_(w.weekStart) + '</span>' +
+        '<span class="wnums">było ' + w.oldTotal + ' &#8594; teraz ' + w.newTotal + '</span>' +
+        '<span class="wdelta ' + cls + '">' + sign + w.delta + '</span></div>';
+    }).join('') + '</div>'
+  ) : '';
   panel.innerHTML = '<div class="diffpanel">' +
     '<div class="diffpanel-head"><h3>Znalezione różnice <span class="cn">发现的差异</span></h3>' +
     '<div class="diffpanel-summary">' + diff.changes.length + ' dni różnych/nowych, ' + diff.sameCount + ' bez zmian</div></div>' +
+    weeklyHtml +
     '<div style="overflow-x:auto"><table class="difftable"><thead><tr><th>Data</th><th>Było</th><th>Z pliku</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
     '<div class="diffpanel-actions">' +
       '<button type="button" class="btn-diff approve" onclick="approveShipDiff()">Zatwierdź i zastosuj<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">确认并应用</small></button>' +
@@ -986,10 +1057,10 @@ function savePlan() {
 
   var wh = getWH();
   Promise.all([
-    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_monthly_plan', wartosc: JSON.stringify(STATE.plan) }) }),
-    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_plan', wartosc: JSON.stringify(STATE.shippingPlan) }) }),
-    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_actual', wartosc: JSON.stringify(STATE.shippingActual) }) }),
-    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_plan_meta', wartosc: JSON.stringify(STATE.shippingPlanMeta) }) })
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_monthly_plan', wartosc: JSON.stringify(STATE.plan) }) }),
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_plan', wartosc: JSON.stringify(STATE.shippingPlan) }) }),
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_actual', wartosc: JSON.stringify(STATE.shippingActual) }) }),
+    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_shipping_plan_meta', wartosc: JSON.stringify(STATE.shippingPlanMeta) }) })
   ]).then(function() {
     showToast('Plan zapisany! · 计划已保存!', 'ok');
   }).catch(function() {

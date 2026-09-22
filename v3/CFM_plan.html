@@ -887,10 +887,21 @@ function computeWeeklyShipDiff(newPlan) {
     byWeek[wk].oldTotal += oldVal;
     byWeek[wk].newTotal += newVal;
   });
+  var today = new Date();
+  var todayISO = dateISO(today.getFullYear(), today.getMonth(), today.getDate());
   return Object.keys(byWeek).sort().map(function(wk) {
     var o = byWeek[wk];
     return { weekStart: wk, oldTotal: o.oldTotal, newTotal: o.newTotal, delta: o.newTotal - o.oldTotal };
-  }).filter(function(w) { return w.delta !== 0; });
+  }).filter(function(w) {
+    // Pomijamy tygodnie, ktore juz calkowicie minely (koniec tygodnia =
+    // niedziela sprzed dzisiaj) - to, ze nowy plik nie powtarza juz
+    // zamknietej przeszlosci, nie jest "zmiana" wartа pokazania, tylko
+    // szum. Interesuje nas tydzien BIEZACY (nawet jesli dzis jest jego
+    // srodkiem) i wszystkie przyszle.
+    var sunday = isoToDateLocal_(w.weekStart); sunday.setDate(sunday.getDate() + 6);
+    var sundayIso = dateISO(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
+    return w.delta !== 0 && sundayIso >= todayISO;
+  });
 }
 function weekRangeLabel_(mondayIso) {
   var mon = isoToDateLocal_(mondayIso);

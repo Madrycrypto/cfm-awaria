@@ -314,6 +314,13 @@ function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_
 // wspoldzielony przez localStorage z pozostalymi stronami tego samego
 // pochodzenia (originu).
 function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
+// Wygodne ustawianie tokenu na telefonach (brak wygodnej konsoli): wejscie na ?token=XXX zapisuje go raz na stale i czysci adres, zeby nie zostal w historii przegladarki widoczny goly.
+(function() {
+  var t = new URLSearchParams(location.search).get('token');
+  if (t === null) return;
+  try { localStorage.setItem('cfm_api_token', t); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+})();
 var MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 var MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 var WD = ['pn','wt','śr','cz','pt','so','nd'];
@@ -874,18 +881,23 @@ function isoToDateLocal_(iso) {
   return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
 }
 function computeWeeklyShipDiff(newPlan) {
-  var allDates = {};
-  Object.keys(newPlan).forEach(function(mk) { Object.keys(newPlan[mk]).forEach(function(iso) { allDates[iso] = true; }); });
-  Object.keys(STATE.shippingPlan).forEach(function(mk) { Object.keys(STATE.shippingPlan[mk]).forEach(function(iso) { allDates[iso] = true; }); });
+  // Tylko dni, ktore NOWY plik faktycznie porusza (tak samo jak tabela
+  // dzien-po-dniu wyzej) — jesli klient w tym eksporcie po prostu nie
+  // wspomina jakiegos dnia (np. bo jego okno eksportu zaczyna sie pozniej
+  // niz poprzednio), to NIE jest "usuniecie" tego dnia do zera, tylko
+  // brak informacji o nim w tym pliku. Liczenie go jako "teraz 0"
+  // falszywie zanizaloby sume tygodnia o dokladnie tyle, ile wynosil stary
+  // wpis tego dnia.
   var byWeek = {};
-  Object.keys(allDates).forEach(function(iso) {
-    var wk = mondayOfWeek_(iso);
-    if (!byWeek[wk]) byWeek[wk] = { oldTotal: 0, newTotal: 0 };
-    var mk = iso.slice(0, 7);
-    var oldVal = STATE.shippingPlan[mk] && STATE.shippingPlan[mk][iso] !== undefined ? Number(STATE.shippingPlan[mk][iso]) : 0;
-    var newVal = newPlan[mk] && newPlan[mk][iso] !== undefined ? Number(newPlan[mk][iso]) : 0;
-    byWeek[wk].oldTotal += oldVal;
-    byWeek[wk].newTotal += newVal;
+  Object.keys(newPlan).forEach(function(mk) {
+    Object.keys(newPlan[mk]).forEach(function(iso) {
+      var wk = mondayOfWeek_(iso);
+      if (!byWeek[wk]) byWeek[wk] = { oldTotal: 0, newTotal: 0 };
+      var oldVal = STATE.shippingPlan[mk] && STATE.shippingPlan[mk][iso] !== undefined ? Number(STATE.shippingPlan[mk][iso]) : 0;
+      var newVal = Number(newPlan[mk][iso]) || 0;
+      byWeek[wk].oldTotal += oldVal;
+      byWeek[wk].newTotal += newVal;
+    });
   });
   var today = new Date();
   var todayISO = dateISO(today.getFullYear(), today.getMonth(), today.getDate());

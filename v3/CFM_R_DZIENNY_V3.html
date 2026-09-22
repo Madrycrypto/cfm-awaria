@@ -824,6 +824,10 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Google Apps Script, u&#380;ywany te&#380; przez modu&#322; Awaria</div>
     <input type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px;margin-bottom:8px;" autocomplete="off">
     <div id="webhookStatusLine" style="font-size:12px;margin-bottom:12px;"></div>
+
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">Token API <span class="cn">(opcjonalnie, ale zalecane)</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Chroni arkusz przed obcymi zapytaniami — musi być IDENTYCZNY jak API_TOKEN ustawiony w Script Properties w Apps Script. Zostaw puste, jeśli backend jeszcze nie ma tokenu skonfigurowanego. <span class="cn">&#183; 保护表格不被陌生请求访问 — 必须与Apps Script中Script Properties里设置的API_TOKEN完全一致。如果后端尚未配置令牌，请留空。</span></div>
+    <input type="text" id="apiTokenInput" placeholder="np. losowy ciąg znaków" style="font-size:12px;margin-bottom:16px;" autocomplete="off">
     <button onclick="saveWebhook()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;margin-bottom:8px;">Zapisz i testuj <span class="cn">&#183; &#20445;&#23384;</span></button>
     <button onclick="pushAllSettingsToServer()" style="width:100%;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;font-family:var(--fh);font-size:13px;font-weight:700;padding:10px;cursor:pointer;margin-bottom:8px;">Wy&#347;lij wszystkie ustawienia do arkusza teraz <span class="cn">&#183; 立即发送所有设置到表格</span></button>
     <div style="font-size:10px;color:var(--muted);margin-bottom:16px;">U&#380;yj raz po aktualizacji apki, &#380;eby zapisane lokalnie ustawienia (pracownicy, stanowiska, przyczyny, cele, zmiany) trafi&#322;y te&#380; do arkusza i by&#322;y widoczne na innych telefonach. <span class="cn">&#183; 更新应用后使用一次，将本地保存的设置（员工、工位、原因、目标、班次）同步到表格，让其他手机也能看到。</span></div>
@@ -983,6 +987,13 @@ function localDateString(d) {
 }
 
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || ''; }
+// Prosty token wspoldzielony z backendem (Script Properties, API_TOKEN) -
+// dopoki nie ustawisz go w obu miejscach (tu i w Apps Script), wszystko
+// dziala jak wczesniej (backend ignoruje brak tokenu, gdy sam nie ma go
+// skonfigurowanego). Ustawiany raz w Panelu Admina (Raport dzienny),
+// wspoldzielony przez localStorage z pozostalymi stronami tego samego
+// pochodzenia (originu).
+function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
 function getFeishuConfig() {
   return {
     proxy: localStorage.getItem('cfm_feishu_proxy') || '',
@@ -1602,7 +1613,7 @@ function loadReworkBuffer() {
   var wh = getWH();
   var feishu = getFeishuConfig();
   if (wh) {
-    fetch(wh + '?event_type=REWORK_BUFFER&zone=' + encodeURIComponent(currentReworkZone))
+    fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=REWORK_BUFFER&zone=' + encodeURIComponent(currentReworkZone))
       .then(function(r) { return r.json(); })
       .then(function(data) { if (data.status === 'error') { renderReworkBufferData(computeLocalReworkBuffer(currentReworkZone)); return; } renderReworkBufferData(data); })
       .catch(function() { renderReworkBufferData(computeLocalReworkBuffer(currentReworkZone)); });
@@ -1733,7 +1744,7 @@ function loadReworkHistory() {
   var wh = getWH();
   var feishu = getFeishuConfig();
   if (wh) {
-    fetch(wh + '?event_type=REWORK_HISTORY&zone=' + encodeURIComponent(currentReworkZone))
+    fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=REWORK_HISTORY&zone=' + encodeURIComponent(currentReworkZone))
       .then(function(r) { return r.json(); })
       .then(function(data) { if (data.status === 'error') { renderReworkHistoryLocal(); return; } renderReworkHistoryList(data.historia || []); })
       .catch(renderReworkHistoryLocal);
@@ -1852,7 +1863,7 @@ function doSubmitForm() {
 function checkBufferSafetyBeforeSubmit(zone, newReworkN, onOk) {
   var wh = getWH();
   if (!wh) { onOk(); return; }
-  fetch(wh + '?event_type=REWORK_BUFFER&zone=' + encodeURIComponent(zone.key))
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=REWORK_BUFFER&zone=' + encodeURIComponent(zone.key))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { onOk(); return; }
@@ -1990,7 +2001,7 @@ function odswiezDzisiajWpisy(andMaybePreload) {
   var wh = getWH();
   if (!wh) { el.innerHTML = '<div class="hist-loading">Brak po&#322;&#261;czenia <span class="cn">&#183; &#26410;&#36830;&#25509;</span></div>'; if (andMaybePreload && !document.getElementById('qtyInput').value) preloadFromGodzinny(); return; }
   el.innerHTML = '<div class="hist-loading">&#321;adowanie&#8230; <span class="cn">&#183; &#21152;&#36733;&#20013;</span>...</div>';
-  fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station) + '&date=' + encodeURIComponent(getRaportDate()))
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(station) + '&date=' + encodeURIComponent(getRaportDate()))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { el.innerHTML = '<div class="hist-loading">B&#322;&#261;d po&#322;&#261;czenia <span class="cn">&#183; &#36830;&#25509;&#38169;&#35823;</span></div>'; return; }
@@ -2024,7 +2035,7 @@ function loadShiftComparison() {
   var groupStations = getCrewGroupStations(station);
   var date = getRaportDate();
   Promise.all(groupStations.map(function(st) {
-    return fetch(wh + '?event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(st) + '&date=' + encodeURIComponent(date))
+    return fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=HISTORIA_DZIENNA&stanowisko=' + encodeURIComponent(st) + '&date=' + encodeURIComponent(date))
       .then(function(r) { return r.json(); })
       .then(function(data) { return data.status === 'ok' ? (data.historia || []) : null; })
       .catch(function() { return null; });
@@ -2197,7 +2208,7 @@ function awariaSyncActiveForStation() {
   if (!station) return;
   var wh = getWH();
   if (!wh) return;
-  fetch(wh + '?event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(station))
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(station))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (document.getElementById('stationSel').value !== station) return; // user zdazyl juz przelaczyc
@@ -2319,7 +2330,7 @@ function awariaSubmitStart() {
   // potrafi odczytac dane i odpowiedziec (Feishu Base webhook jest write-only).
   if (wh) {
     btn.disabled = true; btn.innerHTML = '⧗ Sprawdzanie...';
-    fetch(wh + '?event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(station))
+    fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=SPRAWDZ&stanowisko=' + encodeURIComponent(station))
       .then(function(r) { return r.json(); })
       .then(handleCheckResult)
       .catch(function() { btn.disabled = false; btn.innerHTML = '▶ START AWARII<span class="awaria-btn-cn">故障开始 <span class="cn">· 立即登记</span></span>'; awariaDoStart(station, typFull); });
@@ -2342,7 +2353,7 @@ function awariaWarnZamknijIStart() {
     var now = new Date(), dm = Math.round((now - new Date(awariaOpenExisting.startIso)) / 6000) / 10;
     var wh = getWH();
     if (wh) {
-      new Image().src = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaPendingStart.station) + '&operator=' + encodeURIComponent(awariaOpenExisting.operator || '') + '&typ=' + encodeURIComponent(awariaOpenExisting.typ) + '&start_timestamp=' + encodeURIComponent(awariaOpenExisting.startIso) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm;
+      new Image().src = wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaPendingStart.station) + '&operator=' + encodeURIComponent(awariaOpenExisting.operator || '') + '&typ=' + encodeURIComponent(awariaOpenExisting.typ) + '&start_timestamp=' + encodeURIComponent(awariaOpenExisting.startIso) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm;
     }
     var feishu = getFeishuConfig();
     if (feishu.proxy && feishu.sheetToken) {
@@ -2372,7 +2383,7 @@ function awariaDoStart(station, typFull) {
   awariaActiveBreakdown = awariaActiveByStation[station];
 
   var wh = getWH();
-  if (wh) { new Image().src = wh + '?event_type=START&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) + '&typ=' + encodeURIComponent(typFull) + '&timestamp=' + encodeURIComponent(localIsoString(now)) + '&shift=' + encodeURIComponent(currentShift); }
+  if (wh) { new Image().src = wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=START&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) + '&typ=' + encodeURIComponent(typFull) + '&timestamp=' + encodeURIComponent(localIsoString(now)) + '&shift=' + encodeURIComponent(currentShift); }
 
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {
@@ -2400,7 +2411,7 @@ function awariaSubmitEnd() {
   var record = { station: awariaActiveBreakdown.station, type: typFull, startTs: awariaActiveBreakdown.startFormatted, endTs: awariaFormatTs(now), durationMin: dm };
 
   var wh = getWH();
-  if (wh) { new Image().src = wh + '?event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaActiveBreakdown.station) + '&operator=' + encodeURIComponent(awariaActiveBreakdown.operator || '') + '&typ=' + encodeURIComponent(typFull) + '&start_timestamp=' + encodeURIComponent(awariaActiveBreakdown.startTs) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm; }
+  if (wh) { new Image().src = wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaActiveBreakdown.station) + '&operator=' + encodeURIComponent(awariaActiveBreakdown.operator || '') + '&typ=' + encodeURIComponent(typFull) + '&start_timestamp=' + encodeURIComponent(awariaActiveBreakdown.startTs) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm; }
 
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {
@@ -2580,7 +2591,7 @@ function awariaRenderHistory() {
   var station = document.getElementById('stationSel').value;
   var list = document.getElementById('awariaHistoryList');
   list.innerHTML = '<div class="hist-loading">Ładowanie&#8230; <span class="cn">· 加载中</span>...</div>';
-  fetch(wh + '?event_type=AWARIA_HISTORIA' + (station ? '&stanowisko=' + encodeURIComponent(station) : ''))
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=AWARIA_HISTORIA' + (station ? '&stanowisko=' + encodeURIComponent(station) : ''))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { awariaRenderHistoryItems(awariaLocalHistory, false); return; }
@@ -3019,8 +3030,10 @@ function updateWebhookStatus() {
 function saveWebhook() {
   var url = document.getElementById('webhookUrlInput').value.trim();
   localStorage.setItem('cfm_raport_webhook', url);
+  var token = document.getElementById('apiTokenInput').value.trim();
+  localStorage.setItem('cfm_api_token', token);
   updateWebhookStatus();
-  if (url) new Image().src = url + '?event_type=TEST';
+  if (url) new Image().src = url + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=TEST';
   showToast('Webhook zapisany! · Webhook已保存!', 'ok');
 }
 function saveFeishu() {
@@ -3062,6 +3075,7 @@ function pinOverlayConfirm() {
   renderWorkersList(); renderStationsList(); renderPrzyczynyStationSelect();
   renderAwariaTypesList(); updateWebhookStatus(); renderShiftsUI(); renderStationTargetsList();
   var wh = getWH(); if (wh) document.getElementById('webhookUrlInput').value = wh;
+  var tok = getApiToken(); if (tok) document.getElementById('apiTokenInput').value = tok;
   var fc = getFeishuConfig();
   if (fc.proxy) document.getElementById('feishuProxyInput').value = fc.proxy;
   if (fc.sheetToken) document.getElementById('feishuSheetTokenInput').value = fc.sheetToken;
@@ -3094,7 +3108,7 @@ function submitWypadek() {
   if (!description) { showToast('Opisz co się stało <span class="cn">· 请描述发生了什么</span>', 'err'); return; }
   var wh = getWH();
   if (!wh) { showToast('Brak połączenia (Panel Admina → Połączenie) <span class="cn">· 未连接</span>', 'err'); return; }
-  new Image().src = wh + '?event_type=ZGLOS_WYPADEK&stanowisko=' + encodeURIComponent(station) + '&severity=' + encodeURIComponent(severity) + '&description=' + encodeURIComponent(description) + '&operator=' + encodeURIComponent(operator) + '&timestamp=' + encodeURIComponent(localIsoString());
+  new Image().src = wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=ZGLOS_WYPADEK&stanowisko=' + encodeURIComponent(station) + '&severity=' + encodeURIComponent(severity) + '&description=' + encodeURIComponent(description) + '&operator=' + encodeURIComponent(operator) + '&timestamp=' + encodeURIComponent(localIsoString());
   showToast('Zgłoszenie wysłane <span class="cn">· 已发送报告</span>', 'ok');
   closeWypadek();
 }
@@ -3179,7 +3193,7 @@ function pushSettingToServer(key) {
   fetch(wh, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: key, wartosc: value })
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: key, wartosc: value })
   }).catch(function() {});
 }
 
@@ -3194,7 +3208,7 @@ var REASON_MAP_KEYS = ['cfm_scrap_reasons', 'cfm_rework_reasons'];
 function loadSettingsFromServer(onDone) {
   var wh = getWH();
   if (!wh) { if (onDone) onDone(false); return; }
-  fetch(wh + '?event_type=GET_USTAWIENIA')
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=GET_USTAWIENIA')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok' || !data.ustawienia) { if (onDone) onDone(false); return; }
@@ -3392,7 +3406,7 @@ function odswiezHistorieGodzinnej() {
   var cel = getCelGodzine();
   if (!wh) { el.innerHTML = '<div class="reason-empty-hint">Brak połączenia (Panel Admina &#8594; Połączenie) <span class="cn">&#183; 未连接（管理面板</span> &#8594; 连接）</div>'; return; }
   el.innerHTML = '<div class="reason-empty-hint">Ładowanie&#8230; <span class="cn">&#183; 加载中</span>...</div>';
-  fetch(wh + '?event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&shift=' + encodeURIComponent(currentShift) + '&date=' + encodeURIComponent(getGodzDate()))
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&shift=' + encodeURIComponent(currentShift) + '&date=' + encodeURIComponent(getGodzDate()))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { el.innerHTML = '<div class="reason-empty-hint">Błąd połączenia <span class="cn">· 连接错误</span></div>'; return; }
@@ -3470,7 +3484,7 @@ function preloadFromGodzinny() {
   var station = document.getElementById('stationSel').value;
   var wh = getWH();
   if (!station || !wh) return;
-  fetch(wh + '?event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&shift=' + encodeURIComponent(currentShift))
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=HISTORIA_GODZINNA&stanowisko=' + encodeURIComponent(station) + '&shift=' + encodeURIComponent(currentShift))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok' || !data.historia || !data.historia.length) return;

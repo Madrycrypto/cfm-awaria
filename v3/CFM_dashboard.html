@@ -777,7 +777,7 @@ function render(days) {
     '<div id="sqdipGrid">' + sqdipHtml(sqdipDaysVal) + '</div>' +
     '<div class="chartsgrid">' +
       '<div class="card"><h2>Jakość (GP12) <span class="cn">质量</span></h2><div id="qualityDonut"></div></div>' +
-      '<div class="card"><h2>Awarie wg stanowiska <span class="datebadge">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + '</span><span class="cn">故障 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
+      '<div class="card"><h2>Alerty wg stanowiska <span class="datebadge">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + '</span><span class="cn">警报 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
     '</div>' +
     '<div class="chartsgrid2">' +
       '<div class="card"><h2>Rework &#183; dziś <span class="cn">返修处理&#183;今日</span></h2><div id="reworkTodayCard"></div></div>' +
@@ -1186,15 +1186,15 @@ function renderAwarieBanner() {
   if (!el) return;
   if (STATE.activeAwarie === undefined) { el.innerHTML = ''; return; }
   if (!STATE.activeAwarie.length) {
-    el.innerHTML = '<div class="awariebanner ok"><div class="awariebanner-head"><span class="awariebanner-dot"></span>Brak aktywnych awarii <span class="cn">无进行中的故障</span></div></div>';
+    el.innerHTML = '<div class="awariebanner ok"><div class="awariebanner-head"><span class="awariebanner-dot"></span>Brak aktywnych alertów <span class="cn">无进行中的警报</span></div></div>';
     return;
   }
   var rows = STATE.activeAwarie.map(function(a) {
     return '<div class="awarie-active-row"><div class="awarie-active-info"><div class="awarie-active-station">' + a.station + (a.shift ? ' &#183; Zm. ' + a.shift : '') + '</div>' +
-      '<div class="awarie-active-meta">' + (a.type || 'Awaria') + (a.operator ? ' &#183; ' + a.operator : '') + '</div></div>' +
+      '<div class="awarie-active-meta">' + (a.type || 'Alert') + (a.operator ? ' &#183; ' + a.operator : '') + '</div></div>' +
       '<div class="awarie-active-clock" data-start="' + a.start_timestamp + '">00:00:00</div></div>';
   }).join('');
-  el.innerHTML = '<div class="awariebanner alert"><div class="awariebanner-head"><span class="awariebanner-dot"></span>' + STATE.activeAwarie.length + ' aktywna awaria &#183; przerwa trwa <span class="cn">' + STATE.activeAwarie.length + '个进行中的故障</span></div>' + rows + '</div>';
+  el.innerHTML = '<div class="awariebanner alert"><div class="awariebanner-head"><span class="awariebanner-dot"></span>' + STATE.activeAwarie.length + ' aktywny alert &#183; przerwa trwa <span class="cn">' + STATE.activeAwarie.length + '个进行中的警报</span></div>' + rows + '</div>';
   tickActiveClocks();
 }
 function tickActiveClocks() {

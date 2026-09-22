@@ -89,13 +89,17 @@ tbody tr:last-child td{border-bottom:none}
 @keyframes alertpulse{0%,100%{border-color:rgba(217,43,43,0.4)}50%{border-color:rgba(217,43,43,0.85)}}
 @media (prefers-reduced-motion:reduce){.alertbanner{animation:none}}
 .alertbanner-title{font-family:var(--fh);font-weight:800;font-size:15px;color:#ff7070;letter-spacing:0.02em;margin-bottom:10px}
-.alertitem{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.alertitem{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border-radius:8px;padding:10px 12px;margin-bottom:8px;flex-wrap:wrap}
 .alertitem:last-child{margin-bottom:0}
-.alertitem-txt{font-size:13.5px;line-height:1.4}
+.alertitem-txt{font-size:13.5px;line-height:1.4;flex:1 1 160px}
 .alertitem-txt b{font-weight:700}
 .alertitem-time{font-size:11px;color:var(--muted)}
-.btn-ack{flex-shrink:0;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-family:var(--fh);font-weight:700;font-size:12px;letter-spacing:0.03em;text-transform:uppercase;padding:8px 14px;border-radius:7px;cursor:pointer}
+.alertitem-actions{display:flex;gap:8px;flex:0 0 auto}
+.btn-ack,.btn-delivered{flex-shrink:0;font-family:var(--fh);font-weight:700;font-size:12px;letter-spacing:0.03em;text-transform:uppercase;padding:8px 14px;border-radius:7px;cursor:pointer}
+.btn-ack{background:var(--surface-2);border:1px solid var(--border);color:var(--text)}
 .btn-ack:hover{border-color:var(--blue-soft)}
+.btn-delivered{background:var(--green);border:none;color:#fff}
+.btn-delivered:hover{filter:brightness(1.1)}
 
 /* Przeglad dzienny — lista czesci z obliczona projekcja + OK/NOK */
 .partrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px}
@@ -326,10 +330,15 @@ function getMagazynParts() {
   try { var arr = JSON.parse(s); return arr.length ? arr : DEFAULT_MAGAZYN_PARTS.slice(); } catch (e) { return DEFAULT_MAGAZYN_PARTS.slice(); }
 }
 
-var STATE = { parts: [], magazynStany: {}, potwierdzenia: {}, monthlyPlan: {}, stationTargets: {}, rows: [], openAlertsSeen: [] };
+var STATE = { parts: [], magazynStany: {}, potwierdzenia: {}, monthlyPlan: {}, stationTargets: {}, rows: [], openAlertsSeen: [], currentAlerts: [] };
 var HORIZON_DAYS = 30;
 
 function pad(n) { return String(n).padStart(2, '0'); }
+function localIsoString(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' +
+    pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+}
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function isoToDate(iso) { var p = iso.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
@@ -486,6 +495,7 @@ function pollAlerts() {
     .catch(function() {});
 }
 function renderAlertBanner(brak) {
+  STATE.currentAlerts = brak;
   var el = document.getElementById('alertBannerSlot');
   if (!el) return;
   if (!brak.length) { el.innerHTML = ''; return; }
@@ -493,10 +503,39 @@ function renderAlertBanner(brak) {
     brak.map(function(a) {
       var d = new Date(a.start_timestamp);
       var t = isNaN(d) ? a.start_timestamp : pad(d.getHours()) + ':' + pad(d.getMinutes());
+      var key = alertKey(a).replace(/'/g, "\\'");
       return '<div class="alertitem"><div class="alertitem-txt"><b>' + a.station + '</b> &#8212; ' + a.type +
         (a.operator ? ' &#183; ' + a.operator : '') + '<br><span class="alertitem-time">zgłoszono ' + t + '</span></div>' +
-        '<button class="btn-ack" onclick="ackAlert(\'' + alertKey(a).replace(/'/g, "\\'") + '\')">Odebrano <span class="cn">&#183; 已收到</span></button></div>';
+        '<div class="alertitem-actions">' +
+          '<button class="btn-ack" onclick="ackAlert(\'' + key + '\')">Odebrano <span class="cn">&#183; 已收到</span></button>' +
+          '<button class="btn-delivered" onclick="markDelivered(\'' + key + '\')">Dostarczono <span class="cn">&#183; 已送达</span></button>' +
+        '</div></div>';
     }).join('') + '</div>';
+}
+// "Dostarczono" ZAMYKA alert u zrodla (to samo zdarzenie KONIEC co
+// przycisk "ZAKONCZ ALERT" na stanowisku w Raporcie dziennym) - dzieki
+// temu znika on z tej listy DLA WSZYSTKICH (nie tylko lokalnie jak
+// "Odebrano"), a czas przestoju stacji zostaje poprawnie zamkniety.
+// Magazynier NIE musi juz iesc do stanowiska ani prosic operatora -
+// wystarczy ze fizycznie dostarczyl czesc.
+function markDelivered(key) {
+  var a = STATE.currentAlerts.filter(function(x) { return alertKey(x) === key; })[0];
+  if (!a) return;
+  var now = new Date();
+  var start = new Date(a.start_timestamp);
+  var czasMin = Math.round((now - start) / 60000);
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      token: getApiToken(), event_type: 'KONIEC',
+      stanowisko: a.station, typ: a.type, operator: a.operator || '', shift: a.shift || '',
+      start_timestamp: a.start_timestamp, koniec_timestamp: localIsoString(now), czas_min: czasMin,
+    })
+  }).then(function() {
+    showToast('Oznaczono jako dostarczone! <span class="cn">&#183; 已标记为已送达</span>!', 'ok');
+    ackAlert(key);
+  }).catch(function() { showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err'); });
 }
 function ackAlert(key) {
   if (STATE.openAlertsSeen.indexOf(key) < 0) STATE.openAlertsSeen.push(key);

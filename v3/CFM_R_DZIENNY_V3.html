@@ -580,7 +580,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
 
     <div class="awaria-desc-box" id="awariaDescBox">
       <span class="awaria-desc-lbl" id="awariaDescLbl">Opis <span class="cn">&#183; &#25551;&#36848;</span> *</span>
-      <textarea class="awaria-desc-input" id="awariaDescInput" rows="3" placeholder="Opisz przyczyn&#281; awarii...&#10;&#35831;&#25551;&#36848;&#25925;&#38556;&#21407;&#22240;..." autocomplete="off"></textarea>
+      <div id="awariaDescInputWrap"><textarea class="awaria-desc-input" id="awariaDescInput" rows="3" placeholder="Opisz przyczyn&#281; awarii...&#10;&#35831;&#25551;&#36848;&#25925;&#38556;&#21407;&#22240;..." autocomplete="off"></textarea></div>
     </div>
 
     <div class="div"></div>
@@ -617,7 +617,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
       <div class="awaria-type-grid" id="awariaBackfillTypeGrid"></div>
       <div class="awaria-desc-box" id="awariaBackfillDescBox">
         <span class="awaria-desc-lbl" id="awariaBackfillDescLbl">Opis <span class="cn">&#183; &#25551;&#36848;</span> *</span>
-        <textarea class="awaria-desc-input" id="awariaBackfillDescInput" rows="2" autocomplete="off"></textarea>
+        <div id="awariaBackfillDescInputWrap"><textarea class="awaria-desc-input" id="awariaBackfillDescInput" rows="2" autocomplete="off"></textarea></div>
       </div>
       <div class="field">
         <div class="lbl">Czas trwania (min) <span class="cn">&#183; &#25345;&#32493;&#26102;&#38388;&#65288;&#20998;&#38047;&#65289;</span> <span class="req">*</span></div>
@@ -743,6 +743,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
     <button class="admin-tab" onclick="adminTab('stations')">Stanowiska <span class="cn">&#183; &#24037;&#20301;</span></button>
     <button class="admin-tab" onclick="adminTab('przyczyny')">Przyczyny <span class="cn">&#183; &#21407;&#22240;</span></button>
     <button class="admin-tab" onclick="adminTab('typy_awarii')">Typy awarii <span class="cn">&#183; &#25925;&#38556;&#31867;&#22411;</span></button>
+    <button class="admin-tab" onclick="adminTab('magazyn')">Magazyn <span class="cn">&#183; &#20179;&#24211;</span></button>
     <button class="admin-tab" onclick="adminTab('cele')">Cele <span class="cn">&#183; &#30446;&#26631;</span></button>
     <button class="admin-tab" onclick="adminTab('zmiany')">Zmiany <span class="cn">&#183; &#29677;&#27425;</span></button>
     <button class="admin-tab" onclick="adminTab('webhook')">Po&#322;&#261;czenie <span class="cn">&#183; &#36830;&#25509;</span></button>
@@ -788,6 +789,15 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
     <div id="awariaTypesList"></div>
     <button class="list-add-btn" onclick="addAwariaType()">+ Dodaj typ <span class="cn">&#183; &#28155;&#21152;&#31867;&#22411;</span></button>
     <button class="list-save-btn" onclick="saveAwariaTypes()">Zapisz typy <span class="cn">&#183; &#20445;&#23384;&#31867;&#22411;</span></button>
+  </div>
+
+  <!-- MAGAZYN / CZĘŚCI -->
+  <div class="admin-section" id="admin-magazyn">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Katalog cz&#281;&#347;ci (BOM) <span class="cn">&#183; &#38646;&#20214;&#30446;&#24405;(BOM)</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">U&#380;ywany w zg&#322;oszeniu "Brak materia&#322;u" oraz do przysz&#322;ych oblicze&#324; zapotrzebowania magazynowego. Stacja = stanowisko(a) zu&#380;ywaj&#261;ce cz&#281;&#347;&#263; w tej apce (przy kilku rozdziel przecinkiem, np. OP33A,OP33B). Ilo&#347;&#263;/monta&#380; i waga bez potwierdzonych danych ustawione domy&#347;lnie na 1 — zweryfikuj i popraw. <span class="cn">&#183; 用于"缺料"报告以及未来的仓库需求计算。工位=消耗该零件的工位(多个用逗号分隔，如OP33A,OP33B)。数量/装配和重量若无确认数据默认为1 — 请核实并修改。</span></div>
+    <div id="magazynPartsList"></div>
+    <button class="list-add-btn" onclick="addMagazynPart()">+ Dodaj cz&#281;&#347;&#263; <span class="cn">&#183; &#28155;&#21152;&#38646;&#20214;</span></button>
+    <button class="list-save-btn" onclick="saveMagazynParts()">Zapisz cz&#281;&#347;ci <span class="cn">&#183; &#20445;&#23384;&#38646;&#20214;</span></button>
   </div>
 
   <!-- CELE -->
@@ -2271,6 +2281,69 @@ var AWARIA_OPISY = {
   'Szkolenie': { label: 'Temat szkolenia *', ph: 'Np. nowy produkt, BHP...' },
   'Inne': { label: 'Opis przyczyny *', ph: 'Opisz przyczynę awarii...' }
 };
+// Katalog czesci z modulu Magazyn (cfm_magazyn_parts) — dla "Brak
+// materialu" pokazujemy liste do wyboru zamiast gologo pola tekstowego,
+// zeby nie liczyc na to ze kazdy operator pamieta/wpisze poprawny numer
+// czesci recznie. "Inny/brak na liscie" zostawia furtke na wypadek gdy
+// katalog jeszcze nie ma danej pozycji (lista jest budowana stopniowo).
+// Wstepny katalog czesci (BOM jednej chlodnicy) potwierdzony z klientem —
+// "stacja" to stanowisko(a) raportujace zuzycie w tej apce (nie numeracja z
+// dokumentu BOM dostawcy), przy kilku rozdzielone przecinkiem. Ilosc/waga
+// dla czesci bez jednoznacznych danych ustawiona na 1 — do weryfikacji
+// przez magazyniera w Panelu Admina -> Magazyn.
+var DEFAULT_MAGAZYN_PARTS = [
+  { number: '65310150-01', desc: 'Right tank', station: 'OP51/52', qty: 1, weight: '' },
+  { number: '6530149-01', desc: 'Left tank', station: 'OP51/52', qty: 1, weight: '' },
+  { number: '6530151-01', desc: 'Gasket', station: 'OP51/52', qty: 1, weight: '' },
+  { number: '6530154-01', desc: 'Core', station: 'OP51/52', qty: 1, weight: '' },
+  { number: '6530153-01', desc: 'Stone guard', station: 'GP12', qty: 1, weight: '' },
+  { number: '6530152-01', desc: 'Sealing (x1)', station: 'GP12', qty: 1, weight: '' },
+  { number: '6530152-32', desc: 'Sealing (x2)', station: 'GP12', qty: 2, weight: '' },
+  { number: '6530152-03', desc: 'Sealing (x2)', station: 'GP12', qty: 2, weight: '' },
+  { number: '6530159-01', desc: 'Header', station: 'OP33A,OP33B', qty: 1, weight: '' },
+  { number: '6530160-01', desc: 'Side plate', station: 'OP33A,OP33B', qty: 1, weight: '' },
+  { number: '90330858', desc: 'Aluminium 铝材', station: 'OP33A,OP33B', qty: 1, weight: 0.6603 },
+  { number: '90340837', desc: 'Aluminium 铝材', station: 'OP30', qty: 1, weight: 1.33308 },
+];
+function getMagazynParts() {
+  var s = localStorage.getItem('cfm_magazyn_parts');
+  if (!s) return DEFAULT_MAGAZYN_PARTS.slice();
+  try { var arr = JSON.parse(s); return arr.length ? arr : DEFAULT_MAGAZYN_PARTS.slice(); } catch (e) { return DEFAULT_MAGAZYN_PARTS.slice(); }
+}
+function descInputHtml(typeName, idPrefix) {
+  if (typeName === 'Brak materiału') {
+    var parts = getMagazynParts();
+    var options = '<option value="">&#8722; wybierz numer części &#183; 请选择零件编号 &#8722;</option>' +
+      parts.map(function(p) { return '<option value="' + String(p.number || '').replace(/"/g, '&quot;') + '">' + p.number + (p.desc ? ' &#8211; ' + p.desc : '') + '</option>'; }).join('') +
+      '<option value="__inne__">Inny / brak na liście &#183; 其他/清单中没有</option>';
+    return '<select class="awaria-desc-input" id="' + idPrefix + 'Input" onchange="toggleDescOther(\'' + idPrefix + '\')">' + options + '</select>' +
+      '<input type="text" class="awaria-desc-input" id="' + idPrefix + 'InputOther" placeholder="Podaj nazwę / numer ręcznie... &#183; 请手动输入名称/编号..." style="display:none;margin-top:6px" autocomplete="off">';
+  }
+  return '<textarea class="awaria-desc-input" id="' + idPrefix + 'Input" rows="' + (idPrefix === 'awariaBackfillDesc' ? 2 : 3) + '" placeholder="Opisz przyczynę...&#10;请描述原因..." autocomplete="off"></textarea>';
+}
+function toggleDescOther(idPrefix) {
+  var sel = document.getElementById(idPrefix + 'Input');
+  var other = document.getElementById(idPrefix + 'InputOther');
+  if (!sel || !other) return;
+  other.style.display = sel.value === '__inne__' ? 'block' : 'none';
+  if (sel.value === '__inne__') other.focus();
+}
+// Zwraca faktyczna wartosc opisu niezaleznie od tego, czy to textarea czy
+// lista wyboru czesci (i ewentualnie jej pole "inny" pod spodem).
+function getDescValue(idPrefix) {
+  var el = document.getElementById(idPrefix + 'Input');
+  if (!el) return '';
+  if (el.tagName === 'SELECT' && el.value === '__inne__') {
+    var other = document.getElementById(idPrefix + 'InputOther');
+    return other ? other.value.trim() : '';
+  }
+  return el.value.trim();
+}
+function focusDescInput(idPrefix) {
+  var el = document.getElementById(idPrefix + 'Input');
+  if (el && el.tagName === 'SELECT' && el.value === '__inne__') el = document.getElementById(idPrefix + 'InputOther');
+  if (el) el.focus();
+}
 
 function renderAwariaTypeGrid() {
   var types = getAwariaTypes();
@@ -2297,16 +2370,16 @@ function awariaSelectType(btn) {
 // awariaSubmitEnd), a pole opisu pokazuje sie tylko W TRAKCIE trwania
 // awarii — patrz awariaShowActiveBanner/awariaSubmitEnd.
 function updateAwariaDescBoxForActive() {
-  var box = document.getElementById('awariaDescBox'), lbl = document.getElementById('awariaDescLbl'), inp = document.getElementById('awariaDescInput');
+  var box = document.getElementById('awariaDescBox'), lbl = document.getElementById('awariaDescLbl'), wrap = document.getElementById('awariaDescInputWrap');
   if (!awariaActiveBreakdown || !typeNeedsDesc(awariaActiveBreakdown.type)) {
-    box.classList.remove('vis'); inp.value = '';
+    box.classList.remove('vis'); wrap.innerHTML = descInputHtml('', 'awariaDesc');
     return;
   }
   // Fallback generyczny gdy typ (np. wlasny, dodany w Panelu Admina) nie ma
   // wlasnej etykiety w AWARIA_OPISY — bez tego pole zostawalo ukryte mimo
   // ze needsDesc=true, wiec nie dalo sie w ogole zamknac takiej awarii.
   var o = AWARIA_OPISY[awariaActiveBreakdown.type] || { label: 'Opis przyczyny *', ph: 'Opisz szczegóły...' };
-  lbl.textContent = o.label; inp.placeholder = o.ph; box.classList.add('vis');
+  lbl.textContent = o.label; wrap.innerHTML = descInputHtml(awariaActiveBreakdown.type, 'awariaDesc'); box.classList.add('vis');
 }
 
 function awariaSubmitStart() {
@@ -2407,10 +2480,10 @@ function awariaDoStart(station, typFull) {
 
 function awariaSubmitEnd() {
   if (!awariaActiveBreakdown) return;
-  var desc = document.getElementById('awariaDescInput').value.trim();
+  var desc = getDescValue('awariaDesc');
   if (typeNeedsDesc(awariaActiveBreakdown.type) && !desc) {
     showToast('Opisz przyczynę przed zamknięciem! <span class="cn">· 结束前请描述原因</span>!', 'err');
-    document.getElementById('awariaDescInput').focus();
+    focusDescInput('awariaDesc');
     return;
   }
   var typFull = desc ? awariaActiveBreakdown.type + ': ' + desc : awariaActiveBreakdown.type;
@@ -2512,10 +2585,10 @@ function awariaBackfillSelectType(btn) {
   awariaBackfillUpdateDescBox();
 }
 function awariaBackfillUpdateDescBox() {
-  var box = document.getElementById('awariaBackfillDescBox'), lbl = document.getElementById('awariaBackfillDescLbl'), inp = document.getElementById('awariaBackfillDescInput');
-  if (!typeNeedsDesc(awariaBackfillType)) { box.classList.remove('vis'); inp.value = ''; return; }
+  var box = document.getElementById('awariaBackfillDescBox'), lbl = document.getElementById('awariaBackfillDescLbl'), wrap = document.getElementById('awariaBackfillDescInputWrap');
+  if (!typeNeedsDesc(awariaBackfillType)) { box.classList.remove('vis'); wrap.innerHTML = descInputHtml('', 'awariaBackfillDesc'); return; }
   var o = AWARIA_OPISY[awariaBackfillType] || { label: 'Opis przyczyny *', ph: 'Opisz szczegóły...' };
-  lbl.textContent = o.label; inp.placeholder = o.ph; box.classList.add('vis');
+  lbl.textContent = o.label; wrap.innerHTML = descInputHtml(awariaBackfillType, 'awariaBackfillDesc'); box.classList.add('vis');
 }
 function awariaSubmitBackfill() {
   var station = document.getElementById('stationSel').value;
@@ -2525,10 +2598,10 @@ function awariaSubmitBackfill() {
   if (!awariaBackfillShift) { showToast('Wybierz zmianę! <span class="cn">· 请选择班次</span>!', 'err'); return; }
   var minVal = parseFloat(document.getElementById('awariaBackfillMin').value);
   if (!minVal || minVal <= 0) { showToast('Podaj czas trwania! <span class="cn">· 请输入持续时间</span>!', 'err'); return; }
-  var desc = document.getElementById('awariaBackfillDescInput').value.trim();
+  var desc = getDescValue('awariaBackfillDesc');
   if (typeNeedsDesc(awariaBackfillType) && !desc) {
     showToast('Opisz przyczynę! <span class="cn">· 请描述原因</span>!', 'err');
-    document.getElementById('awariaBackfillDescInput').focus();
+    focusDescInput('awariaBackfillDesc');
     return;
   }
   var typFull = !typeNeedsDesc(awariaBackfillType) ? awariaBackfillType : awariaBackfillType + ': ' + desc;
@@ -2545,7 +2618,7 @@ function awariaSubmitBackfill() {
   }
 
   document.getElementById('awariaBackfillMin').value = '';
-  document.getElementById('awariaBackfillDescInput').value = '';
+  awariaBackfillUpdateDescBox();
   showToast('Przestój z ' + formatDatePl(dateVal) + ' zapisany: ' + minVal + ' min <span class="cn">· 停机已录入</span>', 'ok');
   setTimeout(awariaRenderHistory, 800);
 }
@@ -2824,6 +2897,49 @@ function saveAwariaTypes() {
   showToast('Typy awarii zapisane! <span class="cn">· 故障类型已保存</span>!', 'ok');
 }
 
+function renderMagazynPartsList() {
+  var parts = getMagazynParts();
+  document.getElementById('magazynPartsList').innerHTML = parts.map(function(p, i) {
+    return '<div class="list-item-row" style="flex-wrap:wrap;">' +
+      '<input class="list-item-input" id="mp-num-' + i + '" value="' + (p.number || '') + '" placeholder="Nr części" style="flex:1.4 1 100px;">' +
+      '<input class="list-item-input" id="mp-desc-' + i + '" value="' + (p.desc || '') + '" placeholder="Opis" style="flex:2 1 120px;">' +
+      '<input class="list-item-input" id="mp-station-' + i + '" value="' + (p.station || '') + '" placeholder="Stacja(e)" style="flex:1.2 1 90px;">' +
+      '<input class="list-item-input" id="mp-qty-' + i + '" value="' + (p.qty !== undefined && p.qty !== '' ? p.qty : 1) + '" placeholder="Il./montaż" style="flex:0.9 1 70px;" type="number" step="any">' +
+      '<input class="list-item-input" id="mp-weight-' + i + '" value="' + (p.weight !== undefined ? p.weight : '') + '" placeholder="Waga kg" style="flex:0.9 1 70px;" type="number" step="any">' +
+      '<button class="list-item-del" onclick="delMagazynPart(' + i + ')">×</button></div>';
+  }).join('');
+}
+function addMagazynPart() {
+  var p = getMagazynParts();
+  p.push({ number: '', desc: '', station: '', qty: 1, weight: '' });
+  localStorage.setItem('cfm_magazyn_parts', JSON.stringify(p));
+  renderMagazynPartsList();
+}
+function delMagazynPart(i) {
+  var p = getMagazynParts();
+  p.splice(i, 1);
+  localStorage.setItem('cfm_magazyn_parts', JSON.stringify(p));
+  renderMagazynPartsList();
+}
+function saveMagazynParts() {
+  var p = getMagazynParts();
+  var saved = p.map(function(x, i) {
+    var num = document.getElementById('mp-num-' + i), desc = document.getElementById('mp-desc-' + i),
+        st = document.getElementById('mp-station-' + i), qty = document.getElementById('mp-qty-' + i),
+        w = document.getElementById('mp-weight-' + i);
+    return {
+      number: num ? num.value.trim() : x.number,
+      desc: desc ? desc.value.trim() : x.desc,
+      station: st ? st.value.trim() : x.station,
+      qty: qty && qty.value !== '' ? Number(qty.value) : 1,
+      weight: w && w.value !== '' ? Number(w.value) : ''
+    };
+  });
+  localStorage.setItem('cfm_magazyn_parts', JSON.stringify(saved));
+  pushSettingToServer('cfm_magazyn_parts');
+  showToast('Części zapisane! <span class="cn">· 零件已保存</span>!', 'ok');
+}
+
 // Najczesciej wystepujaca (nie ostatnia z brzegu, zeby jednorazowy wyjatek
 // nie wypaczyl podpowiedzi) wartosc w Planie dzien-po-dniu dla stanowiska,
 // z dowolnej zmiany/miesiaca - podpowiedz "ile zwykle jest w Planie", zeby
@@ -3080,7 +3196,7 @@ function pinOverlayConfirm() {
   document.getElementById('adminPanel').classList.add('open');
   document.getElementById('gearBtn').classList.add('active');
   renderWorkersList(); renderStationsList(); renderPrzyczynyStationSelect();
-  renderAwariaTypesList(); updateWebhookStatus(); renderShiftsUI(); renderStationTargetsList();
+  renderAwariaTypesList(); renderMagazynPartsList(); updateWebhookStatus(); renderShiftsUI(); renderStationTargetsList();
   var wh = getWH(); if (wh) document.getElementById('webhookUrlInput').value = wh;
   var tok = getApiToken(); if (tok) document.getElementById('apiTokenInput').value = tok;
   var fc = getFeishuConfig();
@@ -3120,7 +3236,7 @@ function submitWypadek() {
   closeWypadek();
 }
 function adminTab(tab) {
-  var tabs = ['workers', 'stations', 'przyczyny', 'typy_awarii', 'cele', 'zmiany', 'webhook', 'pin'];
+  var tabs = ['workers', 'stations', 'przyczyny', 'typy_awarii', 'magazyn', 'cele', 'zmiany', 'webhook', 'pin'];
   document.querySelectorAll('.admin-tab').forEach(function(t, i) { t.classList.toggle('active', tabs[i] === tab); });
   document.querySelectorAll('.admin-section').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById('admin-' + tab).classList.add('active');
@@ -3178,7 +3294,7 @@ function syncStationTargetDefaults() {
 // webhook co awarie/rework) — dzieki temu wszystkie telefony dostaja te same
 // ustawienia bez recznego przepisywania na kazdym z osobna. Przy starcie apka
 // pobiera arkusz i nadpisuje lokalne dane, jesli sie roznia.
-var SYNCED_SETTINGS_KEYS = ['cfm_workers', 'cfm_stations', 'cfm_station_status', 'cfm_scrap_reasons', 'cfm_rework_reasons', 'cfm_types', 'cfm_station_targets', 'cfm_shifts', 'cfm_station_overtime', 'cfm_monthly_plan'];
+var SYNCED_SETTINGS_KEYS = ['cfm_workers', 'cfm_stations', 'cfm_station_status', 'cfm_scrap_reasons', 'cfm_rework_reasons', 'cfm_types', 'cfm_station_targets', 'cfm_shifts', 'cfm_station_overtime', 'cfm_monthly_plan', 'cfm_magazyn_parts'];
 
 // cfm_monthly_plan jest tu TYLKO do ODCZYTU (pobierania z serwera w
 // loadSettingsFromServer) — NIGDY nie jest zbiorczo wypychany przez

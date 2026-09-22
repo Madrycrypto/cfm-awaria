@@ -92,6 +92,8 @@ function sendFeishuBotMessage_(text, webhookUrl) {
 function doGet(e) {
   var p = (e && e.parameter) || {};
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var authErr = checkApiToken_(p);
+  if (authErr) return authErr;
 
   try {
     switch (p.event_type) {
@@ -130,6 +132,8 @@ function doPost(e) {
   var p = {};
   try { p = JSON.parse(raw); } catch (err) { /* zostaw pusty obiekt */ }
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var authErr = checkApiToken_(p);
+  if (authErr) return authErr;
 
   try {
     switch (p.event_type) {
@@ -139,6 +143,22 @@ function doPost(e) {
   } catch (err) {
     return jsonResponse({ status: 'error', msg: String(err) });
   }
+}
+
+// Prosta ochrona przed obcymi wywolaniami: jesli w Script Properties
+// ustawiono API_TOKEN, KAZDE zadanie (poza TEST - diagnostyka polaczenia,
+// celowo dostepna bez tokenu) musi podac dokladnie taki sam token, inaczej
+// jest odrzucane. Dopoki API_TOKEN nie jest ustawiony w Script Properties,
+// ta funkcja nic nie robi (zachowanie identyczne jak przed dodaniem
+// tokenow) - wlacz to DOPIERO gdy kazde urzadzenie/przegladarka uzywajace
+// aplikacji ma juz skonfigurowany ten sam token w Panelu Admina, inaczej
+// wszystkie zadania z tamtych urzadzen zaczna byc po cichu odrzucane.
+function checkApiToken_(p) {
+  if (p.event_type === 'TEST') return null;
+  var expected = PropertiesService.getScriptProperties().getProperty('API_TOKEN') || '';
+  if (!expected) return null;
+  if (p.token === expected) return null;
+  return jsonResponse({ status: 'error', msg: 'unauthorized' });
 }
 
 function jsonResponse(obj) {
@@ -610,8 +630,21 @@ function awarieSetField_(sheet, map, rowIndex1based, fieldName, value) {
 function handleAwariaStart(ss, p) {
   var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
   ensureColumns_(sheet, AWARIE_HEADERS);
-  var tr = translateType_(p.typ || 'Awaria');
   var map = awarieHeaderMap_(sheet);
+  // Zabezpieczenie przed duplikatami: jesli dla tego stanowiska JUZ jest
+  // otwarta (OTWARTA) awaria, nie dokladaj drugiej. Front ma wlasne
+  // sprawdzenie przed startem (event_type=SPRAWDZ), ale jesli ono zawiedzie
+  // (np. slabe WiFi na hali), po cichu i tak wysyla START — bez tego
+  // zabezpieczenia kazda taka nieudana proba dokladalaby kolejny,
+  // identyczny otwarty wiersz dla tej samej awarii.
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var existing = awarieRowToObj_(data[i], map);
+    if (existing.station === (p.stanowisko || '') && existing.status === 'OTWARTA') {
+      return jsonResponse({ status: 'ok', duplicate: true });
+    }
+  }
+  var tr = translateType_(p.typ || 'Awaria');
   awarieAppendRow_(sheet, map, {
     start_timestamp: p.timestamp || '', station: p.stanowisko || '', type: p.typ || '',
     status: 'OTWARTA', operator: p.operator || '', shift: p.shift || '', type_cn: tr.cn,
@@ -838,6 +871,30 @@ function roundCzasMin() {
     updated++;
   }
   Logger.log('roundCzasMin: zaokraglono ' + updated + ' wierszy');
+}
+
+// Uruchom RECZNIE JEDEN RAZ - zmienia nazwe stanowiska "OP40 OUT" na
+// "OP40 IN" w juz zapisanej konfiguracji Premii (cfm_premia_config,
+// cfm_premia_wydajnosc). OP40 OUT nigdy nie ma wlasnych raportow
+// produkcji (patrz CFM_plan.html - jego cel zawsze kopiuje OP40 IN, "co
+// wejdzie do pieca, tyle musi z niego wyjsc"), wiec grupa premiowa
+// wskazujaca na OP40 OUT nigdy nie widzi zadnej prawdziwej produkcji -
+// powinna wskazywac na OP40 IN, tak samo jak Statystyki.
+function migratePremiaOp40Name() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Ustawienia');
+  if (!sheet) return;
+  var data = sheet.getDataRange().getValues();
+  var updated = 0;
+  for (var i = 1; i < data.length; i++) {
+    var klucz = data[i][0];
+    if (klucz !== 'cfm_premia_config' && klucz !== 'cfm_premia_wydajnosc') continue;
+    var wartosc = String(data[i][1] || '');
+    if (wartosc.indexOf('OP40 OUT') === -1) continue;
+    sheet.getRange(i + 1, 2).setValue(wartosc.split('OP40 OUT').join('OP40 IN'));
+    updated++;
+  }
+  Logger.log('migratePremiaOp40Name: zaktualizowano ' + updated + ' wierszy Ustawien');
 }
 
 // ── REWORK PROCESSING (bufor per strefa) ────────────────────────────

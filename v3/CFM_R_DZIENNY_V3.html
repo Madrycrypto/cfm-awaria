@@ -405,7 +405,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
   <div class="div"></div>
 
   <div class="view-switch">
-    <button class="view-switch-btn awaria-tab" id="viewBtnAwaria" onclick="switchView('awaria')">&#9889; Awaria<span class="view-switch-cn">&#25925;&#38556;</span></button>
+    <button class="view-switch-btn awaria-tab" id="viewBtnAwaria" onclick="switchView('awaria')">&#9889; Alert<span class="view-switch-cn">&#35686;&#25253;</span></button>
     <button class="view-switch-btn" id="viewBtnGodzinny" onclick="switchView('godzinny')">&#128337; Godzinny<span class="view-switch-cn">&#27599;&#23567;&#26102;</span></button>
     <button class="view-switch-btn sel" id="viewBtnRaport" onclick="switchView('raport')">Raport zmiany<span class="view-switch-cn">&#29677;&#27425;&#25253;&#21578;</span></button>
     <button class="view-switch-btn rework-tab" id="viewBtnRework" onclick="switchView('rework')">&#128295; Rework<span class="view-switch-cn">&#36820;&#20462;</span></button>
@@ -597,7 +597,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
 
     <div class="historia-card" style="margin-top:20px;">
       <div class="historia-header">
-        <div class="historia-title">Historia awarii <span class="cn">&#183; &#25925;&#38556;&#35760;&#24405;</span></div>
+        <div class="historia-title">Historia alertów <span class="cn">&#183; &#35686;&#25253;&#35760;&#24405;</span></div>
       </div>
       <div id="awariaHistoryList"><div class="hist-loading">Brak historii <span class="cn">&#183; &#26242;&#26080;&#35760;&#24405;</span></div></div>
     </div>
@@ -688,16 +688,16 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
 <div class="warn-overlay" id="awariaWarnOverlay">
   <div class="warn-dialog">
     <div class="warn-icon">&#9888;&#65039;</div>
-    <div class="warn-title">OTWARTA AWARIA</div>
-    <div class="warn-title-cn">&#21457;&#29616;&#26410;&#20851;&#38381;&#30340;&#25925;&#38556;&#35760;&#24405;</div>
+    <div class="warn-title">OTWARTY ALERT</div>
+    <div class="warn-title-cn">&#21457;&#29616;&#26410;&#20851;&#38381;&#30340;&#35686;&#25253;&#35760;&#24405;</div>
     <div class="warn-info">
       <div class="warn-info-row"><span class="warn-info-lbl">Typ:</span><span class="warn-info-val" id="awariaWarnTyp">&#8212;</span></div>
       <div class="warn-info-row"><span class="warn-info-lbl">Start:</span><span class="warn-info-val" id="awariaWarnStart">&#8212;</span></div>
       <div class="warn-info-row"><span class="warn-info-lbl">Czas:</span><span class="warn-info-val" id="awariaWarnCzas">&#8212;</span></div>
     </div>
     <div class="warn-btns">
-      <button class="warn-btn-close" onclick="awariaWarnZamknijIStart()">ZAMKNIJ POPRZEDNI&#260; I ZACZNIJ NOW&#260;</button>
-      <button class="warn-btn-new" onclick="awariaWarnTylkoStart()">ZACZNIJ NOW&#260; BEZ ZAMYKANIA</button>
+      <button class="warn-btn-close" onclick="awariaWarnZamknijIStart()">ZAMKNIJ POPRZEDNI I ZACZNIJ NOWY</button>
+      <button class="warn-btn-new" onclick="awariaWarnTylkoStart()">ZACZNIJ NOWY BEZ ZAMYKANIA</button>
       <button class="warn-btn-cancel" onclick="awariaWarnAnuluj()">Anuluj <span class="cn">&#183; &#21462;&#28040;</span></button>
     </div>
   </div>
@@ -707,14 +707,14 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
 <div class="warn-overlay" id="awariaStillOpenOverlay">
   <div class="warn-dialog">
     <div class="warn-icon">&#9200;</div>
-    <div class="warn-title">AWARIA WCI&#193;&#379; OTWARTA</div>
-    <div class="warn-title-cn">&#25925;&#38556;&#20173;&#26410;&#20851;&#38381;</div>
+    <div class="warn-title">ALERT WCI&#193;&#379; OTWARTY</div>
+    <div class="warn-title-cn">&#35686;&#25253;&#20173;&#26410;&#20851;&#38381;</div>
     <div class="warn-info">
       <div class="warn-info-row"><span class="warn-info-lbl">Stanowisko/Typ:</span><span class="warn-info-val" id="awariaStillOpenStation">&#8212;</span></div>
       <div class="warn-info-row"><span class="warn-info-lbl">Trwa od:</span><span class="warn-info-val" id="awariaStillOpenCzas">&#8212;</span></div>
     </div>
     <div class="warn-btns">
-      <button class="warn-btn-close" onclick="awariaStillOpenConfirmEnd()">MASZYNA JU&#379; DZIA&#321;A &#8212; ZAKO&#324;CZ AWARI&#280; <span class="cn">&#183; &#35774;&#22791;&#24050;&#24674;&#22797;</span> &#8212; &#32467;&#26463;&#25925;&#38556;</button>
+      <button class="warn-btn-close" onclick="awariaStillOpenConfirmEnd()">MASZYNA JU&#379; DZIA&#321;A &#8212; ZAKO&#324;CZ ALERT <span class="cn">&#183; &#35774;&#22791;&#24050;&#24674;&#22797;</span> &#8212; &#32467;&#26463;&#35686;&#25253;</button>
       <button class="warn-btn-new" onclick="awariaStillOpenConfirmContinue()">NADAL TRWA &#8212; KONTYNUUJ RAPORT <span class="cn">&#183; &#20173;&#22312;&#32487;&#32493;</span> &#8212; &#32487;&#32493;&#25253;&#21578;</button>
     </div>
   </div>
@@ -743,7 +743,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
     <button class="admin-tab active" onclick="adminTab('workers')">Pracownicy <span class="cn">&#183; &#21592;&#24037;</span></button>
     <button class="admin-tab" onclick="adminTab('stations')">Stanowiska <span class="cn">&#183; &#24037;&#20301;</span></button>
     <button class="admin-tab" onclick="adminTab('przyczyny')">Przyczyny <span class="cn">&#183; &#21407;&#22240;</span></button>
-    <button class="admin-tab" onclick="adminTab('typy_awarii')">Typy awarii <span class="cn">&#183; &#25925;&#38556;&#31867;&#22411;</span></button>
+    <button class="admin-tab" onclick="adminTab('typy_awarii')">Typy alertów <span class="cn">&#183; &#35686;&#25253;&#31867;&#22411;</span></button>
     <button class="admin-tab" onclick="adminTab('magazyn')">Magazyn <span class="cn">&#183; &#20179;&#24211;</span></button>
     <button class="admin-tab" onclick="adminTab('cele')">Cele <span class="cn">&#183; &#30446;&#26631;</span></button>
     <button class="admin-tab" onclick="adminTab('zmiany')">Zmiany <span class="cn">&#183; &#29677;&#27425;</span></button>
@@ -832,7 +832,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Po&#322;&#261;czenie z arkuszem <span class="cn">&#183; &#36830;&#25509;&#35774;&#32622;</span></div>
 
     <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">Webhook URL</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Google Apps Script, u&#380;ywany te&#380; przez modu&#322; Awaria</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Google Apps Script, u&#380;ywany te&#380; przez modu&#322; Alert</div>
     <input type="text" id="webhookUrlInput" placeholder="https://script.google.com/macros/s/..." style="font-size:12px;margin-bottom:8px;" autocomplete="off">
     <div id="webhookStatusLine" style="font-size:12px;margin-bottom:12px;"></div>
 
@@ -2396,7 +2396,7 @@ function updateAwariaDescBoxForActive() {
 function awariaSubmitStart() {
   var station = document.getElementById('stationSel').value;
   if (!station) { showToast('Wybierz stanowisko! <span class="cn">· 请选择工位</span>!', 'err'); return; }
-  if (awariaActiveBreakdown) { showToast('Zamknij obecną awarię! <span class="cn">· 请先结束当前故障</span>!', 'err'); return; }
+  if (awariaActiveBreakdown) { showToast('Zamknij obecny alert! <span class="cn">· 请先结束当前警报</span>!', 'err'); return; }
   var typFull = awariaCurrentType;
   awariaPendingStart = { station: station, typFull: typFull };
 
@@ -2453,7 +2453,7 @@ function awariaWarnZamknijIStart() {
         body: JSON.stringify({ sheet_token: feishu.sheetToken, event: 'KONIEC', station: awariaPendingStart.station, operator: awariaOpenExisting.operator || '', type: awariaOpenExisting.typ, start_timestamp: awariaOpenExisting.startIso, koniec_timestamp: localIsoString(now), czas_min: dm, status: 'ZAMKNIETA' })
       }).catch(function() {});
     }
-    showToast('Poprzednia awaria zamknięta: ' + dm + ' min <span class="cn">· 上一个故障已关闭</span>: ' + dm + ' 分钟', 'ok');
+    showToast('Poprzedni alert zamknięty: ' + dm + ' min <span class="cn">· 上一个警报已关闭</span>: ' + dm + ' 分钟', 'ok');
   }
   setTimeout(function() { awariaDoStart(awariaPendingStart.station, awariaPendingStart.typFull); }, 500);
 }
@@ -2486,7 +2486,7 @@ function awariaDoStart(station, typFull) {
 
   awariaShowActiveBanner();
   document.getElementById('btnAwariaEnd').disabled = false;
-  showToast('Awaria zarejestrowana! <span class="cn">· 故障已登记</span>!', 'ok');
+  showToast('Alert zarejestrowany! <span class="cn">· 警报已登记</span>!', 'ok');
 }
 
 function awariaSubmitEnd() {
@@ -2905,7 +2905,7 @@ function saveAwariaTypes() {
   pushSettingToServer('cfm_types');
   awariaCurrentType = null;
   renderAwariaTypeGrid();
-  showToast('Typy awarii zapisane! <span class="cn">· 故障类型已保存</span>!', 'ok');
+  showToast('Typy alertów zapisane! <span class="cn">· 警报类型已保存</span>!', 'ok');
 }
 
 function renderMagazynPartsList() {

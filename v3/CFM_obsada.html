@@ -111,8 +111,9 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 
 /* Brama PINem — te 4 strony (Premie, Plan, Obsada, Inwentarz) sa mniej
    zaufane niz Raport dzienny (dane place/kadrowe/magazynowe), wiec
-   wymagaja tego samego PIN-u co Panel Admina (localStorage cfm_pin,
-   domyslnie 1234, zmienialny w Panelu Admina w Raporcie dziennym).
+   wymagaja WLASNEGO PIN-u "Raporty" (localStorage cfm_pin_raporty,
+   domyslnie 1234, zmienialny w Panelu Admina w Raporcie dziennym) —
+   osobnego od PIN-u Panelu Admina i od PIN-u Magazynu.
    Overlay jest WIDOCZNY DOMYSLNIE (nie odwrotnie jak w Panelu Admina) —
    zeby nie bylo widac tresci strony nawet na uamek sekundy zanim JS
    zdazy go pokazac. sessionStorage (nie localStorage) — odblokowanie
@@ -163,6 +164,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
       <a href="CFM_plan.html">&#128197; Plan <span class="cn">· 计划</span></a>
       <a href="CFM_obsada.html" class="on">&#128101; Obsada <span class="cn">· 排班</span></a>
       <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">· 库存</span></a>
+      <a href="CFM_magazyn.html">&#128712; Magazyn <span class="cn">· 仓库</span></a>
       </div>
     </div>
     <div class="langtoggle">
@@ -565,7 +567,7 @@ function savePlan() {
 
 function pinGateConfirm() {
   var p = document.getElementById('pinGateInput').value;
-  var sp = localStorage.getItem('cfm_pin') || '1234';
+  var sp = localStorage.getItem('cfm_pin_raporty') || '1234';
   var err = document.getElementById('pinGateErr');
   if (p !== sp) { err.style.display = 'block'; document.getElementById('pinGateInput').value = ''; return; }
   err.style.display = 'none';

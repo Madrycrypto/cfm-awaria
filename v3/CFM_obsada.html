@@ -275,6 +275,13 @@ function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_
 // wspoldzielony przez localStorage z pozostalymi stronami tego samego
 // pochodzenia (originu).
 function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
+// Wygodne ustawianie tokenu na telefonach (brak wygodnej konsoli): wejscie na ?token=XXX zapisuje go raz na stale i czysci adres, zeby nie zostal w historii przegladarki widoczny goly.
+(function() {
+  var t = new URLSearchParams(location.search).get('token');
+  if (t === null) return;
+  try { localStorage.setItem('cfm_api_token', t); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+})();
 
 var STATE = { stations: [], shiftLabels: ['A', 'B', 'C'], workers: [], crew: {}, dirty: false };
 

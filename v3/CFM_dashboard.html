@@ -306,6 +306,13 @@ wrapPlTextNodes(document.body);
 applyLangVisibility();
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
+// Prosty token wspoldzielony z backendem (Script Properties, API_TOKEN) -
+// dopoki nie ustawisz go w obu miejscach (tu i w Apps Script), wszystko
+// dziala jak wczesniej (backend ignoruje brak tokenu, gdy sam nie ma go
+// skonfigurowanego). Ustawiany raz w Panelu Admina (Raport dzienny),
+// wspoldzielony przez localStorage z pozostalymi stronami tego samego
+// pochodzenia (originu).
+function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
 
 var STATE = { rows: [], awarieRows: [], reworkRows: [], stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, shippingPlanMeta: {}, activeAwarie: undefined, stockLevel: undefined, stockHistory: {}, godzStation: localStorage.getItem('cfm_dash_godz_station') || null, godzRows: null, weekOffset: 0, reworkTodayRows: null, sqdipLastDays: null, wypadkiRows: null };
 
@@ -323,7 +330,7 @@ var DAY_LABELS_CN = ['周一','周二','周三','周四','周五','周六','周�
 // karcie/urzadzeniu inaczej nigdy by sie nie pojawily bez recznego F5.
 function loadSettings() {
   var wh = getWH();
-  return fetch(wh + '?event_type=GET_USTAWIENIA')
+  return fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=GET_USTAWIENIA')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       var u = (data && data.ustawienia) || {};
@@ -380,7 +387,7 @@ function loadData(silent) {
   var wh = getWH();
   var days = currentWeekDays();
   var liveEl = document.getElementById('liveStatus');
-  fetch(wh + '?event_type=STATYSTYKI&start=' + days[0] + '&end=' + days[6])
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=STATYSTYKI&start=' + days[0] + '&end=' + days[6])
     .then(function(res) { return res.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { showConnError(); return; }
@@ -562,7 +569,7 @@ function dayLabelsHtml(days) {
 }
 function loadSqdip() {
   var wh = getWH();
-  fetch(wh + '?event_type=WYPADKI_HISTORIA')
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=WYPADKI_HISTORIA')
     .then(function(r) { return r.json(); })
     .then(function(data) { if (data.status !== 'ok') return; STATE.wypadkiRows = data.historia || []; renderSqdip(); })
     .catch(function() {});
@@ -907,7 +914,7 @@ var TIME_WINDOWS = [
 function loadGodzinny() {
   var wh = getWH();
   var todayISO = toISO(new Date());
-  fetch(wh + '?event_type=HISTORIA_GODZINNA&date=' + todayISO)
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=HISTORIA_GODZINNA&date=' + todayISO)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') return;
@@ -987,7 +994,7 @@ function renderGodzinnyCard() {
 function loadReworkToday() {
   var wh = getWH();
   var todayISO = toISO(new Date());
-  fetch(wh + '?event_type=STATYSTYKI&start=' + todayISO + '&end=' + todayISO)
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=STATYSTYKI&start=' + todayISO + '&end=' + todayISO)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') return;
@@ -1049,7 +1056,7 @@ function loadStockLevel() {
   var firstDate = countDates[0];
   var todayISO = toISO(new Date());
   var wh = getWH();
-  fetch(wh + '?event_type=STATYSTYKI&start=' + firstDate + '&end=' + todayISO)
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=STATYSTYKI&start=' + firstDate + '&end=' + todayISO)
     .then(function(res) { return res.json(); })
     .then(function(data) {
       if (data.status !== 'ok') return;
@@ -1153,7 +1160,7 @@ function renderShipCoverage() {
 // duzym ekranie od razu bylo widac "co jest TERAZ zepsute i jak dlugo".
 function loadActiveAwarie() {
   var wh = getWH();
-  fetch(wh + '?event_type=AWARIE_OTWARTE')
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=AWARIE_OTWARTE')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') return;

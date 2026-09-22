@@ -268,6 +268,13 @@ applyLangVisibility();
 // profilu/trybu incognito). Ten sam wzorzec co CFM_R_DZIENNY_V3.html.
 var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
 function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
+// Prosty token wspoldzielony z backendem (Script Properties, API_TOKEN) -
+// dopoki nie ustawisz go w obu miejscach (tu i w Apps Script), wszystko
+// dziala jak wczesniej (backend ignoruje brak tokenu, gdy sam nie ma go
+// skonfigurowanego). Ustawiany raz w Panelu Admina (Raport dzienny),
+// wspoldzielony przez localStorage z pozostalymi stronami tego samego
+// pochodzenia (originu).
+function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
 
 var STATE = { stations: [], shiftLabels: ['A', 'B', 'C'], workers: [], crew: {}, dirty: false };
 
@@ -294,7 +301,7 @@ function init() {
     document.getElementById('app').innerHTML = '<div class="empty">Nie skonfigurowano połączenia na tym urządzeniu.<br><span class="cn">此设备尚未配置连接。</span><br><br>Otwórz główną apkę CFM &#8594; Panel Admina &#8594; Połączenie, skonfiguruj Webhook URL, wróć tutaj i odśwież stronę.<br><span class="cn">打开CFM主应用 &#8594; 管理面板 &#8594; 连接，配置Webhook网址，然后返回此页面刷新。</span></div>';
     return;
   }
-  fetch(wh + '?event_type=GET_USTAWIENIA')
+  fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=GET_USTAWIENIA')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.status !== 'ok') { showConnError(); return; }
@@ -424,7 +431,7 @@ function removeWorkerGlobally(name) {
   fetch(wh, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_workers', wartosc: JSON.stringify(STATE.workers) })
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_workers', wartosc: JSON.stringify(STATE.workers) })
   }).then(function() {
     showToast('Usunięto ze wspólnej listy <span class="cn">· 已从共享列表删除</span>', 'ok');
     rerenderKeepingCrew();
@@ -473,7 +480,7 @@ function bulkAddWorkers() {
   fetch(wh, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_workers', wartosc: JSON.stringify(STATE.workers) })
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_workers', wartosc: JSON.stringify(STATE.workers) })
   }).then(function() {
     showToast(added + ' pracowników dodanych do wspólnej listy! <span class="cn">· 已添加</span> ' + added + ' 名员工!', 'ok');
     rerenderKeepingCrew();
@@ -541,7 +548,7 @@ function savePlan() {
   fetch(wh, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_crew', wartosc: JSON.stringify(STATE.crew) })
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_crew', wartosc: JSON.stringify(STATE.crew) })
   }).then(function() {
     showToast('Obsada zapisana! <span class="cn">· 人员配置已保存</span>!', 'ok');
   }).catch(function() {

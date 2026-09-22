@@ -669,7 +669,7 @@ function render() {
     '<div class="section"><div class="section-head"><h2>Bilans tygodniowy<span class="cn">每周计划平衡</span></h2></div><div id="weeklyBalance"></div></div>' +
     '<div class="twosectiongrid">' +
       '<div class="section"><div class="section-head"><h2>Rework &#183; ile faktycznie odzyskano<span class="cn">返修 &#183; 实际挽回比例</span></h2></div><div class="barsgrid" id="reworkBalance"></div></div>' +
-      '<div class="section"><div class="section-head"><h2>Awarie &#183; przestoje w okresie<span class="cn">故障 &#183; 本期停机</span></h2></div><div class="barsgrid" id="awarieSummary"></div></div>' +
+      '<div class="section"><div class="section-head"><h2>Alerty &#183; przestoje w okresie<span class="cn">警报 &#183; 本期停机</span></h2></div><div class="barsgrid" id="awarieSummary"></div></div>' +
     '</div>';
 
   wireMonthNav();
@@ -1406,10 +1406,10 @@ function renderReworkBalance(days) {
 // odnosic, w przeciwienstwie do bilansow powyzej), zeby od razu bylo
 // widac ktore stanowisko mialo najwiecej przestoju w tym okresie.
 function plAwarie(n) {
-  if (n === 1) return 'awaria';
+  if (n === 1) return 'alert';
   var m10 = n % 10, m100 = n % 100;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'awarie';
-  return 'awarii';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return 'alerty';
+  return 'alertów';
 }
 function renderAwarieSummary(days) {
   var el = document.getElementById('awarieSummary');

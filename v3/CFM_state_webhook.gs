@@ -64,7 +64,7 @@ function round1_(n) { return Math.round(n * 10) / 10; }
 // Feishu i dla kolumny type_cn w arkuszu) - jedno wywolanie LanguageApp na
 // jezyk, wynik uzywany w obu miejscach ponizej.
 function translateType_(text) {
-  text = text || 'Awaria';
+  text = text || 'Alert';
   var en = text, cn = text;
   try { en = LanguageApp.translate(text, 'pl', 'en'); } catch (e) {}
   try { cn = LanguageApp.translate(text, 'pl', 'zh-CN'); } catch (e) {}
@@ -644,12 +644,12 @@ function handleAwariaStart(ss, p) {
       return jsonResponse({ status: 'ok', duplicate: true });
     }
   }
-  var tr = translateType_(p.typ || 'Awaria');
+  var tr = translateType_(p.typ || 'Alert');
   awarieAppendRow_(sheet, map, {
     start_timestamp: p.timestamp || '', station: p.stanowisko || '', type: p.typ || '',
     status: 'OTWARTA', operator: p.operator || '', shift: p.shift || '', type_cn: tr.cn,
   });
-  sendFeishuBotMessage_('🔧 BREAKDOWN START / 故障开始\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
+  sendFeishuBotMessage_('🔧 ALERT START / 警报开始\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
   return jsonResponse({ status: 'ok' });
 }
 
@@ -674,18 +674,18 @@ function handleAwariaEnd(ss, p) {
       awarieSetField_(sheet, map, rowIdx, 'czas_min', czasMin);
       awarieSetField_(sheet, map, rowIdx, 'status', 'ZAMKNIETA');
       awarieSetField_(sheet, map, rowIdx, 'type_cn', tr.cn);
-      sendFeishuBotMessage_('✅ BREAKDOWN END / 故障结束\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + '\nDuration / 时长: ' + czasMin + ' min');
+      sendFeishuBotMessage_('✅ ALERT END / 警报结束\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + '\nDuration / 时长: ' + czasMin + ' min');
       return jsonResponse({ status: 'ok' });
     }
   }
   // Nie znaleziono otwartego wiersza (np. reset stanu w aplikacji) — dopisz kompletny wiersz.
-  var tr2 = translateType_(p.typ || 'Awaria');
+  var tr2 = translateType_(p.typ || 'Alert');
   awarieAppendRow_(sheet, map, {
     start_timestamp: p.start_timestamp || '', station: p.stanowisko || '', type: p.typ || '',
     koniec_timestamp: p.koniec_timestamp || '', czas_min: czasMin, status: 'ZAMKNIETA',
     operator: p.operator || '', shift: p.shift || '', type_cn: tr2.cn,
   });
-  sendFeishuBotMessage_('✅ BREAKDOWN END / 故障结束\n' + (p.stanowisko || '?') + ' · ' + tr2.en + ' / ' + tr2.cn + '\nDuration / 时长: ' + czasMin + ' min');
+  sendFeishuBotMessage_('✅ ALERT END / 警报结束\n' + (p.stanowisko || '?') + ' · ' + tr2.en + ' / ' + tr2.cn + '\nDuration / 时长: ' + czasMin + ' min');
   return jsonResponse({ status: 'ok' });
 }
 
@@ -1098,7 +1098,7 @@ function wyslijPodsumowanieDnia() {
   var dd = dateIso.split('-');
   var text = '☀️ DAILY SUMMARY / 日总结 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + '\n\n' +
     'Plan completion & pass rate / 计划完成率与合格率:\n' + (stationLines || '  —') + '\n\n' +
-    'Breakdowns / 故障: ' + awarieCount + ' (total / 总计 ' + round1_(awarieMin) + ' min)' + (awarieLines ? '\n' + awarieLines : '');
+    'Alerts / 警报: ' + awarieCount + ' (total / 总计 ' + round1_(awarieMin) + ' min)' + (awarieLines ? '\n' + awarieLines : '');
   sendFeishuBotMessage_(text);
 }
 
@@ -1143,7 +1143,7 @@ function checkAwariaEscalations() {
     var startTxt = Utilities.formatDate(start, tz, 'HH:mm');
     if (elapsedMin >= 60 && !obj.alert_1h_sent) {
       // Powyzej 1h -> glowna grupa (szefowie) - powazniejsza eskalacja.
-      sendFeishuBotMessage_('⏱️ BREAKDOWN OPEN 1H+ / 故障持续超过1小时\n' + obj.station + ' · ' + (obj.type || 'Awaria') + (obj.operator ? '\nReported by / 报告人: ' + obj.operator : '') + '\nOpen since / 开始于: ' + startTxt, FEISHU_BOT_WEBHOOK);
+      sendFeishuBotMessage_('⏱️ ALERT OPEN 1H+ / 警报持续超过1小时\n' + obj.station + ' · ' + (obj.type || 'Alert') + (obj.operator ? '\nReported by / 报告人: ' + obj.operator : '') + '\nOpen since / 开始于: ' + startTxt, FEISHU_BOT_WEBHOOK);
       awarieSetField_(sheet, map, rowIdx, 'alert_1h_sent', true);
     } else if (elapsedMin >= 15 && !obj.alert_15min_sent) {
       // 15 min -> grupa technikow, zeby ktos poszedl to naprawic zanim
@@ -1151,7 +1151,7 @@ function checkAwariaEscalations() {
       // uzupelniony, NIE wysylamy tego wcale (celowo nie wpada na glowna
       // grupe jako fallback - to bylby spam nie dla tych odbiorcow).
       if (FEISHU_BOT_WEBHOOK_TECHNICY) {
-        sendFeishuBotMessage_('⏱️ BREAKDOWN OPEN 15MIN+ / 故障持续超过15分钟\n' + obj.station + ' · ' + (obj.type || 'Awaria') + (obj.operator ? '\nReported by / 报告人: ' + obj.operator : '') + '\nOpen since / 开始于: ' + startTxt, FEISHU_BOT_WEBHOOK_TECHNICY);
+        sendFeishuBotMessage_('⏱️ ALERT OPEN 15MIN+ / 警报持续超过15分钟\n' + obj.station + ' · ' + (obj.type || 'Alert') + (obj.operator ? '\nReported by / 报告人: ' + obj.operator : '') + '\nOpen since / 开始于: ' + startTxt, FEISHU_BOT_WEBHOOK_TECHNICY);
       }
       awarieSetField_(sheet, map, rowIdx, 'alert_15min_sent', true);
     }
@@ -1165,6 +1165,156 @@ function ustawTriggerEscalations() {
     if (t.getHandlerFunction() === 'checkAwariaEscalations') ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('checkAwariaEscalations').timeBased().everyMinutes(5).create();
+}
+
+// ── MAGAZYN CZESCI: DZIENNE PODSUMOWANIE DO ZAMOWIENIA (Feishu, przed 7:00) ──
+// Ta sama logika projekcji co CFM_magazyn.html (client, patrz tam obszerny
+// komentarz o modelu deplecyjnym z wbudowanym "efektem tego samego dnia").
+// Do zamowienia trafia: (a) kazda czesc z DZISIEJSZYM potwierdzeniem NOK
+// od magazyniera (jego liczba jest autorytatywna — mogl zauwazyc cos,
+// czego automat nie wie, np. zlom/uszkodzenie), (b) kazda czesc BEZ
+// dzisiejszego potwierdzenia, ktorej auto-projekcja pokazuje pokrycie
+// <= MAGAZYN_WIDOCZNOSC_DNI, oznaczona jako "niepotwierdzona" — zeby brak
+// wspolpracy magazyniera nigdy nie zablokowal tej wiadomosci do szefa.
+// Czesci z dzisiejszym potwierdzeniem OK sa pomijane (magazynier juz
+// zapewnil ze starczy).
+var MAGAZYN_HORYZONT_DNI = 30;
+var MAGAZYN_WIDOCZNOSC_DNI = 7;
+
+function planSumForDayWithFallback_(monthlyPlan, targets, station, dateIso) {
+  station = String(station || '').trim();
+  var mk = dateIso.slice(0, 7);
+  var stPlan = monthlyPlan[mk] && monthlyPlan[mk][station];
+  var sum = 0, any = false;
+  if (stPlan) {
+    Object.keys(stPlan).forEach(function (shift) {
+      var v = stPlan[shift] && stPlan[shift][dateIso];
+      if (v !== undefined) { sum += Number(v) || 0; any = true; }
+    });
+  }
+  if (any) return sum;
+  return Number(targets[station]) || 0;
+}
+function magazynEnumerateDays_(startIso, endIso) {
+  var days = [];
+  var sp = startIso.split('-'), ep = endIso.split('-');
+  var cursor = new Date(Number(sp[0]), Number(sp[1]) - 1, Number(sp[2]));
+  var end = new Date(Number(ep[0]), Number(ep[1]) - 1, Number(ep[2]));
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  while (cursor <= end) {
+    days.push(Utilities.formatDate(cursor, tz, 'yyyy-MM-dd'));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+function magazynPartConsumption_(part, dateIso, rowsByStationDate, monthlyPlan, targets, todayIso) {
+  var stations = String(part.station || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  var units = 0;
+  var isFuture = dateIso > todayIso;
+  stations.forEach(function (st) {
+    var key = st + '||' + dateIso;
+    var a = (!isFuture && rowsByStationDate.hasOwnProperty(key)) ? rowsByStationDate[key] : null;
+    units += a !== null ? a : planSumForDayWithFallback_(monthlyPlan, targets, st, dateIso);
+  });
+  return units * (Number(part.qty) || 1);
+}
+function magazynComputeProjection_(part, stany, rowsByStationDate, monthlyPlan, targets, todayIso) {
+  var partStany = stany[part.number] || {};
+  var pastCountDates = Object.keys(partStany).filter(function (d) { return d <= todayIso; }).sort();
+  if (!pastCountDates.length) return null;
+  var lastCountDate = pastCountDates[pastCountDates.length - 1];
+  var horizonEnd = new Date(Number(todayIso.slice(0, 4)), Number(todayIso.slice(5, 7)) - 1, Number(todayIso.slice(8, 10)));
+  horizonEnd.setDate(horizonEnd.getDate() + MAGAZYN_HORYZONT_DNI);
+  var horizonEndIso = Utilities.formatDate(horizonEnd, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+  var days = magazynEnumerateDays_(lastCountDate, horizonEndIso);
+  var running = Number(partStany[lastCountDate]) || 0;
+  var balanceToday = running;
+  var runOutDate = null;
+  days.forEach(function (d) {
+    var countToday = partStany[d] !== undefined ? Number(partStany[d]) : null;
+    if (countToday !== null && d !== lastCountDate) running = countToday;
+    running -= magazynPartConsumption_(part, d, rowsByStationDate, monthlyPlan, targets, todayIso);
+    if (d <= todayIso) balanceToday = running;
+    if (runOutDate === null && running < 0) runOutDate = d;
+  });
+  var coverageDays = runOutDate ? magazynEnumerateDays_(todayIso, runOutDate).length - 1 : null;
+  return { balanceToday: balanceToday, coverageDays: coverageDays };
+}
+
+function wyslijPodsumowanieMagazynu() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  var todayIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+
+  var parts = [], stany = {}, potwierdzenia = {}, monthlyPlan = {}, targets = {};
+  var ustSheet = ss.getSheetByName('Ustawienia');
+  if (ustSheet) {
+    var udata = ustSheet.getDataRange().getValues();
+    for (var u = 1; u < udata.length; u++) {
+      var klucz = udata[u][0], wartosc = udata[u][1];
+      if (klucz === 'cfm_magazyn_parts') { try { parts = JSON.parse(wartosc || '[]'); } catch (e) {} }
+      if (klucz === 'cfm_magazyn_stany') { try { stany = JSON.parse(wartosc || '{}'); } catch (e) {} }
+      if (klucz === 'cfm_magazyn_potwierdzenia') { try { potwierdzenia = JSON.parse(wartosc || '{}'); } catch (e) {} }
+      if (klucz === 'cfm_monthly_plan') { try { monthlyPlan = JSON.parse(wartosc || '{}'); } catch (e) {} }
+      if (klucz === 'cfm_station_targets') { try { targets = JSON.parse(wartosc || '{}'); } catch (e) {} }
+    }
+  }
+  if (!parts.length) return; // katalog czesci jeszcze nie skonfigurowany w Panelu Admina
+
+  // Najwczesniejsza inwentaryzacja spomiedzy wszystkich czesci — wyznacza
+  // zakres potrzebny do pobrania "actual" z RaportDzienny.
+  var earliestCount = null;
+  Object.keys(stany).forEach(function (num) {
+    Object.keys(stany[num]).forEach(function (d) {
+      if (earliestCount === null || d < earliestCount) earliestCount = d;
+    });
+  });
+  var rowsByStationDate = {};
+  if (earliestCount) {
+    var repSheet = ss.getSheetByName('RaportDzienny');
+    if (repSheet) {
+      var rdata = repSheet.getDataRange().getValues();
+      for (var i = 1; i < rdata.length; i++) {
+        var r = rdata[i];
+        var d = normalizeDate_(r[1]);
+        if (d < earliestCount || d > todayIso) continue;
+        var key = String(r[3] || '').trim() + '||' + d;
+        rowsByStationDate[key] = (rowsByStationDate.hasOwnProperty(key) ? rowsByStationDate[key] : 0) + (Number(r[5]) || 0);
+      }
+    }
+  }
+
+  var todaysConfirm = potwierdzenia[todayIso] || {};
+  var lines = [];
+  parts.forEach(function (p) {
+    var confirm = todaysConfirm[p.number];
+    if (confirm && confirm.status === 'NOK') {
+      lines.push('  ' + p.number + (p.desc ? ' (' + p.desc + ')' : '') + ': brakuje ' + Math.round(confirm.qty) + ' szt. [magazynier]');
+      return;
+    }
+    if (confirm && confirm.status === 'OK') return;
+    var proj = magazynComputeProjection_(p, stany, rowsByStationDate, monthlyPlan, targets, todayIso);
+    if (!proj) return; // brak inwentaryzacji tej czesci — nie da sie nic policzyc
+    if (proj.coverageDays !== null && proj.coverageDays <= MAGAZYN_WIDOCZNOSC_DNI) {
+      var covTxt = proj.coverageDays <= 0 ? 'BRAKUJE JUZ DZIS' : ('starczy na ~' + proj.coverageDays + ' dni');
+      lines.push('  ' + p.number + (p.desc ? ' (' + p.desc + ')' : '') + ': ' + Math.round(proj.balanceToday) + ' szt. (' + covTxt + ') [auto, niepotwierdzone]');
+    }
+  });
+
+  if (!lines.length) return; // nic do zamowienia — nie spamujemy pusta wiadomoscia
+  var dd = todayIso.split('-');
+  var text = '📦 MAGAZYN — DO ZAMÓWIENIA / 待订购 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + '\n\n' + lines.join('\n');
+  sendFeishuBotMessage_(text);
+}
+
+// Uruchom RECZNIE JEDEN RAZ z edytora Apps Script, zeby zainstalowac
+// codzienny trigger o 7:00 z podsumowaniem czesci do zamowienia. Bezpieczne
+// uruchomic wielokrotnie — najpierw usuwa stare triggery tej samej funkcji.
+function ustawTriggerMagazynu() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'wyslijPodsumowanieMagazynu') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('wyslijPodsumowanieMagazynu').timeBased().atHour(7).everyDays(1).create();
 }
 
 // ── WYPADKI (BHP) ────────────────────────────────────────────────────

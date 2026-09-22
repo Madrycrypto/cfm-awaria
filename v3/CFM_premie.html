@@ -282,6 +282,13 @@ function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_
 // wspoldzielony przez localStorage z pozostalymi stronami tego samego
 // pochodzenia (originu).
 function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
+// Wygodne ustawianie tokenu na telefonach (brak wygodnej konsoli): wejscie na ?token=XXX zapisuje go raz na stale i czysci adres, zeby nie zostal w historii przegladarki widoczny goly.
+(function() {
+  var t = new URLSearchParams(location.search).get('token');
+  if (t === null) return;
+  try { localStorage.setItem('cfm_api_token', t); } catch (e) {}
+  try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+})();
 
 var MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 var MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];

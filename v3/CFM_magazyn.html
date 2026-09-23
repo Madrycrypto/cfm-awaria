@@ -313,14 +313,6 @@ function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
 // otworzyl tam zakladke Magazyn (localStorage jest wspolny w ramach tego
 // samego originu, wiec po pierwszym zapisie tam i tak nadpisze ten default).
 var DEFAULT_MAGAZYN_PARTS = [
-  { number: '65310150-01', desc: 'Right tank', station: 'OP51/52', qty: 1, group: 'CFM-1' },
-  { number: '6530149-01', desc: 'Left tank', station: 'OP51/52', qty: 1, group: 'CFM-1' },
-  { number: '6530151-01', desc: 'Gasket', station: 'OP51/52', qty: 1, group: 'CFM-1' },
-  { number: '6530154-01', desc: 'Core', station: 'OP51/52', qty: 1, group: 'CFM-1' },
-  { number: '6530153-01', desc: 'Stone guard', station: 'GP12', qty: 1, group: 'CFM-1' },
-  { number: '6530152-01', desc: 'Sealing (x1)', station: 'GP12', qty: 1, group: 'CFM-1' },
-  { number: '6530152-32', desc: 'Sealing (x2)', station: 'GP12', qty: 2, group: 'CFM-1' },
-  { number: '6530152-03', desc: 'Sealing (x2)', station: 'GP12', qty: 2, group: 'CFM-1' },
   { number: '6530159-01', desc: 'Header', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1' },
   { number: '6530160-01', desc: 'Side plate', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1' },
   { number: '90340837', desc: 'Fins 铝材', station: 'OP30', qty: 0.62, unit: 'kg', group: 'CFM-1' },

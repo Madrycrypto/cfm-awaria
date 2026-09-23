@@ -74,6 +74,8 @@ tbody tr:last-child td{border-bottom:none}
 .field input{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;color:var(--text);font-family:var(--fh);font-weight:700;font-size:14px;padding:9px 10px;font-variant-numeric:tabular-nums}
 .field input:focus{outline:none;border-color:var(--blue)}
 .btn-save{font-family:var(--fh);font-weight:800;font-size:13px;letter-spacing:0.03em;text-transform:uppercase;color:#fff;background:var(--blue);border:none;padding:11px 20px;border-radius:9px;cursor:pointer;margin-top:14px}
+.magazyn-group-head{font-family:var(--fh);font-weight:800;font-size:15px;letter-spacing:0.04em;text-transform:uppercase;color:var(--blue);margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.magazyn-group-head:first-child{margin-top:0}
 .btn-save:hover{filter:brightness(1.1)}
 
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:40}
@@ -311,18 +313,33 @@ function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
 // otworzyl tam zakladke Magazyn (localStorage jest wspolny w ramach tego
 // samego originu, wiec po pierwszym zapisie tam i tak nadpisze ten default).
 var DEFAULT_MAGAZYN_PARTS = [
-  { number: '65310150-01', desc: 'Right tank', station: 'OP51/52', qty: 1, weight: '' },
-  { number: '6530149-01', desc: 'Left tank', station: 'OP51/52', qty: 1, weight: '' },
-  { number: '6530151-01', desc: 'Gasket', station: 'OP51/52', qty: 1, weight: '' },
-  { number: '6530154-01', desc: 'Core', station: 'OP51/52', qty: 1, weight: '' },
-  { number: '6530153-01', desc: 'Stone guard', station: 'GP12', qty: 1, weight: '' },
-  { number: '6530152-01', desc: 'Sealing (x1)', station: 'GP12', qty: 1, weight: '' },
-  { number: '6530152-32', desc: 'Sealing (x2)', station: 'GP12', qty: 2, weight: '' },
-  { number: '6530152-03', desc: 'Sealing (x2)', station: 'GP12', qty: 2, weight: '' },
-  { number: '6530159-01', desc: 'Header', station: 'OP33A,OP33B', qty: 1, weight: '' },
-  { number: '6530160-01', desc: 'Side plate', station: 'OP33A,OP33B', qty: 1, weight: '' },
-  { number: '90330858', desc: 'Aluminium 铝材', station: 'OP33A,OP33B', qty: 1, weight: 0.6603 },
-  { number: '90340837', desc: 'Aluminium 铝材', station: 'OP30', qty: 1, weight: 1.33308 },
+  { number: '65310150-01', desc: 'Right tank', station: 'OP51/52', qty: 1, group: 'CFM-1' },
+  { number: '6530149-01', desc: 'Left tank', station: 'OP51/52', qty: 1, group: 'CFM-1' },
+  { number: '6530151-01', desc: 'Gasket', station: 'OP51/52', qty: 1, group: 'CFM-1' },
+  { number: '6530154-01', desc: 'Core', station: 'OP51/52', qty: 1, group: 'CFM-1' },
+  { number: '6530153-01', desc: 'Stone guard', station: 'GP12', qty: 1, group: 'CFM-1' },
+  { number: '6530152-01', desc: 'Sealing (x1)', station: 'GP12', qty: 1, group: 'CFM-1' },
+  { number: '6530152-32', desc: 'Sealing (x2)', station: 'GP12', qty: 2, group: 'CFM-1' },
+  { number: '6530152-03', desc: 'Sealing (x2)', station: 'GP12', qty: 2, group: 'CFM-1' },
+  { number: '6530159-01', desc: 'Header', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1' },
+  { number: '6530160-01', desc: 'Side plate', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1' },
+  { number: '90340837', desc: 'Fins 铝材', station: 'OP30', qty: 0.62, unit: 'kg', group: 'CFM-1' },
+  { number: '90330858', desc: 'Pipes 铝材', station: 'OP33A,OP33B', qty: 1.312, unit: 'kg', group: 'CFM-1' },
+  { number: '6530154', desc: 'Core', station: 'GP12', qty: 1, group: 'CFM-2' },
+  { number: '6743787-01', desc: 'Upper isolator', station: 'GP12', qty: 2, group: 'CFM-2' },
+  { number: '6743865-01', desc: 'Electrical machinery', station: 'GP12', qty: 1, group: 'CFM-2' },
+  { number: '6743788-01', desc: 'Lower isolator', station: 'GP12', qty: 2, group: 'CFM-2' },
+  { number: '6743789-01', desc: 'Bushing', station: 'GP12', qty: 2, group: 'CFM-2' },
+  { number: '6743791-01', desc: 'Bolts M6', station: 'GP12', qty: 2, group: 'CFM-2' },
+  { number: '6743790-01', desc: 'Washer', station: 'GP12', qty: 2, group: 'CFM-2' },
+  { number: '6530152-80', desc: 'Sealing', station: 'GP12', qty: 2, group: 'CFM-2' },
+  { number: '6530152-81', desc: 'Sealing', station: 'GP12', qty: 2, group: 'CFM-2' },
+  { number: '690235-02', desc: '', station: 'GP12', qty: 3, group: 'CFM-2' },
+  { number: '6530151-01', desc: 'Gasket', station: 'GP12', qty: 2, group: 'CFM-2' },
+  { number: 'B70003-26', desc: 'PLUG', station: 'GP12', qty: 2, group: 'CFM-2' },
+  { number: '91195355', desc: '800MG', station: 'GP12', qty: 1, group: 'CFM-2' },
+  { number: '91195357', desc: '300MG', station: 'GP12', qty: 1, group: 'CFM-2' },
+  { number: '91195356', desc: '500MG', station: 'GP12', qty: 1, group: 'CFM-2' },
 ];
 function getMagazynParts() {
   var s = localStorage.getItem('cfm_magazyn_parts');
@@ -332,6 +349,7 @@ function getMagazynParts() {
 
 var STATE = { parts: [], magazynStany: {}, potwierdzenia: {}, monthlyPlan: {}, stationTargets: {}, rows: [], openAlertsSeen: [], currentAlerts: [] };
 var HORIZON_DAYS = 30;
+var MAGAZYN_GROUPS = ['CFM-1', 'CFM-2'];
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function localIsoString(d) {
@@ -350,6 +368,13 @@ function enumerateDays(startIso, endIso) {
   return days;
 }
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : Math.round(n).toLocaleString('pl-PL'); }
+// Czesci zamawiane na wage (rolki tasmy, unit:'kg') potrzebuja precyzji
+// dziesietnej (0,62 kg ma znaczenie) - fmt() zaokragla do calosci, co dla
+// sztuk jest poprawne, ale dla kg zgubiloby cala wartosc.
+function fmtQty(n, unit) {
+  if (n === null || n === undefined) return '&#8212;';
+  return unit === 'kg' ? n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 3 }) : Math.round(n).toLocaleString('pl-PL');
+}
 function showToast(msg, kind) {
   var t = document.getElementById('toast');
   t.innerHTML = msg;
@@ -385,23 +410,46 @@ function actualSumForDay(rows, station, dateIso) {
   rows.forEach(function(r) { if (String(r.station || '').trim() === target && r.date === dateIso) { sum += Number(r.qty) || 0; has = true; } });
   return has ? sum : null;
 }
-// Zuzycie CZESCI danego dnia = suma (produkcja stanowiska(-) x ilosc czesci
-// na sztuke) po wszystkich stanowiskach zmapowanych do tej czesci (przy
-// kilku, np. "OP33A,OP33B" - obie razem, bo to ten sam fizyczny zapas).
-function partConsumptionForDay(part, dateIso, rows, todayISO) {
-  var stations = String(part.station || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-  var units = 0;
-  var isFuture = dateIso > todayISO;
-  stations.forEach(function(st) {
-    var a = isFuture ? null : actualSumForDay(rows, st, dateIso);
-    units += a !== null ? a : planSumForDayWithFallback(st, dateIso);
+// Ta sama fizyczna czesc (numer) moze wystapic w OBU grupach CFM-1/CFM-2
+// jako osobne wiersze BOM (inna ilosc/stacja per produkt) - to NIE
+// duplikat, tylko dwie niezalezne linie zapotrzebowania na TEN SAM fizyczny
+// zapas magazynowy. Projekcja MUSI wiec sumowac zuzycie ze WSZYSTKICH
+// wierszy BOM danego numeru naraz (nie liczyc kazdego wiersza osobno od
+// tego samego stanu poczatkowego) - inaczej dwie niezalezne projekcje
+// zjadalyby ten sam zapas dwa razy, dajac falszywie optymistyczny wynik.
+function groupPartsByNumber(parts) {
+  var map = {};
+  parts.forEach(function(p) {
+    if (!map[p.number]) map[p.number] = [];
+    map[p.number].push(p);
   });
-  return units * (Number(part.qty) || 1);
+  return map;
+}
+// Zuzycie CZESCI danego dnia = suma po WSZYSTKICH wierszach BOM (bomLines)
+// odwolujacych sie do tego numeru, kazdy liczony jako (produkcja jego
+// stanowiska(-) x jego ilosc/sztuke) - stanowiska rozdzielone przecinkiem
+// (np. "OP33A,OP33B") sumuja sie w ramach JEDNEGO wiersza, bo to ten sam
+// fizyczny zapas.
+function partConsumptionForDay(bomLines, dateIso, rows, todayISO) {
+  var isFuture = dateIso > todayISO;
+  var total = 0;
+  bomLines.forEach(function(line) {
+    var stations = String(line.station || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+    var units = 0;
+    stations.forEach(function(st) {
+      var a = isFuture ? null : actualSumForDay(rows, st, dateIso);
+      units += a !== null ? a : planSumForDayWithFallback(st, dateIso);
+    });
+    total += units * (Number(line.qty) || 1);
+  });
+  return total;
 }
 // Zwraca { balanceToday, runOutDate, coverageDays, lastCountDate } albo
 // null jesli dla tej czesci nie ma jeszcze ZADNEJ zapisanej inwentaryzacji.
-function computePartProjection(part, todayISO) {
-  var stany = STATE.magazynStany[part.number] || {};
+// bomLines = wszystkie wiersze katalogu (z obu grup) odwolujace sie do tego
+// samego numeru czesci - patrz komentarz przy groupPartsByNumber.
+function computePartProjection(bomLines, partNumber, todayISO) {
+  var stany = STATE.magazynStany[partNumber] || {};
   var pastCountDates = Object.keys(stany).filter(function(d) { return d <= todayISO; }).sort();
   if (!pastCountDates.length) return null;
   var lastCountDate = pastCountDates[pastCountDates.length - 1];
@@ -413,7 +461,7 @@ function computePartProjection(part, todayISO) {
   days.forEach(function(d) {
     var countToday = stany[d] !== undefined ? Number(stany[d]) : null;
     if (countToday !== null && d !== lastCountDate) running = countToday;
-    running -= partConsumptionForDay(part, d, STATE.rows, todayISO);
+    running -= partConsumptionForDay(bomLines, d, STATE.rows, todayISO);
     if (d <= todayISO) balanceToday = running;
     if (runOutDate === null && running < 0) runOutDate = d;
   });
@@ -566,18 +614,44 @@ function renderApp() {
     '<div class="section"><div class="section-head"><h2>Przegląd dzienny<span class="cn">每日审核</span></h2></div>' + projectionListHtml() + '</div>';
   wireInventoryForm();
 }
+// Jedna pozycja fizycznego magazynu na numer czesci, nawet jesli katalog ma
+// dla niego kilka wierszy BOM (rozne grupy/stacje/ilosci) - magazynier
+// liczy fizyczna sztuke RAZ, niezaleznie od tego ile produktow ja zuzywa.
+// "primaryGroup" = grupa pierwszego wystapienia w katalogu, uzywana tylko
+// do decyzji POD KTORYM naglowkiem grupy pokazac ten wiersz.
+function uniquePartsInOrder(parts) {
+  var seen = {}, out = [];
+  parts.forEach(function(p) {
+    if (seen[p.number]) return;
+    seen[p.number] = true;
+    out.push(p);
+  });
+  return out;
+}
+function partGroupsLabel(bomLines) {
+  var groups = [];
+  bomLines.forEach(function(l) { var g = l.group === 'CFM-2' ? 'CFM-2' : 'CFM-1'; if (groups.indexOf(g) < 0) groups.push(g); });
+  return groups.join(' + ');
+}
+function partStationsLabel(bomLines) {
+  var out = bomLines.map(function(l) { return (l.group === 'CFM-2' ? 'CFM-2' : 'CFM-1') + ': ' + (l.station || '&#8212;') + ' &#215;' + (l.qty || 1) + (l.unit === 'kg' ? 'kg' : ''); });
+  return out.join(' &#183; ');
+}
 function inventoryFormHtml() {
   var todayISO = toISO(new Date());
+  var byNumber = groupPartsByNumber(STATE.parts);
+  var unique = uniquePartsInOrder(STATE.parts);
   return '<div class="tablewrap"><div class="tablescroll"><table><thead><tr>' +
-    '<th>Część<span class="cn">零件</span></th><th>Ostatnia inwent.<span class="cn">上次盘点</span></th><th>Ilość dzisiaj<span class="cn">今日数量</span></th>' +
+    '<th>Część<span class="cn">零件</span></th><th>Używana w<span class="cn">用于</span></th><th>Ostatnia inwent.<span class="cn">上次盘点</span></th><th>Ilość dzisiaj<span class="cn">今日数量</span></th>' +
     '</tr></thead><tbody>' +
-    STATE.parts.map(function(p, i) {
+    unique.map(function(p) {
+      var bomLines = byNumber[p.number];
       var stany = STATE.magazynStany[p.number] || {};
       var dates = Object.keys(stany).sort();
       var last = dates.length ? dates[dates.length - 1] : null;
-      var lastTxt = last ? fmt(stany[last]) + ' (' + last.split('-').slice(1).reverse().join('/') + ')' : '&#8212;';
-      return '<tr><td>' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + '</td><td>' + lastTxt + '</td>' +
-        '<td><input type="number" min="0" class="countinput" id="inv-' + i + '" placeholder="&#8212;"></td></tr>';
+      var lastTxt = last ? fmtQty(stany[last], p.unit) + (p.unit === 'kg' ? ' kg' : '') + ' (' + last.split('-').slice(1).reverse().join('/') + ')' : '&#8212;';
+      return '<tr><td>' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + '</td><td style="text-align:left;font-size:11px;color:var(--muted);">' + partStationsLabel(bomLines) + '</td><td>' + lastTxt + '</td>' +
+        '<td><input type="number" min="0" step="any" class="countinput" id="inv-' + p.number.replace(/[^a-zA-Z0-9]/g, '_') + '" placeholder="&#8212;"></td></tr>';
     }).join('') +
     '</tbody></table></div></div>' +
     '<div class="field" style="max-width:200px;margin-top:14px;"><label>Data spisu <span class="cn">&#183; 盘点日期</span></label><input type="date" id="invDate" value="' + todayISO + '"></div>' +
@@ -588,8 +662,8 @@ function saveInventoryBatch() {
   var d = document.getElementById('invDate').value;
   if (!d) { showToast('Wybierz datę <span class="cn">&#183; 请选择日期</span>', 'err'); return; }
   var any = false;
-  STATE.parts.forEach(function(p, i) {
-    var el = document.getElementById('inv-' + i);
+  uniquePartsInOrder(STATE.parts).forEach(function(p) {
+    var el = document.getElementById('inv-' + p.number.replace(/[^a-zA-Z0-9]/g, '_'));
     if (!el || el.value === '') return;
     var q = Number(el.value);
     if (isNaN(q) || q < 0) return;
@@ -611,29 +685,38 @@ function saveInventoryBatch() {
 function projectionListHtml() {
   var todayISO = toISO(new Date());
   var todaysConfirm = STATE.potwierdzenia[todayISO] || {};
-  return STATE.parts.map(function(p) {
-    var proj = computePartProjection(p, todayISO);
-    var confirm = todaysConfirm[p.number];
-    var rowClass = confirm ? (confirm.status === 'OK' ? 'confirmed-ok' : 'confirmed-nok') : '';
-    var badge = confirm
-      ? '<span class="confirm-badge ' + (confirm.status === 'OK' ? 'ok' : 'nok') + '">' + confirm.status + '</span>'
-      : '<span class="confirm-badge none">niepotwierdzone <span class="cn">&#183; 未确认</span></span>';
-    if (!proj) {
-      return '<div class="partrow ' + rowClass + '"><div class="partrow-info"><div class="partrow-name">' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + '</div>' +
-        '<div class="partrow-meta">' + (p.station || '') + '</div></div>' +
-        '<div class="nodata-hint">Brak inwentaryzacji &#8212; wpisz ją powyżej <span class="cn">&#183; 尚无盘点数据，请在上方输入</span></div></div>';
-    }
-    var qtyClass = proj.balanceToday < 0 ? 'neg' : '';
-    var covTxt = proj.coverageDays === null ? ('starczy > ' + HORIZON_DAYS + ' dni') :
-      proj.coverageDays <= 0 ? 'BRAKUJE JUŻ DZIŚ' : 'starczy na ~' + proj.coverageDays + ' dni';
-    return '<div class="partrow ' + rowClass + '">' +
-      '<div class="partrow-info"><div class="partrow-name">' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + ' ' + badge + '</div>' +
-      '<div class="partrow-meta">' + (p.station || '') + ' &#183; inwent. ' + proj.lastCountDate.split('-').slice(1).reverse().join('/') + '</div></div>' +
-      '<div class="partrow-qty"><div class="n ' + qtyClass + '">' + fmt(proj.balanceToday) + ' szt.</div><div class="cov">' + covTxt + '</div></div>' +
-      '<div class="partrow-actions">' +
-        '<button class="btn-ok" onclick="confirmOk(\'' + p.number + '\', ' + Math.round(proj.balanceToday) + ')">OK</button>' +
-        '<button class="btn-nok" onclick="openNokModal(\'' + p.number + '\')">NOK</button>' +
-      '</div></div>';
+  var byNumber = groupPartsByNumber(STATE.parts);
+  return MAGAZYN_GROUPS.map(function(g) {
+    var partsInGroup = uniquePartsInOrder(STATE.parts.filter(function(p) { return (p.group === 'CFM-2' ? 'CFM-2' : 'CFM-1') === g; }));
+    var rows = partsInGroup.map(function(p) {
+      var bomLines = byNumber[p.number];
+      var shared = bomLines.length > 1;
+      var proj = computePartProjection(bomLines, p.number, todayISO);
+      var confirm = todaysConfirm[p.number];
+      var rowClass = confirm ? (confirm.status === 'OK' ? 'confirmed-ok' : 'confirmed-nok') : '';
+      var badge = confirm
+        ? '<span class="confirm-badge ' + (confirm.status === 'OK' ? 'ok' : 'nok') + '">' + confirm.status + '</span>'
+        : '<span class="confirm-badge none">niepotwierdzone <span class="cn">&#183; 未确认</span></span>';
+      var sharedNote = shared ? '<div class="partrow-meta">dzielone: ' + partGroupsLabel(bomLines) + '<span class="cn"> &#183; 共用</span></div>' : '';
+      if (!proj) {
+        return '<div class="partrow ' + rowClass + '"><div class="partrow-info"><div class="partrow-name">' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + '</div>' +
+          '<div class="partrow-meta">' + (p.station || '') + '</div>' + sharedNote + '</div>' +
+          '<div class="nodata-hint">Brak inwentaryzacji &#8212; wpisz ją powyżej <span class="cn">&#183; 尚无盘点数据，请在上方输入</span></div></div>';
+      }
+      var qtyClass = proj.balanceToday < 0 ? 'neg' : '';
+      var unitTxt = p.unit === 'kg' ? ' kg' : ' szt.';
+      var covTxt = proj.coverageDays === null ? ('starczy > ' + HORIZON_DAYS + ' dni') :
+        proj.coverageDays <= 0 ? 'BRAKUJE JUŻ DZIŚ' : 'starczy na ~' + proj.coverageDays + ' dni';
+      return '<div class="partrow ' + rowClass + '">' +
+        '<div class="partrow-info"><div class="partrow-name">' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + ' ' + badge + '</div>' +
+        '<div class="partrow-meta">' + (p.station || '') + ' &#183; inwent. ' + proj.lastCountDate.split('-').slice(1).reverse().join('/') + '</div>' + sharedNote + '</div>' +
+        '<div class="partrow-qty"><div class="n ' + qtyClass + '">' + fmtQty(proj.balanceToday, p.unit) + unitTxt + '</div><div class="cov">' + covTxt + '</div></div>' +
+        '<div class="partrow-actions">' +
+          '<button class="btn-ok" onclick="confirmOk(\'' + p.number + '\', ' + proj.balanceToday + ')">OK</button>' +
+          '<button class="btn-nok" onclick="openNokModal(\'' + p.number + '\')">NOK</button>' +
+        '</div></div>';
+    }).join('') || '<div style="font-size:12px;color:var(--faint);margin-bottom:16px;">Brak części w tej grupie</div>';
+    return '<div class="magazyn-group-head">' + g + '</div>' + rows;
   }).join('');
 }
 function saveConfirmation(partNumber, status, qty) {

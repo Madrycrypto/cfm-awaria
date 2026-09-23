@@ -1036,11 +1036,29 @@ function updateClock() {
     String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
 }
 setInterval(updateClock, 30000);
+// Odswieza baner "inny dzien" co minute, zeby samoczynnie zniknal gdy karta
+// zostala otwarta przez noc (patrz self-heal w getRaportDate() powyzej) —
+// bez tego wygladal poprawnie tylko do nastepnego wyslania raportu.
+setInterval(updateDateDisplay, 60000);
 setInterval(function() { if (document.getElementById('viewGodzinny').classList.contains('active')) updateHourDisplay(); }, 60000);
 updateClock();
 
 var currentRaportDate = null; // null = dzisiaj; ustawiane recznie zeby wprowadzic/poprawic zapomniany Raport zmiany z wczesniejszego dnia
-function getRaportDate() { return currentRaportDate || localDateString(); }
+// Dzien kalendarzowy, w ktorym RECZNIE ustawiono currentRaportDate — jesli
+// od tamtej pory minal co najmniej jeden dzien (karta zostala otwarta przez
+// noc bez odswiezenia), getRaportDate() SAMA czysci reczne ustawienie.
+// Bez tego reczna korekta zapomnianego raportu z wczoraj zostawala "lepka"
+// (ta sama zmienna, brak resetu po wyslaniu) i cichutko oznaczala TĄ SAMĄ
+// stara data KAZDY kolejny raport zmiany az do momentu, gdy ktos to
+// zauwazyl — mimo widocznego banera, latwo to przeoczyc na hali.
+var currentRaportDateSetOnDay = null;
+function getRaportDate() {
+  if (currentRaportDate && currentRaportDateSetOnDay !== localDateString()) {
+    currentRaportDate = null;
+    currentRaportDateSetOnDay = null;
+  }
+  return currentRaportDate || localDateString();
+}
 function updateDateDisplay() {
   var isToday = !currentRaportDate;
   var d = formatDatePl(getRaportDate());
@@ -1058,6 +1076,7 @@ function toggleRaportDate() {
 function setRaportDate() {
   var v = document.getElementById('raportDateInput').value;
   currentRaportDate = (v && v !== localDateString()) ? v : null;
+  currentRaportDateSetOnDay = currentRaportDate ? localDateString() : null;
   updateDateDisplay();
   document.getElementById('raportDateManual').style.display = 'none';
   odswiezDzisiajWpisy();
@@ -1951,17 +1970,6 @@ function proceedSubmitForm() {
     timestamp: localIsoString(now)
   };
 
-  var wh = getWH();
-  var sent = false;
-
-  if (wh) {
-    var qs = Object.keys(payload).map(function(k) {
-      return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || '');
-    }).join('&');
-    new Image().src = wh + '?' + qs;
-    sent = true;
-  }
-
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {
     fetch(feishu.proxy.replace(/\/$/, '') + '/api/report', {
@@ -1975,11 +1983,42 @@ function proceedSubmitForm() {
         rework_entries: reworkEntries
       })
     }).catch(function(e) { console.log('Feishu proxy error:', e); });
-    sent = true;
   }
 
-  saveLocal(payload);
-  setTimeout(function() { showSuccess(op, st, currentShift, qtyN, okN, scrapN, reworkN); }, sent ? 1500 : 300);
+  var wh = getWH();
+  if (!wh) {
+    saveLocal(payload);
+    setTimeout(function() { showSuccess(op, st, currentShift, qtyN, okN, scrapN, reworkN); }, 300);
+    return;
+  }
+  // Zamienione z "new Image().src = ..." (strzel i zapomnij) na prawdziwy
+  // fetch z odczytem odpowiedzi — Image() NIGDY nie sprawdzal czy zapis sie
+  // udal (np. odrzucony przez niezgodny Token API po wdrozeniu zabezpieczen),
+  // wiec ekran "WYSLANO" pokazywal sie ZAWSZE, nawet gdy serwer po cichu
+  // odrzucil zadanie i wiersz nigdy nie trafil do arkusza — dokladnie tak
+  // zniknely raporty zmiany z 22.09. Teraz sukces pokazuje sie TYLKO po
+  // potwierdzeniu {status:'ok'} z serwera, w przeciwnym razie formularz
+  // zostaje wypelniony (nic nie ginie) i widac jasny blad do zgloszenia.
+  var qs = Object.keys(payload).map(function(k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || '');
+  }).join('&');
+  fetch(wh + '?' + qs)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') {
+        btn.disabled = false;
+        btn.innerHTML = 'WYŚLIJ RAPORT <span class="cn">· 提交报告</span><span class="cn">发送班次报告</span>';
+        showToast('Błąd zapisu: ' + (data.msg || 'nieznany błąd') + ' — raport NIE zapisany! <span class="cn">· 保存失败，报告未保存</span>!', 'err');
+        return;
+      }
+      saveLocal(payload);
+      showSuccess(op, st, currentShift, qtyN, okN, scrapN, reworkN);
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.innerHTML = 'WYŚLIJ RAPORT <span class="cn">· 提交报告</span><span class="cn">发送班次报告</span>';
+      showToast('Błąd połączenia — raport NIE zapisany, spróbuj ponownie! <span class="cn">· 连接错误，报告未保存，请重试</span>!', 'err');
+    });
 }
 
 function saveLocal(payload) {

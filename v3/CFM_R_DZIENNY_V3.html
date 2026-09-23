@@ -1739,32 +1739,40 @@ function submitReworkProcessing() {
     orig_timestamp: isEditingRework ? editingReworkOriginalTimestamp : ''
   };
 
-  var wh = getWH();
-  var sent = false;
-  if (wh) {
-    var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
-    new Image().src = wh + '?' + qs;
-    sent = true;
-  }
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {
     fetch(feishu.proxy.replace(/\/$/, '') + '/api/rework-processing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sheet_token: feishu.sheetToken, data: payload, final_scrap_entries: reworkScrapEntries, recovered_entries: reworkRecoveredEntries })
     }).catch(function() {});
-    sent = true;
   }
 
-  saveReworkProcessingLocal(payload);
-
-  setTimeout(function() {
+  var wh = getWH();
+  if (!wh) {
+    saveReworkProcessingLocal(payload);
+    setTimeout(function() {
+      btn.disabled = false;
+      btn.innerHTML = 'WYŚLIJ PRZETWORZENIE <span class="cn">· 提交处理</span><span class="cn">发送返修处理报告</span>';
+      showToast('Przetworzenie zapisane! <span class="cn">&#183; 处理记录已保存</span>!', 'ok');
+      resetReworkForm();
+      loadReworkBuffer();
+      loadReworkHistory();
+    }, 200);
+    return;
+  }
+  sendToBackend(qsFromPayload(payload), function() {
+    saveReworkProcessingLocal(payload);
     btn.disabled = false;
     btn.innerHTML = 'WYŚLIJ PRZETWORZENIE <span class="cn">· 提交处理</span><span class="cn">发送返修处理报告</span>';
-    showToast('Przetworzenie zapisane! <span class="cn">· 处理记录已保存</span>!', 'ok');
+    showToast('Przetworzenie zapisane! <span class="cn">&#183; 处理记录已保存</span>!', 'ok');
     resetReworkForm();
     loadReworkBuffer();
     loadReworkHistory();
-  }, sent ? 1200 : 200);
+  }, function(msg) {
+    btn.disabled = false;
+    btn.innerHTML = 'WYŚLIJ PRZETWORZENIE <span class="cn">· 提交处理</span><span class="cn">发送返修处理报告</span>';
+    showToast(msg + ' — przetworzenie NIE zapisane! <span class="cn">&#183; 处理记录未保存！</span>', 'err');
+  });
 }
 function saveReworkProcessingLocal(payload) {
   var key = 'cfm_rework_proc_' + payload.date;
@@ -1858,10 +1866,10 @@ function deleteReworkEntry(i) {
   var wh = getWH();
   if (!wh) return;
   var payload = { token: getApiToken(), event_type: 'DELETE_REWORK_PROCESSING', timestamp: r.timestamp };
-  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
-  new Image().src = wh + '?' + qs;
-  showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
-  setTimeout(function() { loadReworkHistory(); loadReworkBuffer(); }, 800);
+  sendToBackend(qsFromPayload(payload), function() {
+    showToast('Wpis usunięty <span class="cn">&#183; 记录已删除</span>', 'ok');
+    loadReworkHistory(); loadReworkBuffer();
+  }, function(msg) { showToast(msg + ' — NIE usunięto! <span class="cn">&#183; 未删除！</span>', 'err'); });
 }
 
 function saveOperator() {
@@ -2203,10 +2211,10 @@ function deleteHistoriaEntry(i) {
   var wh = getWH();
   if (!wh) return;
   var payload = { token: getApiToken(), event_type: 'DELETE_RAPORT_DZIENNY', date: r.date, shift: r.shift, station: r.station, operator: r.operator };
-  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
-  new Image().src = wh + '?' + qs;
-  showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
-  setTimeout(function() { odswiezDzisiajWpisy(); loadShiftComparison(); }, 800);
+  sendToBackend(qsFromPayload(payload), function() {
+    showToast('Wpis usunięty <span class="cn">&#183; 记录已删除</span>', 'ok');
+    odswiezDzisiajWpisy(); loadShiftComparison();
+  }, function(msg) { showToast(msg + ' — NIE usunięto! <span class="cn">&#183; 未删除！</span>', 'err'); });
 }
 
 function populateReasonTable(containerId, entries) {
@@ -2226,9 +2234,44 @@ function populateReasonTable(containerId, entries) {
 }
 
 var _tt;
+// Wspolny helper do KRYTYCZNYCH zapisow do backendu (Alert start/koniec,
+// wypadek, rework, edycje/usuwanie) - fetch z limitem czasu 20s i
+// PRAWDZIWYM sprawdzeniem odpowiedzi, zamiast "new Image().src = ..."
+// ("strzel i zapomnij"), ktore pokazywalo falszywy sukces nawet gdy serwer
+// po cichu odrzucil zadanie (np. niezgodny Token API) - to spowodowalo
+// cicha utrate Raportow zmiany i zgloszen Alertow, zanim zostalo znalezione
+// i naprawione. onError dostaje gotowy do pokazania string (moze zawierac
+// "<span class=\"cn\">").
+function sendToBackend(qs, onSuccess, onError) {
+  var wh = getWH();
+  if (!wh) { onError('Brak połączenia (Panel Admina &#8594; Połączenie) <span class="cn">&#183; 未连接（管理面板&#8594;连接）</span>'); return; }
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, 20000);
+  fetch(wh + '?' + qs, { signal: controller.signal })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      clearTimeout(timeoutId);
+      if (data.status !== 'ok') { onError('Błąd zapisu: ' + (data.msg || 'nieznany błąd') + ' <span class="cn">&#183; 保存失败</span>'); return; }
+      onSuccess(data);
+    })
+    .catch(function(err) {
+      clearTimeout(timeoutId);
+      onError(err && err.name === 'AbortError'
+        ? 'Serwer nie odpowiada (limit czasu) <span class="cn">&#183; 服务器无响应（超时）</span>'
+        : 'Błąd połączenia <span class="cn">&#183; 连接错误</span>');
+    });
+}
+function qsFromPayload(payload) {
+  return Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
+}
+
 function showToast(msg, type) {
   var t = document.getElementById('toast');
-  t.textContent = msg;
+  // innerHTML (nie textContent) - wiadomosci wszedzie w apce zawieraja
+  // "<span class=\"cn\">...</span>" dla tlumaczenia chinskiego, ktore z
+  // textContent pokazywalo sie jako SUROWY tekst znacznika zamiast realnego
+  // tlumaczenia (i nigdy nie dawalo sie ukryc przelacznikiem jezyka).
+  t.innerHTML = msg;
   t.className = 'toast ' + (type || '');
   clearTimeout(_tt);
   setTimeout(function() { t.classList.add('show'); }, 10);
@@ -2496,7 +2539,10 @@ function awariaWarnZamknijIStart() {
     var now = new Date(), dm = Math.round((now - new Date(awariaOpenExisting.startIso)) / 6000) / 10;
     var wh = getWH();
     if (wh) {
-      new Image().src = wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaPendingStart.station) + '&operator=' + encodeURIComponent(awariaOpenExisting.operator || '') + '&typ=' + encodeURIComponent(awariaOpenExisting.typ) + '&start_timestamp=' + encodeURIComponent(awariaOpenExisting.startIso) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm;
+      var qsZamknij = qsFromPayload({ token: getApiToken(), event_type: 'KONIEC', stanowisko: awariaPendingStart.station, operator: awariaOpenExisting.operator || '', typ: awariaOpenExisting.typ, start_timestamp: awariaOpenExisting.startIso, koniec_timestamp: localIsoString(now), czas_min: dm });
+      sendToBackend(qsZamknij, function() {}, function(msg) {
+        showToast(msg + ' — poprzedni alert NIE zamknięty w arkuszu! <span class="cn">&#183; 之前的警报未在表格中关闭！</span>', 'err');
+      });
     }
     var feishu = getFeishuConfig();
     if (feishu.proxy && feishu.sheetToken) {
@@ -2525,8 +2571,19 @@ function awariaDoStart(station, typFull) {
   awariaSaveActiveMap();
   awariaActiveBreakdown = awariaActiveByStation[station];
 
+  // Stan lokalny (baner, timer) ustawiony JUZ POWYZEJ, niezaleznie od
+  // wyniku zapisu do backendu — sytuacja na hali jest realna TERAZ (maszyna
+  // faktycznie stoi), operator musi widziec dzialajacy zegar od razu. Ale
+  // jesli zapis do arkusza sie nie uda, MUSI o tym wiedziec (zamiast
+  // fikcyjnego "zarejestrowano!" jak poprzednio przy "new Image().src")
+  // zeby moc zglosic to recznie zamiast stracic wpis bez sladu.
   var wh = getWH();
-  if (wh) { new Image().src = wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=START&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) + '&typ=' + encodeURIComponent(typFull) + '&timestamp=' + encodeURIComponent(localIsoString(now)) + '&shift=' + encodeURIComponent(currentShift); }
+  if (wh) {
+    var qs = qsFromPayload({ token: getApiToken(), event_type: 'START', stanowisko: station, operator: operator, typ: typFull, timestamp: localIsoString(now), shift: currentShift });
+    sendToBackend(qs, function() {}, function(msg) {
+      showToast(msg + ' — ALERT NIE ZAPISANY W ARKUSZU! Zgłoś to! <span class="cn">&#183; 警报未保存到表格，请报告！</span>', 'err');
+    });
+  }
 
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {
@@ -2554,7 +2611,12 @@ function awariaSubmitEnd() {
   var record = { station: awariaActiveBreakdown.station, type: typFull, startTs: awariaActiveBreakdown.startFormatted, endTs: awariaFormatTs(now), durationMin: dm };
 
   var wh = getWH();
-  if (wh) { new Image().src = wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=KONIEC&stanowisko=' + encodeURIComponent(awariaActiveBreakdown.station) + '&operator=' + encodeURIComponent(awariaActiveBreakdown.operator || '') + '&typ=' + encodeURIComponent(typFull) + '&start_timestamp=' + encodeURIComponent(awariaActiveBreakdown.startTs) + '&koniec_timestamp=' + encodeURIComponent(localIsoString(now)) + '&czas_min=' + dm; }
+  if (wh) {
+    var qsKoniec = qsFromPayload({ token: getApiToken(), event_type: 'KONIEC', stanowisko: awariaActiveBreakdown.station, operator: awariaActiveBreakdown.operator || '', typ: typFull, start_timestamp: awariaActiveBreakdown.startTs, koniec_timestamp: localIsoString(now), czas_min: dm });
+    sendToBackend(qsKoniec, function() {}, function(msg) {
+      showToast(msg + ' — ZAKOŃCZENIE ALERTU NIE ZAPISANE! Zgłoś to! <span class="cn">&#183; 警报结束未保存，请报告！</span>', 'err');
+    });
+  }
 
   var feishu = getFeishuConfig();
   if (feishu.proxy && feishu.sheetToken) {
@@ -2674,16 +2736,21 @@ function awariaSubmitBackfill() {
 
   var wh = getWH();
   if (wh) {
-    var qs = 'event_type=KONIEC&stanowisko=' + encodeURIComponent(station) + '&operator=' + encodeURIComponent(operator) +
-      '&typ=' + encodeURIComponent(typFull) + '&start_timestamp=' + encodeURIComponent(localIsoString(startD)) +
-      '&koniec_timestamp=' + encodeURIComponent(localIsoString(endD)) + '&czas_min=' + minVal + '&shift=' + encodeURIComponent(awariaBackfillShift);
-    new Image().src = wh + '?' + qs;
+    var qs = qsFromPayload({
+      token: getApiToken(), event_type: 'KONIEC', stanowisko: station, operator: operator,
+      typ: typFull, start_timestamp: localIsoString(startD),
+      koniec_timestamp: localIsoString(endD), czas_min: minVal, shift: awariaBackfillShift,
+    });
+    sendToBackend(qs, function() {
+      showToast('Przestój z ' + formatDatePl(dateVal) + ' zapisany: ' + minVal + ' min <span class="cn">&#183; 停机已录入</span>', 'ok');
+      awariaRenderHistory();
+    }, function(msg) {
+      showToast(msg + ' — przestój NIE zapisany! <span class="cn">&#183; 停机未保存！</span>', 'err');
+    });
   }
 
   document.getElementById('awariaBackfillMin').value = '';
   awariaBackfillUpdateDescBox();
-  showToast('Przestój z ' + formatDatePl(dateVal) + ' zapisany: ' + minVal + ' min <span class="cn">· 停机已录入</span>', 'ok');
-  setTimeout(awariaRenderHistory, 800);
 }
 
 // === PRZYPOMNIENIE O OTWARTEJ AWARII ===
@@ -2770,10 +2837,10 @@ function editAwariaEntry(i) {
   var wh = getWH();
   if (!wh) return;
   var payload = { token: getApiToken(), event_type: 'EDIT_AWARIA_DURATION', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp, czas_min: mins };
-  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
-  new Image().src = wh + '?' + qs;
-  showToast('Czas poprawiony <span class="cn">· 时长已修改</span>', 'ok');
-  setTimeout(awariaRenderHistory, 800);
+  sendToBackend(qsFromPayload(payload), function() {
+    showToast('Czas poprawiony <span class="cn">&#183; 时长已修改</span>', 'ok');
+    awariaRenderHistory();
+  }, function(msg) { showToast(msg + ' — czas NIE poprawiony! <span class="cn">&#183; 时长未修改！</span>', 'err'); });
 }
 function deleteAwariaEntry(i) {
   var r = awariaHistoriaCache[i];
@@ -2782,10 +2849,10 @@ function deleteAwariaEntry(i) {
   var wh = getWH();
   if (!wh) return;
   var payload = { token: getApiToken(), event_type: 'DELETE_AWARIA', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp };
-  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
-  new Image().src = wh + '?' + qs;
-  showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
-  setTimeout(awariaRenderHistory, 800);
+  sendToBackend(qsFromPayload(payload), function() {
+    showToast('Wpis usunięty <span class="cn">&#183; 记录已删除</span>', 'ok');
+    awariaRenderHistory();
+  }, function(msg) { showToast(msg + ' — NIE usunięto! <span class="cn">&#183; 未删除！</span>', 'err'); });
 }
 
 // === ADMIN ===
@@ -3219,8 +3286,26 @@ function saveWebhook() {
   var token = document.getElementById('apiTokenInput').value.trim();
   localStorage.setItem('cfm_api_token', token);
   updateWebhookStatus();
-  if (url) new Image().src = url + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=TEST';
   showToast('Webhook zapisany! · Webhook已保存!', 'ok');
+  if (!url) return;
+  var statusEl = document.getElementById('webhookStatusLine');
+  statusEl.innerHTML = '<span style="color:var(--muted);">&#9679;</span> Testowanie połączenia i tokenu&#8230;';
+  // event_type=GET_USTAWIENIA (NIE TEST) — TEST celowo omija sprawdzenie
+  // tokenu (patrz checkApiToken_ w .gs), wiec test na TEST nigdy nie
+  // wykryje zlego/niezgodnego tokenu. To wlasnie dawalo falszywe "polaczono"
+  // przy realnie zlym tokenie i utrudnialo diagnoze utraconych raportow.
+  fetch(url + '?token=' + encodeURIComponent(token) + '&event_type=GET_USTAWIENIA')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === 'ok') {
+        statusEl.innerHTML = '<span style="color:var(--green);">&#9679;</span> Połączono, token poprawny <span class="cn">&#183; 已连接，密钥正确</span>';
+      } else {
+        statusEl.innerHTML = '<span style="color:var(--red);">&#9679;</span> ' + (data.msg === 'unauthorized' ? 'Zły token!' : 'Błąd: ' + (data.msg || '?')) + ' <span class="cn">&#183; 密钥错误或出错</span>';
+      }
+    })
+    .catch(function() {
+      statusEl.innerHTML = '<span style="color:var(--red);">&#9679;</span> Brak połączenia z serwerem <span class="cn">&#183; 无法连接服务器</span>';
+    });
 }
 function saveFeishu() {
   var proxy = document.getElementById('feishuProxyInput').value.trim();
@@ -3294,9 +3379,13 @@ function submitWypadek() {
   if (!description) { showToast('Opisz co się stało <span class="cn">· 请描述发生了什么</span>', 'err'); return; }
   var wh = getWH();
   if (!wh) { showToast('Brak połączenia (Panel Admina → Połączenie) <span class="cn">· 未连接</span>', 'err'); return; }
-  new Image().src = wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=ZGLOS_WYPADEK&stanowisko=' + encodeURIComponent(station) + '&severity=' + encodeURIComponent(severity) + '&description=' + encodeURIComponent(description) + '&operator=' + encodeURIComponent(operator) + '&timestamp=' + encodeURIComponent(localIsoString());
-  showToast('Zgłoszenie wysłane <span class="cn">· 已发送报告</span>', 'ok');
-  closeWypadek();
+  var qs = qsFromPayload({ token: getApiToken(), event_type: 'ZGLOS_WYPADEK', stanowisko: station, severity: severity, description: description, operator: operator, timestamp: localIsoString() });
+  sendToBackend(qs, function() {
+    showToast('Zgłoszenie wysłane <span class="cn">&#183; 已发送报告</span>', 'ok');
+    closeWypadek();
+  }, function(msg) {
+    showToast(msg + ' — ZGŁOSZENIE WYPADKU NIE ZAPISANE! Zgłoś to od razu inaczej! <span class="cn">&#183; 事故报告未保存，请立即用其他方式报告！</span>', 'err');
+  });
 }
 function adminTab(tab) {
   var tabs = ['workers', 'stations', 'przyczyny', 'typy_awarii', 'magazyn', 'cele', 'zmiany', 'webhook', 'pin'];
@@ -3569,28 +3658,35 @@ function doSubmitGodzinny() {
 
   var now = new Date();
   var wh = getWH();
-  if (wh) {
-    var payload = {
-      token: getApiToken(),
-      event_type: 'RAPORT_GODZINNY', operator: op, station: st, shift: currentShift, hour: hour,
-      orig_hour: (isEditingGodz && editingGodzOriginalHour) ? editingGodzOriginalHour : hour,
-      date: resolveGodzDateForSubmit(hour),
-      qty: qty, rework: String(reworkN), rework_reasons_json: JSON.stringify(reworkEntries),
-      rework_other_desc: otherDesc, delay: delay, timestamp: localIsoString(now)
-    };
-    var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
-    new Image().src = wh + '?' + qs;
+  if (!wh) {
+    btn.disabled = false;
+    btn.innerHTML = 'WYŚLIJ RAPORT GODZINNY <span class="cn">· 提交小时报告</span><span class="cn">发送</span>';
+    showToast('Brak połączenia (Panel Admina → Połączenie) <span class="cn">· 未连接</span>', 'err');
+    return;
   }
-
-  showToast('Raport godzinny wysłany: ' + qty + ' szt <span class="cn">· 小时报告已发送</span>: ' + qty + ' 件', 'ok');
-  document.getElementById('godzQtyInput').value = '';
-  document.getElementById('godzDelayInput').value = '';
-  document.getElementById('godzReworkOtherDesc').value = '';
-  renderGodzReworkReasonsTable();
-  if (isEditingGodz) { isEditingGodz = false; editingGodzOriginalHour = null; manualHour = null; updateHourDisplay(); }
-  btn.disabled = false;
-  btn.innerHTML = 'WYŚLIJ RAPORT GODZINNY <span class="cn">· 提交小时报告</span><span class="cn">发送</span>';
-  setTimeout(odswiezHistorieGodzinnej, 1200);
+  var payload = {
+    token: getApiToken(),
+    event_type: 'RAPORT_GODZINNY', operator: op, station: st, shift: currentShift, hour: hour,
+    orig_hour: (isEditingGodz && editingGodzOriginalHour) ? editingGodzOriginalHour : hour,
+    date: resolveGodzDateForSubmit(hour),
+    qty: qty, rework: String(reworkN), rework_reasons_json: JSON.stringify(reworkEntries),
+    rework_other_desc: otherDesc, delay: delay, timestamp: localIsoString(now)
+  };
+  sendToBackend(qsFromPayload(payload), function() {
+    showToast('Raport godzinny wysłany: ' + qty + ' szt <span class="cn">&#183; 小时报告已发送</span>: ' + qty + ' 件', 'ok');
+    document.getElementById('godzQtyInput').value = '';
+    document.getElementById('godzDelayInput').value = '';
+    document.getElementById('godzReworkOtherDesc').value = '';
+    renderGodzReworkReasonsTable();
+    if (isEditingGodz) { isEditingGodz = false; editingGodzOriginalHour = null; manualHour = null; updateHourDisplay(); }
+    btn.disabled = false;
+    btn.innerHTML = 'WYŚLIJ RAPORT GODZINNY <span class="cn">· 提交小时报告</span><span class="cn">发送</span>';
+    setTimeout(odswiezHistorieGodzinnej, 1200);
+  }, function(msg) {
+    btn.disabled = false;
+    btn.innerHTML = 'WYŚLIJ RAPORT GODZINNY <span class="cn">· 提交小时报告</span><span class="cn">发送</span>';
+    showToast(msg + ' — raport godzinny NIE zapisany! <span class="cn">&#183; 小时报告未保存！</span>', 'err');
+  });
 }
 
 function odswiezHistorieGodzinnej() {
@@ -3663,10 +3759,10 @@ function deleteGodzEntry(i) {
   var wh = getWH();
   if (!wh) return;
   var payload = { token: getApiToken(), event_type: 'DELETE_RAPORT_GODZINNY', station: document.getElementById('stationSel').value, operator: document.getElementById('operatorSel').value, shift: currentShift, hour: r.godzina, date: getGodzDate() };
-  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
-  new Image().src = wh + '?' + qs;
-  showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
-  setTimeout(odswiezHistorieGodzinnej, 800);
+  sendToBackend(qsFromPayload(payload), function() {
+    showToast('Wpis usunięty <span class="cn">&#183; 记录已删除</span>', 'ok');
+    odswiezHistorieGodzinnej();
+  }, function(msg) { showToast(msg + ' — NIE usunięto! <span class="cn">&#183; 未删除！</span>', 'err'); });
 }
 
 // === WSTEPNE WYPELNIENIE RAPORTU ZMIANY Z GODZINNYCH WPISOW ===

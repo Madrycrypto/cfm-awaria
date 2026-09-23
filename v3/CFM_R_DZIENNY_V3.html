@@ -1722,6 +1722,7 @@ function submitReworkProcessing() {
   var now = new Date();
   var zone = getReworkZone(currentReworkZone);
   var payload = {
+    token: getApiToken(),
     event_type: 'REWORK_PROCESSING',
     zone: currentReworkZone,
     zone_label: zone.label,
@@ -1856,7 +1857,7 @@ function deleteReworkEntry(i) {
   if (!confirm('Usunąć wpis przetworzenia (' + r.date + ', przetworzono ' + r.processed + ')? <span class="cn">· 删除该处理记录？</span>')) return;
   var wh = getWH();
   if (!wh) return;
-  var payload = { event_type: 'DELETE_REWORK_PROCESSING', timestamp: r.timestamp };
+  var payload = { token: getApiToken(), event_type: 'DELETE_REWORK_PROCESSING', timestamp: r.timestamp };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
   showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
@@ -1953,6 +1954,7 @@ function proceedSubmitForm() {
 
   var now = new Date();
   var payload = {
+    token: getApiToken(),
     event_type: 'RAPORT_DZIENNY',
     operator: op,
     station: st,
@@ -2189,7 +2191,7 @@ function deleteHistoriaEntry(i) {
   if (!confirm('Usunąć wpis ' + r.station + ' (' + r.qty + ' szt)? <span class="cn">· 删除该条记录？</span>')) return;
   var wh = getWH();
   if (!wh) return;
-  var payload = { event_type: 'DELETE_RAPORT_DZIENNY', date: r.date, shift: r.shift, station: r.station, operator: r.operator };
+  var payload = { token: getApiToken(), event_type: 'DELETE_RAPORT_DZIENNY', date: r.date, shift: r.shift, station: r.station, operator: r.operator };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
   showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
@@ -2756,7 +2758,7 @@ function editAwariaEntry(i) {
   if (isNaN(mins) || mins < 0) { showToast('Nieprawidłowa wartość <span class="cn">· 数值无效</span>', 'err'); return; }
   var wh = getWH();
   if (!wh) return;
-  var payload = { event_type: 'EDIT_AWARIA_DURATION', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp, czas_min: mins };
+  var payload = { token: getApiToken(), event_type: 'EDIT_AWARIA_DURATION', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp, czas_min: mins };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
   showToast('Czas poprawiony <span class="cn">· 时长已修改</span>', 'ok');
@@ -2768,7 +2770,7 @@ function deleteAwariaEntry(i) {
   if (!confirm('Usunąć wpis awarii ' + r.station + ' (' + r.durationMin + ' min)? <span class="cn">· 删除该故障记录？</span>')) return;
   var wh = getWH();
   if (!wh) return;
-  var payload = { event_type: 'DELETE_AWARIA', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp };
+  var payload = { token: getApiToken(), event_type: 'DELETE_AWARIA', stanowisko: r.station, typ: r.type, start_timestamp: r.start_timestamp };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
   showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');
@@ -3558,6 +3560,7 @@ function doSubmitGodzinny() {
   var wh = getWH();
   if (wh) {
     var payload = {
+      token: getApiToken(),
       event_type: 'RAPORT_GODZINNY', operator: op, station: st, shift: currentShift, hour: hour,
       orig_hour: (isEditingGodz && editingGodzOriginalHour) ? editingGodzOriginalHour : hour,
       date: resolveGodzDateForSubmit(hour),
@@ -3648,7 +3651,7 @@ function deleteGodzEntry(i) {
   if (!confirm('Usunąć wpis ' + r.godzina + ' (' + r.qty + ' szt)? <span class="cn">· 删除该条记录？</span>')) return;
   var wh = getWH();
   if (!wh) return;
-  var payload = { event_type: 'DELETE_RAPORT_GODZINNY', station: document.getElementById('stationSel').value, operator: document.getElementById('operatorSel').value, shift: currentShift, hour: r.godzina, date: getGodzDate() };
+  var payload = { token: getApiToken(), event_type: 'DELETE_RAPORT_GODZINNY', station: document.getElementById('stationSel').value, operator: document.getElementById('operatorSel').value, shift: currentShift, hour: r.godzina, date: getGodzDate() };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
   new Image().src = wh + '?' + qs;
   showToast('Wpis usunięty <span class="cn">· 记录已删除</span>', 'ok');

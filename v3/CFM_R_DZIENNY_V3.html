@@ -804,6 +804,8 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
       <button class="list-add-btn" style="flex:1;" onclick="addMagazynPart('CFM-2')">+ CFM-2 <span class="cn">&#183; &#28155;&#21152;</span></button>
     </div>
     <button class="list-save-btn" onclick="saveMagazynParts()">Zapisz cz&#281;&#347;ci <span class="cn">&#183; &#20445;&#23384;&#38646;&#20214;</span></button>
+    <button class="list-save-btn" style="background:var(--red);margin-top:8px;" onclick="resetMagazynPartsToDefault()">Wczytaj najnowszy katalog (nadpisze obecny!) <span class="cn">&#183; 加载最新目录（覆盖当前）</span></button>
+    <div style="font-size:10px;color:var(--muted);margin-top:6px;">U&#380;yj, je&#347;li lista wy&#380;ej pokazuje stare/nieaktualne cz&#281;&#347;ci mimo aktualizacji apki — katalog raz zapisany trzyma si&#281; w pami&#281;ci telefonu i na serwerze, a aktualizacja pliku sama go nie nadpisuje. <span class="cn">&#183; 如果上面列表显示的是旧的/过时的零件，即使应用已更新，也请使用此按钮 — 保存过的目录会留在手机和服务器上，更新文件本身不会覆盖它。</span></div>
   </div>
 
   <!-- CELE -->
@@ -3100,6 +3102,19 @@ function saveMagazynParts() {
   localStorage.setItem('cfm_magazyn_parts', JSON.stringify(saved));
   pushSettingToServer('cfm_magazyn_parts');
   showToast('Części zapisane! <span class="cn">· 零件已保存</span>!', 'ok');
+  renderMagazynPartsList();
+}
+// Katalog raz zapisany (localStorage NA TYM URZADZENIU + wiersz w arkuszu
+// Ustawienia na serwerze) ma PIERWSZENSTWO przed DEFAULT_MAGAZYN_PARTS w
+// kodzie — aktualizacja tego pliku sama z siebie NIGDY nie zmieni juz raz
+// zapisanego katalogu na zadnym urzadzeniu. Ten przycisk jawnie nadpisuje
+// oba miejsca najnowsza wersja z kodu, zeby rozejscie sie "co jest w pliku"
+// vs "co faktycznie widac w apce" nie trzeba bylo tropic recznie.
+function resetMagazynPartsToDefault() {
+  if (!confirm('To NADPISZE obecny katalog części najnowszą wersją z kodu (usunie wszystkie ręczne zmiany). Kontynuować?\n这将用代码中的最新版本覆盖当前零件目录（会删除所有手动修改）。继续吗？')) return;
+  localStorage.setItem('cfm_magazyn_parts', JSON.stringify(DEFAULT_MAGAZYN_PARTS));
+  pushSettingToServer('cfm_magazyn_parts');
+  showToast('Katalog zresetowany do najnowszej wersji! <span class="cn">· 目录已重置为最新版本</span>!', 'ok');
   renderMagazynPartsList();
 }
 

@@ -2403,18 +2403,10 @@ var AWARIA_OPISY = {
 // (nie numeracja z dokumentu BOM dostawcy), przy kilku rozdzielone
 // przecinkiem. "unit": 'kg' dla czesci zamawianych na wage (rolki
 // tasmy) — wtedy "qty" to kg zuzywane na 1 sztuke produktu, nie liczba
-// sztuk. Ta sama fizyczna czesc (np. 6530151-01 Gasket) moze wystapic w
-// OBU grupach jako osobne wiersze, jesli oba produkty zuzywaja ja w innym
-// tempie — to NIE duplikat, tylko dwie niezalezne pozycje BOM.
+// sztuk. Stara, wstepna wersja CFM-1 (Right/Left tank, Stone guard,
+// Sealing, stary Gasket/Core na OP51/52) zostala USUNIETA na prosbe klienta
+// — CFM-1 to teraz WYLACZNIE 4 pozycje z ostatniej, potwierdzonej listy.
 var DEFAULT_MAGAZYN_PARTS = [
-  { number: '65310150-01', desc: 'Right tank', station: 'OP51/52', qty: 1, group: 'CFM-1' },
-  { number: '6530149-01', desc: 'Left tank', station: 'OP51/52', qty: 1, group: 'CFM-1' },
-  { number: '6530151-01', desc: 'Gasket', station: 'OP51/52', qty: 1, group: 'CFM-1' },
-  { number: '6530154-01', desc: 'Core', station: 'OP51/52', qty: 1, group: 'CFM-1' },
-  { number: '6530153-01', desc: 'Stone guard', station: 'GP12', qty: 1, group: 'CFM-1' },
-  { number: '6530152-01', desc: 'Sealing (x1)', station: 'GP12', qty: 1, group: 'CFM-1' },
-  { number: '6530152-32', desc: 'Sealing (x2)', station: 'GP12', qty: 2, group: 'CFM-1' },
-  { number: '6530152-03', desc: 'Sealing (x2)', station: 'GP12', qty: 2, group: 'CFM-1' },
   { number: '6530159-01', desc: 'Header', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1' },
   { number: '6530160-01', desc: 'Side plate', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1' },
   { number: '90340837', desc: 'Fins 铝材', station: 'OP30', qty: 0.62, unit: 'kg', group: 'CFM-1' },

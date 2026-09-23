@@ -2004,9 +2004,16 @@ function proceedSubmitForm() {
   var qs = Object.keys(payload).map(function(k) {
     return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || '');
   }).join('&');
-  fetch(wh + '?' + qs)
+  // Limit czasu 20s — bez tego przy zawieszonym/bardzo wolnym Apps Script
+  // (np. duzy arkusz, przeciazenie Google) przycisk "Wysylanie..." wisial by
+  // w nieskonczonosc, bez zadnego komunikatu, bo fetch() sam z siebie nie ma
+  // zadnego limitu.
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, 20000);
+  fetch(wh + '?' + qs, { signal: controller.signal })
     .then(function(r) { return r.json(); })
     .then(function(data) {
+      clearTimeout(timeoutId);
       if (data.status !== 'ok') {
         btn.disabled = false;
         btn.innerHTML = 'WYŚLIJ RAPORT <span class="cn">· 提交报告</span><span class="cn">发送班次报告</span>';
@@ -2016,10 +2023,14 @@ function proceedSubmitForm() {
       saveLocal(payload);
       showSuccess(op, st, currentShift, qtyN, okN, scrapN, reworkN);
     })
-    .catch(function() {
+    .catch(function(err) {
+      clearTimeout(timeoutId);
       btn.disabled = false;
       btn.innerHTML = 'WYŚLIJ RAPORT <span class="cn">· 提交报告</span><span class="cn">发送班次报告</span>';
-      showToast('Błąd połączenia — raport NIE zapisany, spróbuj ponownie! <span class="cn">· 连接错误，报告未保存，请重试</span>!', 'err');
+      var msg = err && err.name === 'AbortError'
+        ? 'Serwer nie odpowiada (limit czasu) — raport NIE zapisany, spróbuj ponownie! <span class="cn">· 服务器无响应（超时），报告未保存，请重试</span>!'
+        : 'Błąd połączenia — raport NIE zapisany, spróbuj ponownie! <span class="cn">· 连接错误，报告未保存，请重试</span>!';
+      showToast(msg, 'err');
     });
 }
 

@@ -245,6 +245,23 @@ td.qe-empty:hover,.cell-stack:hover{background:rgba(47,127,224,0.1)}
 .reason-other-input{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:9px 10px}
 .reason-other-input:focus{outline:none;border-color:var(--blue)}
 .reason-empty-hint{font-size:11px;color:var(--muted);padding:4px 0 8px}
+/* Zwijane sekcje Scrap/Rework — identyczne jak w Raporcie dziennym */
+.reason-toggle-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 0}
+.reason-toggle-btn{width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:10px 8px;display:flex;align-items:center;gap:4px;cursor:pointer;font-family:var(--fh);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.05em;color:var(--text);transition:all 0.15s;user-select:none;text-align:left;flex-wrap:wrap}
+.reason-toggle-btn .icon{font-size:16px;flex-shrink:0}
+.reason-toggle-btn .count-badge{margin-left:auto;font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)}
+.reason-toggle-btn .chevron{font-size:12px;color:var(--muted);transition:transform 0.2s;flex-shrink:0}
+.reason-toggle-btn.open{border-radius:12px 12px 0 0}
+.reason-toggle-btn.open .chevron{transform:rotate(180deg)}
+.reason-toggle-btn.scrap{border-color:rgba(217,43,43,0.45);color:#ff7070}
+.reason-toggle-btn.scrap.open{border-color:var(--red);background:var(--red);color:#fff}
+.reason-toggle-btn.rework{border-color:rgba(217,119,6,0.5);color:#f0a030}
+.reason-toggle-btn.rework.open{border-color:var(--orange);background:var(--orange);color:#fff}
+.reason-toggle-btn.open .count-badge{color:rgba(255,255,255,0.8)}
+.reason-panel-body{display:none;background:var(--surface);border:1.5px solid var(--border);border-top:none;border-radius:0 0 12px 12px;padding:14px}
+.reason-panel-body.open{display:block}
+.reason-total{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding-top:8px;margin-top:8px;border-top:0.5px solid var(--border)}
+.reason-total strong{color:var(--text);font-family:var(--fh);font-size:14px}
 </style>
 </head>
 <body>
@@ -290,11 +307,26 @@ td.qe-empty:hover,.cell-stack:hover{background:rgba(47,127,224,0.1)}
     <div class="qe-field"><label>Operator <span class="cn">&#183; 操作员</span></label><select id="qeOperator"></select></div>
     <div class="qe-field"><label>Ilość wyprodukowana <span class="cn">&#183; 完成件数</span> *</label><input type="number" min="0" id="qeQty" oninput="updateQeTotals()"></div>
 
-    <div class="qe-reason-head"><label>Scrap &#8722; powody <span class="cn">&#183; 报废原因</span></label><div class="qe-reason-total" id="qeScrapTotal">0</div></div>
-    <div class="qe-reason-list" id="qeScrapTable"></div>
-
-    <div class="qe-reason-head"><label>Rework &#8722; powody <span class="cn">&#183; 返修原因</span></label><div class="qe-reason-total" id="qeReworkTotal">0</div></div>
-    <div class="qe-reason-list" id="qeReworkTable"></div>
+    <div class="reason-toggle-row">
+      <button type="button" class="reason-toggle-btn scrap" id="qeScrapSectionTitle" onclick="toggleQeSection('qeScrap')">
+        <span class="icon">&#128465;</span> Scrap <span class="cn">&#183; &#25253;&#24223;&#25968;</span>
+        <span class="count-badge" id="qeScrapTotalBadge">(0)</span>
+        <span class="chevron">&#9662;</span>
+      </button>
+      <button type="button" class="reason-toggle-btn rework" id="qeReworkSectionTitle" onclick="toggleQeSection('qeRework')">
+        <span class="icon">&#128295;</span> Rework <span class="cn">&#183; &#36820;&#20462;&#25968;</span>
+        <span class="count-badge" id="qeReworkTotalBadge">(0)</span>
+        <span class="chevron">&#9662;</span>
+      </button>
+    </div>
+    <div class="reason-panel-body" id="qeScrapReasonsBody">
+      <div id="qeScrapTable"></div>
+      <div class="reason-total">Razem scrap <span class="cn">&#183; &#24635;&#25253;&#24223;</span> <strong id="qeScrapTotal">0</strong> szt.</div>
+    </div>
+    <div class="reason-panel-body" id="qeReworkReasonsBody">
+      <div id="qeReworkTable"></div>
+      <div class="reason-total">Razem rework <span class="cn">&#183; &#24635;&#36820;&#20462;</span> <strong id="qeReworkTotal">0</strong> szt.</div>
+    </div>
 
     <div class="qe-field" style="margin-top:14px;"><label>Uwagi <span class="cn">&#183; 备注</span></label><textarea id="qeNotes" rows="2"></textarea></div>
     <div class="qe-actions">
@@ -1218,6 +1250,18 @@ function updateQeTotals() {
   var rework = sumPieceQty(collectQeReasonEntries('qeReworkTable'));
   document.getElementById('qeScrapTotal').textContent = scrap;
   document.getElementById('qeReworkTotal').textContent = rework;
+  document.getElementById('qeScrapTotalBadge').textContent = '(' + scrap + ')';
+  document.getElementById('qeReworkTotalBadge').textContent = '(' + rework + ')';
+}
+function toggleQeSection(which) {
+  var body = document.getElementById(which + 'ReasonsBody');
+  var title = document.getElementById(which + 'SectionTitle');
+  var isOpen = body.classList.toggle('open');
+  title.classList.toggle('open', isOpen);
+}
+function setQeSectionOpen(which, open) {
+  document.getElementById(which + 'ReasonsBody').classList.toggle('open', open);
+  document.getElementById(which + 'SectionTitle').classList.toggle('open', open);
 }
 
 var qeTarget = null;
@@ -1242,6 +1286,12 @@ function openQuickEdit(station, shift, dateIso) {
   renderQeReasonTable('qeScrapTable', STATE.scrapReasons[station] || [], existingReasons.scrap);
   renderQeReasonTable('qeReworkTable', STATE.reworkReasons[station] || [], existingReasons.rework);
   updateQeTotals();
+  // Sekcja startuje rozwinieta TYLKO jesli edytowany wpis juz ma w niej
+  // jakies dane (zeby od razu bylo widac co trzeba poprawic) — w
+  // przeciwnym razie zwinieta, zeby nie zajmowac miejsca w modalu przy
+  // najczestszym przypadku (brak scrap/rework).
+  setQeSectionOpen('qeScrap', existingReasons.scrap.length > 0);
+  setQeSectionOpen('qeRework', existingReasons.rework.length > 0);
   document.getElementById('qeOverlay').classList.add('open');
   setTimeout(function() { document.getElementById('qeQty').focus(); }, 50);
 }

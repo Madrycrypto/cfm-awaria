@@ -203,6 +203,31 @@ tbody tr.grouphead td{padding-top:16px}
 .langflag.off{opacity:.3;filter:grayscale(1)}
 body.hide-pl .pl{display:none}
 body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria-btn-cn,body.hide-cn .view-switch-cn,body.hide-cn .warn-title-cn{display:none}
+
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:400}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(26,158,80,0.4);color:#3fd17a}
+.toast.err{border-color:rgba(217,43,43,0.4);color:#ff7070}
+
+/* Szybki wpis/edycja wprost z komorki tabeli Pivot — patrz openQuickEdit */
+.cell-stack{cursor:pointer}
+td.qe-empty{cursor:pointer}
+td.qe-empty:hover,.cell-stack:hover{background:rgba(47,127,224,0.1)}
+.qe-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+.qe-overlay.open{display:flex}
+.qe-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:360px;max-width:100%}
+.qe-title{font-family:var(--fh);font-weight:800;font-size:19px}
+.qe-sub{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.qe-field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.qe-field label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+.qe-field input,.qe-field select,.qe-field textarea{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:8px;color:var(--text);font-family:var(--fb);font-size:14px;padding:9px 10px}
+.qe-field textarea{resize:vertical}
+.qe-row{display:flex;gap:8px}
+.qe-row .qe-field{flex:1;min-width:0}
+.qe-actions{display:flex;gap:8px;margin-top:4px}
+.qe-actions button{flex:1;font-family:var(--fh);font-weight:800;font-size:14px;letter-spacing:0.03em;text-transform:uppercase;border:none;padding:11px;border-radius:8px;cursor:pointer}
+.qe-btn-cancel{background:var(--surface-2);color:var(--muted);border:1px solid var(--border) !important}
+.qe-btn-save{background:var(--blue);color:#fff}
 </style>
 </head>
 <body>
@@ -237,6 +262,26 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
 
 <div class="wrap" id="app">
   <div class="empty">Ładowanie&#8230; · <span class="cn">加载中...</span></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="qe-overlay" id="qeOverlay">
+  <div class="qe-box">
+    <div class="qe-title" id="qeTitle">Szybki wpis</div>
+    <div class="qe-sub" id="qeSub"></div>
+    <div class="qe-field"><label>Operator <span class="cn">&#183; 操作员</span></label><select id="qeOperator"></select></div>
+    <div class="qe-row">
+      <div class="qe-field"><label>Ilość <span class="cn">&#183; 数量</span> *</label><input type="number" min="0" id="qeQty"></div>
+      <div class="qe-field"><label>Scrap <span class="cn">&#183; 报废</span></label><input type="number" min="0" id="qeScrap" value="0"></div>
+      <div class="qe-field"><label>Rework <span class="cn">&#183; 返修</span></label><input type="number" min="0" id="qeRework" value="0"></div>
+    </div>
+    <div class="qe-field"><label>Uwagi <span class="cn">&#183; 备注</span></label><textarea id="qeNotes" rows="2"></textarea></div>
+    <div class="qe-actions">
+      <button type="button" class="qe-btn-cancel" onclick="closeQuickEdit()">Anuluj <span class="cn">&#183; 取消</span></button>
+      <button type="button" class="qe-btn-save" id="qeSaveBtn" onclick="submitQuickEdit()">Zapisz <span class="cn">&#183; 保存</span></button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -343,7 +388,7 @@ function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
   try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
 })();
 
-var STATE = { monthDate: new Date(), rows: [], reworkRows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {} };
+var STATE = { monthDate: new Date(), rows: [], reworkRows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, workers: [] };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -378,6 +423,7 @@ function init() {
     .then(function(data) {
       var u = (data && data.ustawienia) || {};
       try { STATE.stations = JSON.parse(u.cfm_stations || '[]'); } catch (e) { STATE.stations = []; }
+      try { STATE.workers = JSON.parse(u.cfm_workers || '[]'); } catch (e) { STATE.workers = []; }
       try {
         var shifts = JSON.parse(u.cfm_shifts || 'null');
         if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
@@ -1037,10 +1083,15 @@ function renderPivot(groups, days, periodLabel) {
         var r = g.byDate[d];
         var planForDay = effectivePlanEntry(stName, g.shift, d);
         if (planForDay === null) planForDay = Number(STATE.stationTargets[stName]) || 0;
-        if (!r) return '<td><span class="pct off">&#8212;</span></td>';
+        // Kazda komorka (pusta LUB z wpisem) jest klikalna — otwiera Szybki
+        // wpis/edycje (patrz openQuickEdit), zeby mozna bylo nadrobic
+        // zapomniany raport wprost ze Statystyk, bez przechodzenia do
+        // formularza Raportu zmiany w Raporcie dziennym.
+        var qeArgs = "'" + stName.replace(/'/g, "\\'") + "','" + g.shift.replace(/'/g, "\\'") + "','" + d + "'";
+        if (!r) return '<td class="qe-empty" onclick="openQuickEdit(' + qeArgs + ')"><span class="pct off">&#8212;</span></td>';
         periodActual += r.qty; periodOk += r.ok_count; periodQty += r.qty;
         periodRows.push(r);
-        return '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.qty) + '</span><span class="cell-plan">/' + fmt(planForDay) + '</span></div></td>';
+        return '<td><div class="cell-stack" onclick="openQuickEdit(' + qeArgs + ')"><span class="cell-actual">' + fmt(r.qty) + '</span><span class="cell-plan">/' + fmt(planForDay) + '</span></div></td>';
       }).join('');
       var periodPct = periodPlan > 0 ? Math.round((periodActual / periodPlan) * 100) : null;
       var passRate = periodQty > 0 ? ((periodOk / periodQty) * 100).toFixed(1) : '&#8212;';
@@ -1060,6 +1111,98 @@ function renderPivot(groups, days, periodLabel) {
     });
   });
   table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
+}
+
+// ── SZYBKI WPIS/EDYCJA WPROST Z TABELI PIVOT ────────────────────────
+// Klikniecie komorki (pustej lub z wpisem) otwiera mały formularz —
+// pozwala nadrobic zapomniany Raport zmiany bez przechodzenia do
+// Raportu dziennego. Uzywa TEGO SAMEGO event_type co glowny formularz
+// (RAPORT_DZIENNY), ktory juz obsluguje "upsert" po dacie/zmianie/
+// stanowisku (patrz handleReport w .gs) — wiec zapis na istniejacy dzien
+// podmienia wiersz zamiast tworzyc duplikat.
+var _toastTimer;
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.className = 'toast ' + (type || '');
+  clearTimeout(_toastTimer);
+  setTimeout(function() { t.classList.add('show'); }, 10);
+  _toastTimer = setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+var qeTarget = null;
+function openQuickEdit(station, shift, dateIso) {
+  var existing = STATE.rows.filter(function(r) { return r.date === dateIso && r.shift === shift && r.station === station; })[0] || null;
+  qeTarget = { station: station, shift: shift, date: dateIso, existing: existing };
+  document.getElementById('qeTitle').innerHTML = existing ? 'Edytuj wpis <span class="cn">&#183; 编辑记录</span>' : 'Nowy wpis <span class="cn">&#183; 新记录</span>';
+  document.getElementById('qeSub').innerHTML = station + ' &#183; Zmiana ' + shift + ' &#183; ' + fmtDMY(dateIso);
+  var workers = STATE.workers || [];
+  var opSel = document.getElementById('qeOperator');
+  var extra = (existing && existing.operator && workers.indexOf(existing.operator) < 0) ? [existing.operator] : [];
+  opSel.innerHTML = '<option value="">&#8722; wybierz &#8722;</option>' + workers.concat(extra).map(function(w) {
+    var sel = existing && existing.operator === w ? ' selected' : '';
+    return '<option value="' + String(w).replace(/"/g, '&quot;') + '"' + sel + '>' + w + '</option>';
+  }).join('');
+  document.getElementById('qeQty').value = existing ? existing.qty : '';
+  document.getElementById('qeScrap').value = existing ? existing.scrap : 0;
+  document.getElementById('qeRework').value = existing ? existing.rework : 0;
+  document.getElementById('qeNotes').value = (existing && existing.notes) || '';
+  document.getElementById('qeOverlay').classList.add('open');
+  setTimeout(function() { document.getElementById('qeQty').focus(); }, 50);
+}
+function closeQuickEdit() {
+  document.getElementById('qeOverlay').classList.remove('open');
+  qeTarget = null;
+}
+function submitQuickEdit() {
+  if (!qeTarget) return;
+  var operator = document.getElementById('qeOperator').value;
+  var qty = parseInt(document.getElementById('qeQty').value, 10);
+  var scrap = parseInt(document.getElementById('qeScrap').value, 10) || 0;
+  var rework = parseInt(document.getElementById('qeRework').value, 10) || 0;
+  var notes = document.getElementById('qeNotes').value;
+  if (isNaN(qty) || qty < 0) { showToast('Podaj ilość <span class="cn">&#183; 请输入数量</span>', 'err'); return; }
+  var okN = qty - scrap - rework; if (okN < 0) okN = 0;
+  var passRate = qty > 0 ? ((okN / qty) * 100).toFixed(1) : '0';
+  var planForDay = effectivePlanEntry(qeTarget.station, qeTarget.shift, qeTarget.date);
+  if (planForDay === null) planForDay = Number(STATE.stationTargets[qeTarget.station]) || 0;
+  var existing = qeTarget.existing;
+  var payload = {
+    token: getApiToken(), event_type: 'RAPORT_DZIENNY',
+    operator: operator, station: qeTarget.station, shift: qeTarget.shift, date: qeTarget.date,
+    qty: String(qty), scrap: String(scrap), rework: String(rework), recovered: '0',
+    ok_count: String(okN), pass_rate: passRate, plan: String(planForDay), notes: notes,
+    // Edycja ISTNIEJACEGO wpisu zachowuje jego oryginalny reasons_json
+    // (szczegolowy rozklad przyczyn scrap/rework) — Szybki wpis nie ma
+    // pol na to, wiec nie wolno mu go cicho wyzerowac.
+    reasons_json: existing ? (existing.reasons_json || '{}') : '{}',
+    timestamp: new Date().toISOString(),
+  };
+  var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
+  var wh = getWH();
+  if (!wh) { showToast('Brak połączenia (Panel Admina &#8594; Połączenie) <span class="cn">&#183; 未连接</span>', 'err'); return; }
+  var btn = document.getElementById('qeSaveBtn');
+  btn.disabled = true; btn.innerHTML = 'Zapisywanie&#8230;';
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, 20000);
+  fetch(wh + '?' + qs, { signal: controller.signal })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      clearTimeout(timeoutId);
+      btn.disabled = false; btn.innerHTML = 'Zapisz <span class="cn">&#183; 保存</span>';
+      if (data.status !== 'ok') {
+        showToast('Błąd zapisu: ' + (data.msg || 'nieznany błąd') + ' — NIE zapisano! <span class="cn">&#183; 保存失败</span>', 'err');
+        return;
+      }
+      closeQuickEdit();
+      showToast('Zapisano! <span class="cn">&#183; 已保存</span>!', 'ok');
+      loadMonth({ silent: true, keepSelection: true });
+    })
+    .catch(function(err) {
+      clearTimeout(timeoutId);
+      btn.disabled = false; btn.innerHTML = 'Zapisz <span class="cn">&#183; 保存</span>';
+      var msg = err && err.name === 'AbortError' ? 'Serwer nie odpowiada (limit czasu)' : 'Błąd połączenia';
+      showToast(msg + ' — NIE zapisano! <span class="cn">&#183; 连接错误</span>', 'err');
+    });
 }
 
 // Plan na DANY dzien dla stanowiska+zmiany — z Planu miesiecznego jesli

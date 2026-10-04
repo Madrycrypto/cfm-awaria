@@ -215,7 +215,7 @@ td.qe-empty{cursor:pointer}
 td.qe-empty:hover,.cell-stack:hover{background:rgba(47,127,224,0.1)}
 .qe-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
 .qe-overlay.open{display:flex}
-.qe-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:360px;max-width:100%}
+.qe-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:420px;max-width:100%;max-height:88vh;overflow-y:auto}
 .qe-title{font-family:var(--fh);font-weight:800;font-size:19px}
 .qe-sub{font-size:12.5px;color:var(--muted);margin-bottom:14px}
 .qe-field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
@@ -228,6 +228,23 @@ td.qe-empty:hover,.cell-stack:hover{background:rgba(47,127,224,0.1)}
 .qe-actions button{flex:1;font-family:var(--fh);font-weight:800;font-size:14px;letter-spacing:0.03em;text-transform:uppercase;border:none;padding:11px;border-radius:8px;cursor:pointer}
 .qe-btn-cancel{background:var(--surface-2);color:var(--muted);border:1px solid var(--border) !important}
 .qe-btn-save{background:var(--blue);color:#fff}
+.qe-reason-head{display:flex;align-items:baseline;justify-content:space-between;margin:14px 0 8px}
+.qe-reason-head label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+.qe-reason-total{font-family:var(--fh);font-weight:800;font-size:14px;color:var(--text)}
+.qe-reason-list{display:flex;flex-direction:column;gap:6px}
+/* Wiersze przyczyn — identyczne jak w Raporcie dziennym (ten sam wzorzec
+   wizualny), zeby uzytkownik od razu rozpoznal ten sam mechanizm. */
+.reason-row{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px 6px 10px}
+.reason-row-label{flex:1;font-size:13px;color:var(--text);line-height:1.3}
+.reason-row-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.reason-row-btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:20px;font-weight:300;width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.reason-row-btn:active{background:#222;transform:scale(0.92)}
+.reason-row-input{width:44px;flex-shrink:0;text-align:center;font-family:var(--fh);font-weight:700;font-size:16px;padding:8px 2px;background:var(--surface);color:var(--text);-webkit-appearance:none;-moz-appearance:textfield;appearance:none;border:1px solid var(--border-soft);border-radius:6px}
+.reason-row-input::-webkit-outer-spin-button,.reason-row-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.reason-other-desc{margin:-2px 0 6px 0}
+.reason-other-input{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:9px 10px}
+.reason-other-input:focus{outline:none;border-color:var(--blue)}
+.reason-empty-hint{font-size:11px;color:var(--muted);padding:4px 0 8px}
 </style>
 </head>
 <body>
@@ -271,12 +288,15 @@ td.qe-empty:hover,.cell-stack:hover{background:rgba(47,127,224,0.1)}
     <div class="qe-title" id="qeTitle">Szybki wpis</div>
     <div class="qe-sub" id="qeSub"></div>
     <div class="qe-field"><label>Operator <span class="cn">&#183; 操作员</span></label><select id="qeOperator"></select></div>
-    <div class="qe-row">
-      <div class="qe-field"><label>Ilość <span class="cn">&#183; 数量</span> *</label><input type="number" min="0" id="qeQty"></div>
-      <div class="qe-field"><label>Scrap <span class="cn">&#183; 报废</span></label><input type="number" min="0" id="qeScrap" value="0"></div>
-      <div class="qe-field"><label>Rework <span class="cn">&#183; 返修</span></label><input type="number" min="0" id="qeRework" value="0"></div>
-    </div>
-    <div class="qe-field"><label>Uwagi <span class="cn">&#183; 备注</span></label><textarea id="qeNotes" rows="2"></textarea></div>
+    <div class="qe-field"><label>Ilość wyprodukowana <span class="cn">&#183; 完成件数</span> *</label><input type="number" min="0" id="qeQty" oninput="updateQeTotals()"></div>
+
+    <div class="qe-reason-head"><label>Scrap &#8722; powody <span class="cn">&#183; 报废原因</span></label><div class="qe-reason-total" id="qeScrapTotal">0</div></div>
+    <div class="qe-reason-list" id="qeScrapTable"></div>
+
+    <div class="qe-reason-head"><label>Rework &#8722; powody <span class="cn">&#183; 返修原因</span></label><div class="qe-reason-total" id="qeReworkTotal">0</div></div>
+    <div class="qe-reason-list" id="qeReworkTable"></div>
+
+    <div class="qe-field" style="margin-top:14px;"><label>Uwagi <span class="cn">&#183; 备注</span></label><textarea id="qeNotes" rows="2"></textarea></div>
     <div class="qe-actions">
       <button type="button" class="qe-btn-cancel" onclick="closeQuickEdit()">Anuluj <span class="cn">&#183; 取消</span></button>
       <button type="button" class="qe-btn-save" id="qeSaveBtn" onclick="submitQuickEdit()">Zapisz <span class="cn">&#183; 保存</span></button>
@@ -388,7 +408,7 @@ function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
   try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
 })();
 
-var STATE = { monthDate: new Date(), rows: [], reworkRows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, workers: [] };
+var STATE = { monthDate: new Date(), rows: [], reworkRows: [], awarieRows: [], weeks: [], selectedWeekIdx: 0, viewMode: 'week', stations: [], shiftLabels: ['A', 'B', 'C'], monthlyPlan: {}, stationTargets: {}, czasPracy: {}, worktimeKorekty: {}, inventoryCounts: {}, shippingActual: {}, workers: [], scrapReasons: {}, reworkReasons: {} };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -424,6 +444,8 @@ function init() {
       var u = (data && data.ustawienia) || {};
       try { STATE.stations = JSON.parse(u.cfm_stations || '[]'); } catch (e) { STATE.stations = []; }
       try { STATE.workers = JSON.parse(u.cfm_workers || '[]'); } catch (e) { STATE.workers = []; }
+      try { STATE.scrapReasons = JSON.parse(u.cfm_scrap_reasons || '{}'); } catch (e) { STATE.scrapReasons = {}; }
+      try { STATE.reworkReasons = JSON.parse(u.cfm_rework_reasons || '{}'); } catch (e) { STATE.reworkReasons = {}; }
       try {
         var shifts = JSON.parse(u.cfm_shifts || 'null');
         if (shifts && shifts.zmiany && shifts.zmiany.length) STATE.shiftLabels = shifts.zmiany.map(function(z) { return z.label; });
@@ -1129,6 +1151,75 @@ function showToast(msg, type) {
   setTimeout(function() { t.classList.add('show'); }, 10);
   _toastTimer = setTimeout(function() { t.classList.remove('show'); }, 3000);
 }
+// Dokladnie ten sam wzorzec co lista przyczyn w Raporcie dziennym (patrz
+// renderReasonTable/collectReasonTableEntries/adjustReasonRow tamze) —
+// powtorzony tu, zeby Szybki wpis mogl rozbic scrap/rework na te same,
+// skonfigurowane w Panelu Admina przyczyny per stanowisko, zamiast tylko
+// przyjmowac jedna laczna liczbe.
+function isWeightReason(reason) { return (reason || '').indexOf('&#183; kg') >= 0 || (reason || '').indexOf('· kg') >= 0; }
+function isOtherReason(r) { return /inne|其他/i.test(r || ''); }
+function sumPieceQty(entries) {
+  return entries.filter(function(e) { return !isWeightReason(e.reason); }).reduce(function(s, e) { return s + e.qty; }, 0);
+}
+function renderQeReasonTable(containerId, reasons, existingEntries) {
+  var container = document.getElementById(containerId);
+  if (!reasons || !reasons.length) {
+    container.innerHTML = '<div class="reason-empty-hint">Brak zdefiniowanych przyczyn dla tego stanowiska &#8212; dodaj w Panel Admina &#8594; Przyczyny <span class="cn">&#183; 该工位尚无原因，请在管理面板&#8594;原因中添加</span></div>';
+    return;
+  }
+  var byReason = {};
+  (existingEntries || []).forEach(function(e) { byReason[e.reason] = e; });
+  container.innerHTML = reasons.map(function(r) {
+    var weight = isWeightReason(r);
+    var other = isOtherReason(r);
+    var existingEntry = byReason[r];
+    var val = existingEntry ? existingEntry.qty : '';
+    return '<div class="reason-row" data-reason="' + r.replace(/"/g, '&quot;') + '">' +
+      '<span class="reason-row-label">' + r + '</span>' +
+      '<div class="reason-row-controls">' +
+        '<button type="button" class="reason-row-btn" onclick="adjustReasonRow(this,' + (weight ? '-0.1' : '-1') + ')">&#8722;</button>' +
+        '<input type="number" class="reason-row-input" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' value="' + val + '" placeholder="0" inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="updateQeTotals()">' +
+        '<button type="button" class="reason-row-btn" onclick="adjustReasonRow(this,' + (weight ? '0.1' : '1') + ')">+</button>' +
+      '</div>' +
+    '</div>' +
+    (other ? '<div class="reason-other-desc"><input type="text" class="reason-other-input" value="' + ((existingEntry && existingEntry.desc) ? String(existingEntry.desc).replace(/"/g, '&quot;') : '') + '" placeholder="Opisz przyczynę... &#183; 请描述原因..." autocomplete="off"></div>' : '');
+  }).join('');
+}
+function adjustReasonRow(btn, delta) {
+  var row = btn.closest('.reason-row');
+  var input = row.querySelector('.reason-row-input');
+  var v = Math.max(0, Math.round(((parseFloat(input.value) || 0) + delta) * 1000) / 1000);
+  input.value = v;
+  updateQeTotals();
+}
+function collectQeReasonEntries(containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return [];
+  var rows = container.querySelectorAll('.reason-row');
+  var entries = [];
+  rows.forEach(function(row) {
+    var reason = row.getAttribute('data-reason');
+    var input = row.querySelector('.reason-row-input');
+    var v = input ? (parseFloat(input.value) || 0) : 0;
+    if (v > 0) {
+      var entry = { reason: reason, qty: v };
+      var box = row.nextElementSibling;
+      if (box && box.classList.contains('reason-other-desc')) {
+        var descInput = box.querySelector('.reason-other-input');
+        if (descInput && descInput.value) entry.desc = descInput.value;
+      }
+      entries.push(entry);
+    }
+  });
+  return entries;
+}
+function updateQeTotals() {
+  var scrap = sumPieceQty(collectQeReasonEntries('qeScrapTable'));
+  var rework = sumPieceQty(collectQeReasonEntries('qeReworkTable'));
+  document.getElementById('qeScrapTotal').textContent = scrap;
+  document.getElementById('qeReworkTotal').textContent = rework;
+}
+
 var qeTarget = null;
 function openQuickEdit(station, shift, dateIso) {
   var existing = STATE.rows.filter(function(r) { return r.date === dateIso && r.shift === shift && r.station === station; })[0] || null;
@@ -1143,9 +1234,14 @@ function openQuickEdit(station, shift, dateIso) {
     return '<option value="' + String(w).replace(/"/g, '&quot;') + '"' + sel + '>' + w + '</option>';
   }).join('');
   document.getElementById('qeQty').value = existing ? existing.qty : '';
-  document.getElementById('qeScrap').value = existing ? existing.scrap : 0;
-  document.getElementById('qeRework').value = existing ? existing.rework : 0;
   document.getElementById('qeNotes').value = (existing && existing.notes) || '';
+  var existingReasons = { scrap: [], rework: [] };
+  if (existing && existing.reasons_json) {
+    try { var parsed = JSON.parse(existing.reasons_json); existingReasons.scrap = parsed.scrap || []; existingReasons.rework = parsed.rework || []; } catch (e) {}
+  }
+  renderQeReasonTable('qeScrapTable', STATE.scrapReasons[station] || [], existingReasons.scrap);
+  renderQeReasonTable('qeReworkTable', STATE.reworkReasons[station] || [], existingReasons.rework);
+  updateQeTotals();
   document.getElementById('qeOverlay').classList.add('open');
   setTimeout(function() { document.getElementById('qeQty').focus(); }, 50);
 }
@@ -1157,24 +1253,22 @@ function submitQuickEdit() {
   if (!qeTarget) return;
   var operator = document.getElementById('qeOperator').value;
   var qty = parseInt(document.getElementById('qeQty').value, 10);
-  var scrap = parseInt(document.getElementById('qeScrap').value, 10) || 0;
-  var rework = parseInt(document.getElementById('qeRework').value, 10) || 0;
   var notes = document.getElementById('qeNotes').value;
+  var scrapEntries = collectQeReasonEntries('qeScrapTable');
+  var reworkEntries = collectQeReasonEntries('qeReworkTable');
+  var scrap = sumPieceQty(scrapEntries);
+  var rework = sumPieceQty(reworkEntries);
   if (isNaN(qty) || qty < 0) { showToast('Podaj ilość <span class="cn">&#183; 请输入数量</span>', 'err'); return; }
   var okN = qty - scrap - rework; if (okN < 0) okN = 0;
   var passRate = qty > 0 ? ((okN / qty) * 100).toFixed(1) : '0';
   var planForDay = effectivePlanEntry(qeTarget.station, qeTarget.shift, qeTarget.date);
   if (planForDay === null) planForDay = Number(STATE.stationTargets[qeTarget.station]) || 0;
-  var existing = qeTarget.existing;
   var payload = {
     token: getApiToken(), event_type: 'RAPORT_DZIENNY',
     operator: operator, station: qeTarget.station, shift: qeTarget.shift, date: qeTarget.date,
     qty: String(qty), scrap: String(scrap), rework: String(rework), recovered: '0',
     ok_count: String(okN), pass_rate: passRate, plan: String(planForDay), notes: notes,
-    // Edycja ISTNIEJACEGO wpisu zachowuje jego oryginalny reasons_json
-    // (szczegolowy rozklad przyczyn scrap/rework) — Szybki wpis nie ma
-    // pol na to, wiec nie wolno mu go cicho wyzerowac.
-    reasons_json: existing ? (existing.reasons_json || '{}') : '{}',
+    reasons_json: JSON.stringify({ scrap: scrapEntries, rework: reworkEntries }),
     timestamp: new Date().toISOString(),
   };
   var qs = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');

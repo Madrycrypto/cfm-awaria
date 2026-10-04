@@ -1253,11 +1253,21 @@ function updateQeTotals() {
   document.getElementById('qeScrapTotalBadge').textContent = '(' + scrap + ')';
   document.getElementById('qeReworkTotalBadge').textContent = '(' + rework + ')';
 }
+var QE_REASON_SECTION_GROUP = ['qeScrap', 'qeRework'];
 function toggleQeSection(which) {
   var body = document.getElementById(which + 'ReasonsBody');
   var title = document.getElementById(which + 'SectionTitle');
   var isOpen = body.classList.toggle('open');
   title.classList.toggle('open', isOpen);
+  // Otwarcie jednej sekcji zamyka drugą (dokladnie jak w Raporcie dziennym)
+  // - dwie jednoczesnie otwarte listy przyczyn (Scrap+Rework) na waskim
+  // ekranie modala latwo pomylic, ktora wartosc nalezy do ktorej kategorii.
+  if (isOpen) {
+    QE_REASON_SECTION_GROUP.forEach(function(other) {
+      if (other === which) return;
+      setQeSectionOpen(other, false);
+    });
+  }
 }
 function setQeSectionOpen(which, open) {
   document.getElementById(which + 'ReasonsBody').classList.toggle('open', open);
@@ -1289,9 +1299,12 @@ function openQuickEdit(station, shift, dateIso) {
   // Sekcja startuje rozwinieta TYLKO jesli edytowany wpis juz ma w niej
   // jakies dane (zeby od razu bylo widac co trzeba poprawic) — w
   // przeciwnym razie zwinieta, zeby nie zajmowac miejsca w modalu przy
-  // najczestszym przypadku (brak scrap/rework).
+  // najczestszym przypadku (brak scrap/rework). Jesli ISTNIEJE dane w OBU —
+  // otwieramy tylko Scrap (nigdy obie naraz, patrz QE_REASON_SECTION_GROUP
+  // w toggleQeSection), Rework zostaje zwiniety, ale jego liczba dalej
+  // widoczna w odznace.
   setQeSectionOpen('qeScrap', existingReasons.scrap.length > 0);
-  setQeSectionOpen('qeRework', existingReasons.rework.length > 0);
+  setQeSectionOpen('qeRework', existingReasons.rework.length > 0 && !existingReasons.scrap.length);
   document.getElementById('qeOverlay').classList.add('open');
   setTimeout(function() { document.getElementById('qeQty').focus(); }, 50);
 }

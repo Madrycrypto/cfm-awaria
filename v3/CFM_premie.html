@@ -483,6 +483,12 @@ function computeRows() {
       var passRate = d.sumQty > 0 ? (d.sumOk / d.sumQty) * 100 : null;
       var wydajnosc = STATE.wydajnosc[station] || 0;
 
+      // Wykonanie "na surowo" — bez zadnego odzysku za przestoj (Awarie ani
+      // rezerwa techniczna), czysto sumQty/sumPlan. Pokazywane OBOK
+      // skorygowanego wykonania w eksporcie, zeby bylo widac realny wplyw
+      // korekt, a nie tylko wynik koncowy.
+      var rawPct = d.sumPlan > 0 ? (d.sumQty / d.sumPlan) * 100 : null;
+
       var autoDowntimeMin = STATE.downtime[key] || 0;
       var korektaMin = Number(korekty[key]) || 0;
       var odzyskAwarie = (autoDowntimeMin + korektaMin) * (wydajnosc / 60);
@@ -508,7 +514,7 @@ function computeRows() {
       }
       rows.push({
         station: station, shift: shift, group: group, crewList: crewList,
-        sumQty: d.sumQty, sumPlan: d.sumPlan, passRate: passRate, wydajnosc: wydajnosc,
+        sumQty: d.sumQty, sumPlan: d.sumPlan, passRate: passRate, wydajnosc: wydajnosc, rawPct: rawPct,
         autoDowntimeMin: autoDowntimeMin, korektaMin: korektaMin, techApplied: techApplied, finalPct: finalPct, premia: premia, count: d.count,
       });
     });
@@ -704,7 +710,7 @@ function exportToExcel() {
     '.yes{background:#c9f0d6;font-weight:bold}' +
     'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
     '</style></head><body><h1>' + title + '</h1><table>' +
-    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Produkcja</th><th>Plan</th><th>Pass rate</th><th>Auto z Awarii (min)</th><th>Korekta ręczna (min)</th><th>Rezerwa techn. (min)</th><th>Razem przestój (min)</th><th>Wykonanie planu</th><th>Premia (PLN)</th></tr>';
+    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Produkcja</th><th>Plan</th><th>Pass rate</th><th>Wykonanie planu (surowe)</th><th>Auto z Awarii (min)</th><th>Korekta ręczna (min)</th><th>Rezerwa techn. (min)</th><th>Razem przestój (min)</th><th>Wykonanie planu (po korekcie)</th><th>Premia (PLN)</th></tr>';
 
   var byStation = {}, order = [];
   rows.forEach(function(r) { if (!byStation[r.station]) { byStation[r.station] = []; order.push(r.station); } byStation[r.station].push(r); });
@@ -721,6 +727,7 @@ function exportToExcel() {
         '<td>Zmiana ' + r.shift + '</td><td class="crew">' + (r.crewList.join('<br>') || '-') + '</td>' +
         '<td>' + Math.round(r.sumQty) + '</td><td>' + Math.round(r.sumPlan) + '</td>' +
         '<td>' + (r.passRate === null ? '' : r.passRate.toFixed(1) + '%') + '</td>' +
+        '<td>' + (r.rawPct === null ? '' : r.rawPct.toFixed(1) + '%') + '</td>' +
         '<td>' + r.autoDowntimeMin + '</td>' +
         '<td>' + r.korektaMin + '</td>' +
         '<td>' + techMin + '</td>' +

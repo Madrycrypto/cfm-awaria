@@ -704,18 +704,28 @@ function exportToExcel() {
     '.yes{background:#c9f0d6;font-weight:bold}' +
     'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
     '</style></head><body><h1>' + title + '</h1><table>' +
-    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Produkcja</th><th>Plan</th><th>Pass rate</th><th>Korekta przestoju (min)</th><th>Wykonanie planu</th><th>Premia (PLN)</th></tr>';
+    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Produkcja</th><th>Plan</th><th>Pass rate</th><th>Auto z Awarii (min)</th><th>Korekta ręczna (min)</th><th>Rezerwa techn. (min)</th><th>Razem przestój (min)</th><th>Wykonanie planu</th><th>Premia (PLN)</th></tr>';
 
   var byStation = {}, order = [];
   rows.forEach(function(r) { if (!byStation[r.station]) { byStation[r.station] = []; order.push(r.station); } byStation[r.station].push(r); });
   order.forEach(function(st) {
     byStation[st].forEach(function(r, si) {
+      // Rezerwa techniczna "+60min" byla dotad widoczna w eksporcie TYLKO
+      // jako dopisek tekstowy przy %, bez samej liczby minut — rozbijamy
+      // teraz na pelny, przejrzysty rozklad (auto + reczna + techniczna =
+      // razem), dokladnie to co faktycznie wchodzi do finalPct w computeRows,
+      // zamiast pokazywac tylko reczna korekte jak dotychczas.
+      var techMin = r.techApplied ? 60 * r.count : 0;
+      var razemMin = r.autoDowntimeMin + r.korektaMin + techMin;
       html += '<tr>' + (si === 0 ? '<td class="station" rowspan="' + byStation[st].length + '">' + st + '</td>' : '') +
         '<td>Zmiana ' + r.shift + '</td><td class="crew">' + (r.crewList.join('<br>') || '-') + '</td>' +
         '<td>' + Math.round(r.sumQty) + '</td><td>' + Math.round(r.sumPlan) + '</td>' +
         '<td>' + (r.passRate === null ? '' : r.passRate.toFixed(1) + '%') + '</td>' +
+        '<td>' + r.autoDowntimeMin + '</td>' +
         '<td>' + r.korektaMin + '</td>' +
-        '<td>' + (r.finalPct === null ? '' : r.finalPct.toFixed(1) + '%' + (r.techApplied ? ' (+60min/dzien)' : '')) + '</td>' +
+        '<td>' + techMin + '</td>' +
+        '<td>' + razemMin + '</td>' +
+        '<td>' + (r.finalPct === null ? '' : r.finalPct.toFixed(1) + '%') + '</td>' +
         '<td class="' + (r.premia ? 'yes' : '') + '">' + (r.premia ? r.premia + ' PLN' : '-') + '</td></tr>';
     });
   });

@@ -313,6 +313,7 @@ function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function isoToDate(iso) { var p = iso.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
+function isWeekend_(iso) { var wd = isoToDate(iso).getDay(); return wd === 0 || wd === 6; }
 var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
 var DAY_LABELS_CN = ['周一','周二','周三','周四','周五','周六','周日'];
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
@@ -680,7 +681,11 @@ function computeSolderWalk(firstDate, endIso, cfg) {
   // zakresu, zeby nie obiecywac bufora ktorego moze nie byc) na kazdy
   // dzien, w ktorym brak produkcji zepchnalby bufor ponizej zera
   // NASTEPNEGO dnia (dokladnie ta sama logika "dzis wplywa na jutro" co
-  // ponizej w Kroku 3).
+  // ponizej w Kroku 3). NIGDY w weekend — stacja fizycznie nie pracuje w
+  // soboty/niedziele (tak samo jak reczny Plan nigdy tam nic nie wpisuje),
+  // a matematyczny trigger o tym nie wiedzial i potrafil "dolac" partie w
+  // dzien, w ktorym fizycznie nikt nie lutowal - co po cichu zawyzalo bufor
+  // na dobre (zostawal uslepo doliczony do kazdego kolejnego dnia).
   var batchProdByDate = {};
   if (STATE.chainMode && cfg.batchMin > 0) {
     var simRunning = Number(STATE.solderInventoryCounts[firstDate]) || 0;
@@ -689,7 +694,7 @@ function computeSolderWalk(firstDate, endIso, cfg) {
       if (idx > 0) simRunning += simPrevProd - simPrevUse;
       var countToday = STATE.solderInventoryCounts[d] !== undefined ? Number(STATE.solderInventoryCounts[d]) : null;
       if (countToday !== null && idx > 0) simRunning = countToday;
-      var qty = (simRunning - useByDate[d]) < 0 ? cfg.batchMin : 0;
+      var qty = (!isWeekend_(d) && (simRunning - useByDate[d]) < 0) ? cfg.batchMin : 0;
       batchProdByDate[d] = qty;
       simPrevProd = qty; simPrevUse = useByDate[d];
     });

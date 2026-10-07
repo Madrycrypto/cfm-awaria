@@ -871,7 +871,10 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
 
     <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">Token API <span class="cn">(opcjonalnie, ale zalecane)</span></div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Chroni arkusz przed obcymi zapytaniami — musi być IDENTYCZNY jak API_TOKEN ustawiony w Script Properties w Apps Script. Zostaw puste, jeśli backend jeszcze nie ma tokenu skonfigurowanego. <span class="cn">&#183; 保护表格不被陌生请求访问 — 必须与Apps Script中Script Properties里设置的API_TOKEN完全一致。如果后端尚未配置令牌，请留空。</span></div>
-    <input type="text" id="apiTokenInput" placeholder="np. losowy ciąg znaków" style="font-size:12px;margin-bottom:16px;" autocomplete="off">
+    <div style="position:relative;margin-bottom:16px;">
+      <input type="password" id="apiTokenInput" placeholder="np. losowy ciąg znaków" style="font-size:12px;width:100%;padding-right:38px;" autocomplete="off">
+      <button type="button" id="apiTokenEye" onclick="togglePinVisibility('apiTokenInput','apiTokenEye')" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:16px;padding:6px;cursor:pointer;opacity:0.6;line-height:1;">&#128065;</button>
+    </div>
     <button onclick="saveWebhook()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:var(--fh);font-size:16px;font-weight:900;padding:12px;cursor:pointer;margin-bottom:8px;">Zapisz i testuj <span class="cn">&#183; &#20445;&#23384;</span></button>
     <button onclick="pushAllSettingsToServer()" style="width:100%;background:transparent;color:var(--text);border:1px solid var(--border);border-radius:8px;font-family:var(--fh);font-size:13px;font-weight:700;padding:10px;cursor:pointer;margin-bottom:8px;">Wy&#347;lij wszystkie ustawienia do arkusza teraz <span class="cn">&#183; 立即发送所有设置到表格</span></button>
     <div style="font-size:10px;color:var(--muted);margin-bottom:16px;">U&#380;yj raz po aktualizacji apki, &#380;eby zapisane lokalnie ustawienia (pracownicy, stanowiska, przyczyny, cele, zmiany) trafi&#322;y te&#380; do arkusza i by&#322;y widoczne na innych telefonach. <span class="cn">&#183; 更新应用后使用一次，将本地保存的设置（员工、工位、原因、目标、班次）同步到表格，让其他手机也能看到。</span></div>

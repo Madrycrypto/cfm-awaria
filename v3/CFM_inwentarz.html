@@ -89,6 +89,8 @@ tbody tr.today td{background:rgba(26,110,216,0.08)}
 .recount{color:var(--blue-soft);font-weight:700}
 .diff-pos{color:#3fd17a}
 .diff-neg{color:#ff7070}
+.count-del-btn{background:none;border:none;color:#777;font-size:13px;cursor:pointer;padding:2px 6px;margin-left:4px;border-radius:4px}
+.count-del-btn:hover{color:#ff7070;background:rgba(255,112,112,0.12)}
 
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:40}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -465,7 +467,8 @@ function render(firstDate, todayISO) {
         var wd = isoToDate(r.date).getDay();
         var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (r.date === todayISO ? ' &#183; dziś' : '');
         var countCell = r.counted === null ? '&#8212;' :
-          '<span class="recount">' + fmt(r.counted) + '</span>' + (r.discrepancy !== null ? ' <span class="' + (r.discrepancy >= 0 ? 'diff-pos' : 'diff-neg') + '">(' + (r.discrepancy >= 0 ? '+' : '') + fmt(r.discrepancy) + ')</span>' : '');
+          '<span class="recount">' + fmt(r.counted) + '</span>' + (r.discrepancy !== null ? ' <span class="' + (r.discrepancy >= 0 ? 'diff-pos' : 'diff-neg') + '">(' + (r.discrepancy >= 0 ? '+' : '') + fmt(r.discrepancy) + ')</span>' : '') +
+          ' <button type="button" class="count-del-btn" title="Usuń tę inwentaryzację" onclick="deleteInventoryCount(\'' + r.date + '\')">&#10005;</button>';
         return '<tr class="' + (r.date === todayISO ? 'today' : '') + '"><td>' + label + '</td><td>' + fmt(r.production) + '</td><td>' + fmt(r.shipped) + '</td><td class="balance">' + fmt(r.balance) + '</td><td>' + countCell + '</td></tr>';
       }).join('') +
     '</tbody></table></div></div></div>';
@@ -506,6 +509,27 @@ function saveInventoryCount() {
     body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_inventory_counts', wartosc: JSON.stringify(STATE.inventoryCounts) })
   }).then(function() {
     showToast('Inwentaryzacja zapisana! <span class="cn">&#183; 盘点已保存</span>!', 'ok');
+    loadAndRender();
+  }).catch(function() {
+    showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err');
+  });
+}
+
+// Usuniecie bledne wpisanej inwentaryzacji (np. ten sam wynik przypadkiem
+// zapisany pod dwiema datami) — bez tego jedyny sposob "poprawienia"
+// pomylki to nadpisanie jej jakakolwiek inna liczba, co nie pomaga gdy
+// operator nie zna prawdziwej wartosci na ta (bledna) date i chce po
+// prostu cofnac wpis, zeby dzien znow liczyl sie normalnie z
+// produkcji/wysylek zamiast z falszywego punktu odniesienia.
+function deleteInventoryCount(dateIso) {
+  if (!confirm('Usunąć inwentaryzację z dnia ' + fmtDateLabel(dateIso) + '?')) return;
+  delete STATE.inventoryCounts[dateIso];
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_inventory_counts', wartosc: JSON.stringify(STATE.inventoryCounts) })
+  }).then(function() {
+    showToast('Inwentaryzacja usunięta <span class="cn">&#183; 盘点已删除</span>', 'ok');
     loadAndRender();
   }).catch(function() {
     showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err');

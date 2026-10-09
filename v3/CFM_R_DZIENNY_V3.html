@@ -111,6 +111,7 @@ button{cursor:pointer;font-family:var(--fh)}
 .reason-toggle-row .reason-toggle-btn{margin-bottom:0}
 .reason-toggle-btn.compact{padding:10px 8px;font-size:11px;gap:4px;flex-wrap:wrap}
 .reason-toggle-btn.compact .count-badge{font-size:11px}
+.reason-toggle-row.one-col{grid-template-columns:1fr}
 .reason-toggle-row.three-col{grid-template-columns:1fr 1fr 1fr}
 .reason-toggle-row.three-col .reason-toggle-btn.compact{padding:8px 4px;font-size:9.5px;gap:2px 4px;letter-spacing:0.01em}
 .reason-toggle-row.three-col .reason-toggle-btn.compact .icon{font-size:13px}
@@ -152,6 +153,22 @@ button{cursor:pointer;font-family:var(--fh)}
 .reason-total{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding-top:8px;border-top:0.5px solid var(--border)}
 .reason-total strong{color:var(--text);font-family:var(--fh);font-size:14px}
 .reason-empty-hint{font-size:11px;color:var(--muted);padding:4px 0 8px}
+/* Dual reason row (Rework: Odzysk/Złom razem, jeden wiersz na przyczynę
+   zamiast dwoch oddzielnych zakladek — patrz selectReworkZone/
+   renderReworkDualTable) */
+.reason-row-dual{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px}
+.reason-row-dual-label{font-size:12.5px;color:var(--text);line-height:1.3;margin-bottom:8px}
+.reason-row-dual-ctrls{display:flex;gap:8px}
+.dual-ctrl{flex:1;display:flex;align-items:center;justify-content:space-between;border-radius:8px;padding:5px 7px;border:1px solid var(--border);background:var(--surface)}
+.dual-ctrl.recovered{border-color:rgba(34,197,94,0.35);background:rgba(34,197,94,0.08)}
+.dual-ctrl.scrap{border-color:rgba(220,38,38,0.35);background:rgba(220,38,38,0.08)}
+.dual-ctrl-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.02em;flex-shrink:0}
+.dual-ctrl.recovered .dual-ctrl-lbl{color:var(--green-soft, #22c55e)}
+.dual-ctrl.scrap .dual-ctrl-lbl{color:#ff8080}
+.dual-ctrl-btns{display:flex;align-items:center;gap:4px}
+.dual-stepbtn{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0}
+.dual-stepbtn:active{background:#222}
+.dual-ctrl-val{font-family:var(--fh);font-size:14px;font-weight:800;min-width:16px;text-align:center}
 
 .summary-card{background:rgba(26,110,216,0.06);border:1.5px solid rgba(26,110,216,0.2);border-radius:12px;padding:12px;margin-bottom:16px}
 .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -189,6 +206,10 @@ button{cursor:pointer;font-family:var(--fh)}
 .stat-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:7px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px}
 .stat-lbl{font-size:9px;color:var(--muted);line-height:1.3;font-family:var(--fb)}
 .stat-val{font-family:var(--fh);font-size:17px;font-weight:900;color:var(--text);letter-spacing:0.02em;flex-shrink:0}
+.month-box{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.month-box-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.03em;margin-bottom:6px}
+.month-box-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0}
+.month-box-row b{font-family:var(--fh);font-size:13px}
 .stat-val.ok{color:var(--green)}.stat-val.warn{color:var(--orange)}.stat-val.bad{color:var(--red)}
 .progress-outer{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:10px}
 .progress-inner{height:100%;border-radius:4px;transition:width 0.4s}
@@ -517,37 +538,21 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
     </div>
 
 
-    <div class="reason-toggle-row three-col">
+    <div class="reason-toggle-row one-col">
       <button type="button" class="reason-toggle-btn rework compact" id="reworkBufferSectionTitle" onclick="toggleReasonSection('reworkBuffer')">
-        <span class="icon">&#128230;</span> Bufor
+        <span class="icon">&#128230;</span> Bufor wg przyczyny
         <span class="chevron">&#9662;</span>
-        <span class="cn-sub"><span class="cn">&#183; &#32531;&#20914;&#21306;</span></span>
-      </button>
-      <button type="button" class="reason-toggle-btn ok compact" id="reworkRecoveredSectionTitle" onclick="toggleReasonSection('reworkRecovered')">
-        <span class="icon">&#9989;</span> Odzyskane
-        <span class="count-badge" id="reworkRecoveredTotalBadge">(0)</span>
-        <span class="chevron">&#9662;</span>
-        <span class="cn-sub"><span class="cn">&#183; &#20462;&#22797;&#21512;&#26684;</span></span>
-      </button>
-      <button type="button" class="reason-toggle-btn scrap compact" id="reworkScrapSectionTitle" onclick="toggleReasonSection('reworkScrap')">
-        <span class="icon">&#10060;</span> Złom
-        <span class="count-badge" id="reworkScrapTotalBadge">(0)</span>
-        <span class="chevron">&#9662;</span>
-        <span class="cn-sub"><span class="cn">&#183; &#24453;&#25253;&#24223;</span></span>
+        <span class="cn-sub"><span class="cn">&#183; &#25353;&#21407;&#22240;&#30340;&#32531;&#20914;&#21306;</span></span>
       </button>
     </div>
     <div class="reason-panel-body" id="reworkBufferReasonsBody">
       <div class="reason-empty-hint">Tylko podgl&#261;d &#8212; &#20165;&#20379;&#26597;&#30475;</div>
       <div id="reworkBufferByReason"></div>
     </div>
-    <div class="reason-panel-body" id="reworkRecoveredReasonsBody">
-      <div id="reworkRecoveredReasonsTable"></div>
-      <div class="reason-total">Razem odzyskane <span class="cn">&#183; &#24635;&#20462;&#22797;</span> <strong id="reworkRecoveredTotalLbl">0</strong> szt.</div>
-    </div>
-    <div class="reason-panel-body" id="reworkScrapReasonsBody">
-      <div id="reworkScrapReasonsTable"></div>
-      <div class="reason-total">Razem do złomowania <span class="cn">&#183; &#24635;&#24453;&#25253;&#24223;</span> <strong id="reworkScrapTotalLbl">0</strong> szt.</div>
-    </div>
+
+    <div class="data-section-title" style="margin-top:14px;"><span class="icon">&#128295;</span> Przetwarzanie &#8212; wg przyczyny <span class="cn">&#183; &#25353;&#21407;&#22240;&#22788;&#29702;</span></div>
+    <div id="reworkDualReasonsTable"></div>
+    <div class="reason-total">Razem <span class="cn">&#183; &#24635;&#35745;</span>: odzyskane <strong id="reworkRecoveredTotalLbl" style="color:var(--green-soft);">0</strong>, z&#322;om <strong id="reworkScrapTotalLbl" style="color:#ff7070;">0</strong> szt.</div>
 
     <div class="summary-card" id="reworkBalanceCard" style="display:none;">
       <div class="lbl" style="margin-bottom:10px;">Bilans <span class="cn">&#183; &#24179;&#34913;&#26680;&#23545;</span></div>
@@ -1544,7 +1549,7 @@ function adjustReasonRow(btn, delta) {
   input.value = v;
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
-var REASON_SECTION_GROUPS = [['scrap', 'rework'], ['reworkBuffer', 'reworkRecovered', 'reworkScrap']];
+var REASON_SECTION_GROUPS = [['scrap', 'rework']];
 function toggleReasonSection(which) {
   var body = document.getElementById(which + 'ReasonsBody');
   var title = document.getElementById(which + 'SectionTitle');
@@ -1631,14 +1636,90 @@ function renderReworkZoneGrid() {
 function selectReworkZone(key) {
   currentReworkZone = key;
   renderReworkZoneGrid();
-  renderReasonTable('reworkScrapReasonsTable', getScrapReasonsForZone(key), 'updateReworkProcessSummary');
-  renderReasonTable('reworkRecoveredReasonsTable', getReworkReasonsForZone(key), 'updateReworkProcessSummary');
+  renderReworkDualTable(key);
   loadReworkBuffer();
   loadReworkHistory();
 }
 
-function reworkScrapTotal() { return sumPieceQty(collectReasonTableEntries('reworkScrapReasonsTable')); }
-function reworkRecoveredTotal() { return sumPieceQty(collectReasonTableEntries('reworkRecoveredReasonsTable')); }
+// Jeden wiersz na przyczyne (lista REWORK tej strefy — ta sama, ktorej
+// uzywa Raport zmiany, zeby nie dublowac konfiguracji w Panelu Admina),
+// z DWOMA niezaleznymi licznikami obok siebie: Odzysk / Zlom. Zastepuje
+// dawne dwie oddzielne zakladki/tabele (reworkRecoveredReasonsTable,
+// reworkScrapReasonsTable) jednym widokiem — user nie musi juz pamietac
+// ile wpisal w drugiej zakladce, widzi oba na raz przy kazdej przyczynie.
+function renderReworkDualTable(zoneKey) {
+  var container = document.getElementById('reworkDualReasonsTable');
+  if (!container) return;
+  var reasons = getReworkReasonsForZone(zoneKey);
+  if (!reasons.length) {
+    container.innerHTML = '<div class="reason-empty-hint">Brak zdefiniowanych przyczyn dla tej strefy &#8212; dodaj w Panel Admina &#8594; Przyczyny &#8594; Przyczyny REWORK</div>';
+    return;
+  }
+  container.innerHTML = reasons.map(function(r, i) {
+    var weight = isWeightReason(r);
+    var step = weight ? '0.1' : '1';
+    return '<div class="reason-row-dual" data-reason="' + r.replace(/"/g, '&quot;') + '">' +
+      '<div class="reason-row-dual-label">' + r + '</div>' +
+      '<div class="reason-row-dual-ctrls">' +
+        '<div class="dual-ctrl recovered"><span class="dual-ctrl-lbl">Odzysk</span><div class="dual-ctrl-btns">' +
+          '<button type="button" class="dual-stepbtn" onclick="adjustDualRow(this,-' + step + ')">&#8722;</button>' +
+          '<input type="number" class="dual-ctrl-val-input" value="0" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="updateReworkProcessSummary()" style="display:none;">' +
+          '<span class="dual-ctrl-val">0</span>' +
+          '<button type="button" class="dual-stepbtn" onclick="adjustDualRow(this,' + step + ')">+</button>' +
+        '</div></div>' +
+        '<div class="dual-ctrl scrap"><span class="dual-ctrl-lbl">Złom</span><div class="dual-ctrl-btns">' +
+          '<button type="button" class="dual-stepbtn" onclick="adjustDualRow(this,-' + step + ')">&#8722;</button>' +
+          '<input type="number" class="dual-ctrl-val-input" value="0" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="updateReworkProcessSummary()" style="display:none;">' +
+          '<span class="dual-ctrl-val">0</span>' +
+          '<button type="button" class="dual-stepbtn" onclick="adjustDualRow(this,' + step + ')">+</button>' +
+        '</div></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  updateReworkProcessSummary();
+}
+function adjustDualRow(btn, delta) {
+  var ctrl = btn.closest('.dual-ctrl');
+  var input = ctrl.querySelector('.dual-ctrl-val-input');
+  var valEl = ctrl.querySelector('.dual-ctrl-val');
+  var v = Math.max(0, Math.round(((parseFloat(input.value) || 0) + parseFloat(delta)) * 1000) / 1000);
+  input.value = v;
+  valEl.textContent = v;
+  updateReworkProcessSummary();
+}
+// Zwraca { recoveredEntries, scrapEntries } w dokladnie tym samym ksztalcie
+// [{reason, qty}] co dawny collectReasonTableEntries — zeby payload do
+// backendu (reasons_json/recovered_reasons_json) zostal identyczny.
+function collectReworkDual() {
+  var container = document.getElementById('reworkDualReasonsTable');
+  var recoveredEntries = [], scrapEntries = [];
+  if (!container) return { recoveredEntries: recoveredEntries, scrapEntries: scrapEntries };
+  container.querySelectorAll('.reason-row-dual').forEach(function(row) {
+    var reason = row.getAttribute('data-reason');
+    var ctrls = row.querySelectorAll('.dual-ctrl-val-input');
+    var recQty = parseFloat(ctrls[0].value) || 0;
+    var scrapQty = parseFloat(ctrls[1].value) || 0;
+    if (recQty > 0) recoveredEntries.push({ reason: reason, qty: recQty });
+    if (scrapQty > 0) scrapEntries.push({ reason: reason, qty: scrapQty });
+  });
+  return { recoveredEntries: recoveredEntries, scrapEntries: scrapEntries };
+}
+function populateReworkDualTable(scrapEntries, recoveredEntries) {
+  var container = document.getElementById('reworkDualReasonsTable');
+  if (!container) return;
+  container.querySelectorAll('.reason-row-dual').forEach(function(row) {
+    var reason = row.getAttribute('data-reason');
+    var ctrls = row.querySelectorAll('.dual-ctrl-val-input');
+    var vals = row.querySelectorAll('.dual-ctrl-val');
+    var recMatch = recoveredEntries.filter(function(e) { return e.reason === reason; })[0];
+    var scrapMatch = scrapEntries.filter(function(e) { return e.reason === reason; })[0];
+    ctrls[0].value = recMatch ? recMatch.qty : 0; vals[0].textContent = ctrls[0].value;
+    ctrls[1].value = scrapMatch ? scrapMatch.qty : 0; vals[1].textContent = ctrls[1].value;
+  });
+  updateReworkProcessSummary();
+}
+function reworkScrapTotal() { return sumPieceQty(collectReworkDual().scrapEntries); }
+function reworkRecoveredTotal() { return sumPieceQty(collectReworkDual().recoveredEntries); }
 
 // Przy edycji istniejacego wpisu bufor pobrany z serwera juz ma odjete
 // stare wartosci TEGO wpisu — trzeba je doliczyc z powrotem, inaczej
@@ -1651,10 +1732,10 @@ function effectiveReworkBuffer() {
 function updateReworkProcessSummary() {
   var card = document.getElementById('reworkBalanceCard');
   var noteField = document.getElementById('reworkNoteField');
-  var finalScrapBadge = document.getElementById('reworkScrapTotalBadge');
-  var recoveredBadge = document.getElementById('reworkRecoveredTotalBadge');
-  if (finalScrapBadge) finalScrapBadge.textContent = '(' + reworkScrapTotal() + ')';
-  if (recoveredBadge) recoveredBadge.textContent = '(' + reworkRecoveredTotal() + ')';
+  var recoveredLbl = document.getElementById('reworkRecoveredTotalLbl');
+  var scrapLbl = document.getElementById('reworkScrapTotalLbl');
+  if (recoveredLbl) recoveredLbl.textContent = reworkRecoveredTotal();
+  if (scrapLbl) scrapLbl.textContent = reworkScrapTotal();
   var recovered = reworkRecoveredTotal();
   if (!currentReworkZone) { card.style.display = 'none'; noteField.style.display = 'none'; return; }
   var finalScrap = reworkScrapTotal();
@@ -1675,23 +1756,36 @@ function getStationsInZone(zoneKey) {
 }
 function computeLocalReworkBuffer(zoneKey) {
   var stations = getStationsInZone(zoneKey);
+  var monthKey = localIsoString(new Date()).slice(0, 7);
   var reworkTotalSum = 0, recoveredTotalSum = 0, finalScrapTotalSum = 0;
+  var monthReworkTotal = 0, monthRecoveredTotal = 0, monthFinalScrapTotal = 0;
   for (var i = 0; i < localStorage.length; i++) {
     var key = localStorage.key(i);
     if (key.indexOf('cfm_daily_') === 0) {
       var arr = JSON.parse(localStorage.getItem(key) || '[]');
       arr.forEach(function(r) {
-        if (stations.indexOf(r.station) >= 0) reworkTotalSum += parseInt(r.rework) || 0;
+        if (stations.indexOf(r.station) >= 0) {
+          var q = parseInt(r.rework) || 0;
+          reworkTotalSum += q;
+          if ((r.date || '').indexOf(monthKey) === 0) monthReworkTotal += q;
+        }
       });
     }
     if (key.indexOf('cfm_rework_proc_') === 0) {
       var arr2 = JSON.parse(localStorage.getItem(key) || '[]');
       arr2.forEach(function(r) {
-        if (r.zone === zoneKey) { recoveredTotalSum += parseInt(r.recovered) || 0; finalScrapTotalSum += parseInt(r.final_scrap) || 0; }
+        if (r.zone === zoneKey) {
+          var rec = parseInt(r.recovered) || 0, scrap = parseInt(r.final_scrap) || 0;
+          recoveredTotalSum += rec; finalScrapTotalSum += scrap;
+          if ((r.date || '').indexOf(monthKey) === 0) { monthRecoveredTotal += rec; monthFinalScrapTotal += scrap; }
+        }
       });
     }
   }
-  return { rework_total: reworkTotalSum, recovered_total: recoveredTotalSum, final_scrap_total: finalScrapTotalSum, buffer: Math.max(0, reworkTotalSum - recoveredTotalSum - finalScrapTotalSum) };
+  return {
+    rework_total: reworkTotalSum, recovered_total: recoveredTotalSum, final_scrap_total: finalScrapTotalSum, buffer: Math.max(0, reworkTotalSum - recoveredTotalSum - finalScrapTotalSum),
+    month_key: monthKey, month_rework_total: monthReworkTotal, month_recovered_total: monthRecoveredTotal, month_final_scrap_total: monthFinalScrapTotal
+  };
 }
 
 function loadReworkBuffer() {
@@ -1714,14 +1808,30 @@ function loadReworkBuffer() {
     renderReworkBufferData(computeLocalReworkBuffer(currentReworkZone));
   }
 }
+var MONTH_NAMES_PL = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+function formatMonthKeyPl(monthKey) {
+  var parts = (monthKey || '').split('-');
+  if (parts.length !== 2) return monthKey || '';
+  var idx = Number(parts[1]) - 1;
+  return (MONTH_NAMES_PL[idx] || parts[1]) + ' ' + parts[0];
+}
 function renderReworkBufferData(data) {
   var el = document.getElementById('reworkBufferInfo');
+  var monthBoxHtml = '';
+  if (data.month_key) {
+    monthBoxHtml = '<div class="month-box">' +
+      '<div class="month-box-title">&#128197; ' + formatMonthKeyPl(data.month_key) + ' <span class="cn">· 本月</span></div>' +
+      '<div class="month-box-row"><span>Wpłynęło do bufora <span class="cn">· 新增</span></span><b style="color:#f0a030;">' + (data.month_rework_total || 0) + '</b></div>' +
+      '<div class="month-box-row"><span>Odzyskano <span class="cn">· 已修复</span></span><b class="ok" style="font-family:var(--fh);">' + (data.month_recovered_total || 0) + '</b></div>' +
+      '<div class="month-box-row"><span>Złomowano <span class="cn">· 已报废</span></span><b style="color:#ff7070;font-family:var(--fh);">' + (data.month_final_scrap_total || 0) + '</b></div>' +
+    '</div>';
+  }
   el.innerHTML = '<div class="stats-grid">' +
     '<div class="stat-box"><div class="stat-lbl">Rework total <span class="cn">· 累计返修</span></div><div class="stat-val warn">' + data.rework_total + '</div></div>' +
     '<div class="stat-box"><div class="stat-lbl">Odzyskane total <span class="cn">· 累计修复</span></div><div class="stat-val ok">' + data.recovered_total + '</div></div>' +
     '<div class="stat-box"><div class="stat-lbl">Finalny złom <span class="cn">· 累计最终报废</span></div><div class="stat-val bad">' + data.final_scrap_total + '</div></div>' +
     '<div class="stat-box"><div class="stat-lbl">Bufor do przetworzenia</div><div class="stat-val" style="color:var(--blue);">' + data.buffer + '</div></div>' +
-  '</div>';
+  '</div>' + monthBoxHtml;
   currentReworkBuffer = data.buffer;
   renderReworkBufferByReason(data.by_reason || null);
   updateReworkProcessSummary();
@@ -1749,8 +1859,9 @@ function submitReworkProcessing() {
 
   if (accounted === 0) { showToast('Podaj ile odzyskano lub ile poszło do złomu! <span class="cn">· 请输入修复合格或待报废数量</span>!', 'err'); return; }
 
-  var reworkScrapEntries = collectReasonTableEntries('reworkScrapReasonsTable');
-  var reworkRecoveredEntries = collectReasonTableEntries('reworkRecoveredReasonsTable');
+  var dual = collectReworkDual();
+  var reworkScrapEntries = dual.scrapEntries;
+  var reworkRecoveredEntries = dual.recoveredEntries;
   if (accounted > effectiveReworkBuffer() && !note) {
     showToast('Przekroczono bufor — podaj uzasadnienie! <span class="cn">· 超出缓冲区数量</span> — 请填写说明!', 'err');
     document.getElementById('reworkNoteInput').focus();
@@ -1828,8 +1939,7 @@ function resetReworkForm() {
   document.getElementById('reworkNoteInput').value = '';
   document.getElementById('reworkNotesInput').value = '';
   if (currentReworkZone) {
-    renderReasonTable('reworkScrapReasonsTable', getScrapReasonsForZone(currentReworkZone), 'updateReworkProcessSummary');
-    renderReasonTable('reworkRecoveredReasonsTable', getReworkReasonsForZone(currentReworkZone), 'updateReworkProcessSummary');
+    renderReworkDualTable(currentReworkZone);
   }
   updateReworkProcessSummary();
 }
@@ -1893,8 +2003,7 @@ function editReworkEntry(i) {
   var scrapEntries = [], recoveredEntries = [];
   try { scrapEntries = JSON.parse(r.reasons_json || '[]'); } catch (e) {}
   try { recoveredEntries = JSON.parse(r.recovered_reasons_json || '[]'); } catch (e) {}
-  populateReasonTable('reworkScrapReasonsTable', scrapEntries);
-  populateReasonTable('reworkRecoveredReasonsTable', recoveredEntries);
+  populateReworkDualTable(scrapEntries, recoveredEntries);
   updateReworkProcessSummary();
   showToast('Edytujesz wpis ' + (r.operator || '') + ' — popraw i wyślij ponownie <span class="cn">· 正在编辑</span> — 修改后重新发送', 'ok');
   window.scrollTo({ top: 0, behavior: 'smooth' });

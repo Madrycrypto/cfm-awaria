@@ -161,6 +161,7 @@ button{cursor:pointer;font-family:var(--fh)}
 .reason-row-dual-label{font-size:12.5px;color:var(--text);line-height:1.3}
 .reason-row-dual-avail{font-size:10.5px;color:var(--muted);white-space:nowrap;flex-shrink:0}
 .reason-row-dual-avail strong{color:var(--blue);font-family:var(--fh);font-weight:800}
+.reason-row-dual-avail-val.over{color:#ff7070}
 .reason-row-dual-ctrls{display:flex;gap:8px}
 .dual-ctrl{flex:1;display:flex;align-items:center;justify-content:space-between;border-radius:8px;padding:5px 7px;border:1px solid var(--border);background:var(--surface)}
 .dual-ctrl.recovered{border-color:rgba(34,197,94,0.35);background:rgba(34,197,94,0.08)}
@@ -1682,9 +1683,8 @@ function renderReworkDualTable(zoneKey, extraReasons) {
     var weight = isWeightReason(r);
     var step = weight ? '0.1' : '1';
     var avail = currentReworkByReason ? (currentReworkByReason[r] || 0) : null;
-    var availFmt = avail === null ? '' : (weight ? Math.round(avail * 1000) / 1000 : Math.round(avail));
-    var availHtml = avail === null ? '' : '<div class="reason-row-dual-avail">dostępne <span class="cn">&#183; 可用</span>: <strong>' + availFmt + '</strong></div>';
-    return '<div class="reason-row-dual" data-reason="' + r.replace(/"/g, '&quot;') + '">' +
+    var availHtml = avail === null ? '' : '<div class="reason-row-dual-avail">dostępne <span class="cn">&#183; 可用</span>: <strong class="reason-row-dual-avail-val">' + avail + '</strong></div>';
+    return '<div class="reason-row-dual" data-reason="' + r.replace(/"/g, '&quot;') + '"' + (avail === null ? '' : ' data-avail="' + avail + '"') + (weight ? ' data-weight="1"' : '') + '>' +
       '<div class="reason-row-dual-top"><div class="reason-row-dual-label">' + r + '</div>' + availHtml + '</div>' +
       '<div class="reason-row-dual-ctrls">' +
         '<div class="dual-ctrl recovered"><span class="dual-ctrl-lbl">Odzysk</span><div class="dual-ctrl-btns">' +
@@ -1711,7 +1711,28 @@ function adjustDualRow(btn, delta) {
   var v = Math.max(0, Math.round(((parseFloat(input.value) || 0) + parseFloat(delta)) * 1000) / 1000);
   input.value = v;
   valEl.textContent = v;
+  updateRowAvailDisplay(btn.closest('.reason-row-dual'));
   updateReworkProcessSummary();
+}
+// "dostepne" przy przyczynie ma na biezaco pokazywac ile JESZCZE zostaje
+// nierozdysponowane, w miare jak user klika Odzysk/Zlom — bez tego user
+// musial recznie pamietac/odejmowac, ile juz przypisal, zeby nie
+// przekroczyc tego co faktycznie jest w buforze dla TEJ KONKRETNEJ
+// przyczyny (ogolny "Bilans" na dole sprawdza tylko SUME wszystkich
+// przyczyn razem, nie pilnuje pojedynczej pozycji).
+function updateRowAvailDisplay(row) {
+  if (!row) return;
+  var origAvail = row.getAttribute('data-avail');
+  if (origAvail === null) return;
+  var availValEl = row.querySelector('.reason-row-dual-avail-val');
+  if (!availValEl) return;
+  var ctrls = row.querySelectorAll('.dual-ctrl-val-input');
+  var rec = parseFloat(ctrls[0].value) || 0, scrap = parseFloat(ctrls[1].value) || 0;
+  var weight = row.getAttribute('data-weight') === '1';
+  var remaining = Number(origAvail) - rec - scrap;
+  remaining = weight ? Math.round(remaining * 1000) / 1000 : Math.round(remaining);
+  availValEl.textContent = remaining;
+  availValEl.classList.toggle('over', remaining < 0);
 }
 // Zwraca { recoveredEntries, scrapEntries } w dokladnie tym samym ksztalcie
 // [{reason, qty}] co dawny collectReasonTableEntries — zeby payload do
@@ -1741,6 +1762,7 @@ function populateReworkDualTable(scrapEntries, recoveredEntries) {
     var scrapMatch = scrapEntries.filter(function(e) { return e.reason === reason; })[0];
     ctrls[0].value = recMatch ? recMatch.qty : 0; vals[0].textContent = ctrls[0].value;
     ctrls[1].value = scrapMatch ? scrapMatch.qty : 0; vals[1].textContent = ctrls[1].value;
+    updateRowAvailDisplay(row);
   });
   updateReworkProcessSummary();
 }
@@ -2035,6 +2057,21 @@ function editReworkEntry(i) {
   editingReworkExtraReasons = scrapEntries.map(function(e) { return e.reason; })
     .concat(recoveredEntries.map(function(e) { return e.reason; }));
   renderReworkDualTable(currentReworkZone, editingReworkExtraReasons);
+  // "dostepne" z serwera juz ma odjete wartosci TEGO wlasnie wpisu (backend
+  // liczy bufor ze WSZYSTKICH wierszy ReworkProcessing, bez wyjatku dla
+  // edytowanego) — doliczamy je z powrotem do bazowej liczby per przyczyna,
+  // dokladnie tak samo jak effectiveReworkBuffer() robi to dla sumy ogolnej,
+  // inaczej "dostepne" przy starcie edycji pokazywaloby falszywie zanizona
+  // (czasem ujemna) liczbe, mimo ze nic jeszcze nie zmieniono.
+  var container = document.getElementById('reworkDualReasonsTable');
+  if (container) {
+    scrapEntries.concat(recoveredEntries).forEach(function(e) {
+      var row = container.querySelector('.reason-row-dual[data-reason="' + e.reason.replace(/"/g, '&quot;') + '"]');
+      if (row && row.hasAttribute('data-avail')) {
+        row.setAttribute('data-avail', (Number(row.getAttribute('data-avail')) || 0) + (Number(e.qty) || 0));
+      }
+    });
+  }
   populateReworkDualTable(scrapEntries, recoveredEntries);
   updateReworkProcessSummary();
   showToast('Edytujesz wpis ' + (r.operator || '') + ' — popraw i wyślij ponownie <span class="cn">· 正在编辑</span> — 修改后重新发送', 'ok');

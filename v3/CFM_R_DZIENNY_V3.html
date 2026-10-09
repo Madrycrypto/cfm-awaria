@@ -1618,9 +1618,11 @@ function getZoneForStation(station) {
 
 var currentReworkZone = null;
 var currentReworkBuffer = 0;
+var currentReworkByReason = null;
 var isEditingRework = false;
 var editingReworkOriginalTimestamp = null;
 var editingReworkOriginalAccounted = 0;
+var editingReworkExtraReasons = null;
 var isEditingReport = false;
 var editingReportOriginalRework = 0;
 
@@ -1635,8 +1637,10 @@ function renderReworkZoneGrid() {
 }
 function selectReworkZone(key) {
   currentReworkZone = key;
+  currentReworkByReason = null;
   renderReworkZoneGrid();
-  renderReworkDualTable(key);
+  var container = document.getElementById('reworkDualReasonsTable');
+  if (container) container.innerHTML = '<div class="reason-empty-hint">Ładowanie&#8230; <span class="cn">&#183; 加载中</span>...</div>';
   loadReworkBuffer();
   loadReworkHistory();
 }
@@ -1647,12 +1651,28 @@ function selectReworkZone(key) {
 // dawne dwie oddzielne zakladki/tabele (reworkRecoveredReasonsTable,
 // reworkScrapReasonsTable) jednym widokiem — user nie musi juz pamietac
 // ile wpisal w drugiej zakladce, widzi oba na raz przy kazdej przyczynie.
-function renderReworkDualTable(zoneKey) {
+// extraReasons: przyczyny do pokazania NAWET jesli aktualny bufor na nie
+// pokazuje 0 (np. edytowany wlasnie wpis dotyczyl przyczyny, ktora po tym
+// wpisie spadla do zera — bez tego wiersz by zniknal i nie dalo by sie go
+// juz poprawic/wyzerowac przez UI).
+function renderReworkDualTable(zoneKey, extraReasons) {
   var container = document.getElementById('reworkDualReasonsTable');
   if (!container) return;
-  var reasons = getReworkReasonsForZone(zoneKey);
+  var allReasons = getReworkReasonsForZone(zoneKey);
+  // Pokazuj TYLKO przyczyny, ktore faktycznie maja cos w buforze (patrz
+  // "Bufor wg przyczyny" powyzej) — bez tego lista zawsze pokazywala
+  // WSZYSTKIE skonfigurowane przyczyny dla stacji, nawet te, z ktorych nic
+  // nie trafilo jeszcze do bufora, co zaśmiecało ekran. Jesli dane bufora
+  // per-przyczyna jeszcze nie doszly (np. tryb offline/localStorage, ktory
+  // ich w ogole nie liczy) — pokaz wszystkie, bezpieczny fallback.
+  var reasons = allReasons;
+  if (currentReworkByReason) {
+    var inBuffer = allReasons.filter(function(r) { return (currentReworkByReason[r] || 0) > 0; });
+    var extras = (extraReasons || []).filter(function(r) { return allReasons.indexOf(r) >= 0 && inBuffer.indexOf(r) < 0; });
+    reasons = inBuffer.concat(extras);
+  }
   if (!reasons.length) {
-    container.innerHTML = '<div class="reason-empty-hint">Brak zdefiniowanych przyczyn dla tej strefy &#8212; dodaj w Panel Admina &#8594; Przyczyny &#8594; Przyczyny REWORK</div>';
+    container.innerHTML = '<div class="reason-empty-hint">Bufor dla tej strefy jest pusty — brak przyczyn do przetworzenia <span class="cn">&#183; 该区域缓冲区为空</span></div>';
     return;
   }
   container.innerHTML = reasons.map(function(r, i) {
@@ -1833,6 +1853,8 @@ function renderReworkBufferData(data) {
     '<div class="stat-box"><div class="stat-lbl">Bufor do przetworzenia</div><div class="stat-val" style="color:var(--blue);">' + data.buffer + '</div></div>' +
   '</div>' + monthBoxHtml;
   currentReworkBuffer = data.buffer;
+  currentReworkByReason = data.by_reason || null;
+  renderReworkDualTable(currentReworkZone, editingReworkExtraReasons);
   renderReworkBufferByReason(data.by_reason || null);
   updateReworkProcessSummary();
 }
@@ -1936,6 +1958,7 @@ function resetReworkForm() {
   isEditingRework = false;
   editingReworkOriginalTimestamp = null;
   editingReworkOriginalAccounted = 0;
+  editingReworkExtraReasons = null;
   document.getElementById('reworkNoteInput').value = '';
   document.getElementById('reworkNotesInput').value = '';
   if (currentReworkZone) {
@@ -2003,6 +2026,9 @@ function editReworkEntry(i) {
   var scrapEntries = [], recoveredEntries = [];
   try { scrapEntries = JSON.parse(r.reasons_json || '[]'); } catch (e) {}
   try { recoveredEntries = JSON.parse(r.recovered_reasons_json || '[]'); } catch (e) {}
+  editingReworkExtraReasons = scrapEntries.map(function(e) { return e.reason; })
+    .concat(recoveredEntries.map(function(e) { return e.reason; }));
+  renderReworkDualTable(currentReworkZone, editingReworkExtraReasons);
   populateReworkDualTable(scrapEntries, recoveredEntries);
   updateReworkProcessSummary();
   showToast('Edytujesz wpis ' + (r.operator || '') + ' — popraw i wyślij ponownie <span class="cn">· 正在编辑</span> — 修改后重新发送', 'ok');

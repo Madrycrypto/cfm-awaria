@@ -816,6 +816,23 @@ function saveSolderInventoryCount() {
     showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err');
   });
 }
+// Usuniecie bledne wpisanej inwentaryzacji bufora lutowania — ten sam
+// mechanizm co deleteInventoryCount() dla gornej sekcji (gotowe wyroby),
+// patrz tam komentarz dlaczego to w ogole potrzebne.
+function deleteSolderInventoryCount(dateIso) {
+  if (!confirm('Usunąć inwentaryzację bufora lutowania z dnia ' + fmtDateLabel(dateIso) + '?')) return;
+  delete STATE.solderInventoryCounts[dateIso];
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_solder_inventory_counts', wartosc: JSON.stringify(STATE.solderInventoryCounts) })
+  }).then(function() {
+    showToast('Inwentaryzacja usunięta <span class="cn">&#183; 盘点已删除</span>', 'ok');
+    loadSolderAndRender();
+  }).catch(function() {
+    showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err');
+  });
+}
 function prevSolderMonth() { STATE.solderMonthDate = new Date(STATE.solderMonthDate.getFullYear(), STATE.solderMonthDate.getMonth() - 1, 1); renderSolderSection(STATE.solderFirstDate); }
 function nextSolderMonth() { STATE.solderMonthDate = new Date(STATE.solderMonthDate.getFullYear(), STATE.solderMonthDate.getMonth() + 1, 1); renderSolderSection(STATE.solderFirstDate); }
 // Suma Wysylek i potrzeby GP12 za caly tydzien (pon-nd) zawierajacy dany
@@ -894,7 +911,7 @@ function renderSolderSection(firstDate) {
     '<div class="tablewrap"><div class="tablescroll"><table><thead><tr>' +
       '<th>Dzień<span class="cn">日期</span></th>' +
       (chain ? '<th>Wysyłki (plan)<span class="cn">发运（计划）</span></th>' : '') +
-      '<th>' + cfg.zuzycie + (chain ? ' (potrzeba)' : '') + '</th><th>' + cfg.produkcja + (chain ? ' (potrzeba)' : '') + '</th><th>Bufor<span class="cn">缓冲区</span></th>' +
+      '<th>' + cfg.zuzycie + (chain ? ' (potrzeba)' : '') + '</th><th>' + cfg.produkcja + (chain ? ' (potrzeba)' : '') + '</th><th>Bufor<span class="cn">缓冲区</span></th><th>Inwentaryzacja<span class="cn">盘点</span></th>' +
     '</tr></thead><tbody>' +
       (visible.length ? visible.map(function(r) {
         var dd = r.date.split('-');
@@ -911,8 +928,11 @@ function renderSolderSection(firstDate) {
         var prodCell = '<input type="number" class="cellinput' + (r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
         var useCell = '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
         var shipCell = chain ? '<td class="shipcell">' + fmt(r.shipPlan) + '</td>' : '';
-        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td>' + shipCell + '<td>' + useCell + '</td><td>' + prodCell + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td></tr>';
-      }).join('') : '<tr><td colspan="' + (chain ? 5 : 4) + '" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora <span class="cn">&#183; 该月早于第一次盘点</span></td></tr>') +
+        var countedVal = STATE.solderInventoryCounts[r.date];
+        var countCell = countedVal === undefined ? '&#8212;' :
+          '<span class="recount">' + fmt(Number(countedVal)) + '</span> <button type="button" class="count-del-btn" title="Usuń tę inwentaryzację" onclick="deleteSolderInventoryCount(\'' + r.date + '\')">&#10005;</button>';
+        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td>' + shipCell + '<td>' + useCell + '</td><td>' + prodCell + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td><td>' + countCell + '</td></tr>';
+      }).join('') : '<tr><td colspan="' + (chain ? 6 : 5) + '" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora <span class="cn">&#183; 该月早于第一次盘点</span></td></tr>') +
     '</tbody></table></div></div>' +
     solderFormHtml() +
     '</div>';

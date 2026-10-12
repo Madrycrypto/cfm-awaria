@@ -340,7 +340,7 @@ function getMagazynParts() {
   try { var arr = JSON.parse(s); return arr.length ? arr : DEFAULT_MAGAZYN_PARTS.slice(); } catch (e) { return DEFAULT_MAGAZYN_PARTS.slice(); }
 }
 
-var STATE = { parts: [], magazynStany: {}, potwierdzenia: {}, monthlyPlan: {}, stationTargets: {}, rows: [], openAlertsSeen: [], currentAlerts: [] };
+var STATE = { parts: [], magazynStany: {}, potwierdzenia: {}, monthlyPlan: {}, stationTargets: {}, rows: [], openAlertsSeen: [], currentAlerts: [], safetyDays: 0 };
 var HORIZON_DAYS = 30;
 var MAGAZYN_GROUPS = ['CFM-1', 'CFM-2'];
 
@@ -452,13 +452,28 @@ function computePartProjection(bomLines, partNumber, todayISO) {
   var balanceToday = running;
   var runOutDate = null;
   var minRunning = running;
+  // Bezpieczny zapas (STATE.safetyDays, ustawiany w Panelu Admina): zamiast
+  // czekac az saldo realnie spadnie ponizej zera, "efektywne" saldo kazdego
+  // dnia jest pomniejszone o to, co i tak zuzyje sie w ciagu kolejnych N dni
+  // (wg Planu/Celu) — wiec alarm i sugerowana ilosc zamowienia licza sie
+  // tak, zeby PO zamowieniu nadal zostawalo w rece co najmniej N dni
+  // zapasu, a nie dokladnie zero. balanceToday/running (prawdziwy fizyczny
+  // stan) NIE sa tym dotkniete — to tylko przesuwa punkt alarmowy wczesniej.
   days.forEach(function(d) {
     var countToday = stany[d] !== undefined ? Number(stany[d]) : null;
     if (countToday !== null && d !== lastCountDate) running = countToday;
     running -= partConsumptionForDay(bomLines, d, STATE.rows, todayISO);
     if (d <= todayISO) balanceToday = running;
-    if (runOutDate === null && running < 0) runOutDate = d;
-    if (running < minRunning) minRunning = running;
+    var effective = running;
+    if (STATE.safetyDays > 0) {
+      var futureNeed = 0;
+      for (var k = 1; k <= STATE.safetyDays; k++) {
+        futureNeed += partConsumptionForDay(bomLines, toISO(addDays(isoToDate(d), k)), STATE.rows, todayISO);
+      }
+      effective = running - futureNeed;
+    }
+    if (runOutDate === null && effective < 0) runOutDate = d;
+    if (effective < minRunning) minRunning = effective;
   });
   var coverageDays = null;
   if (runOutDate) coverageDays = enumerateDays(todayISO, runOutDate).length - 1;
@@ -497,6 +512,7 @@ function init() {
       try { STATE.potwierdzenia = JSON.parse(u.cfm_magazyn_potwierdzenia || '{}'); } catch (e) { STATE.potwierdzenia = {}; }
       try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
       try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
+      STATE.safetyDays = Number(u.cfm_magazyn_safety_days) || 0;
       if (u.cfm_magazyn_parts) { try { localStorage.setItem('cfm_magazyn_parts', u.cfm_magazyn_parts); STATE.parts = getMagazynParts(); } catch (e) {} }
       try { STATE.openAlertsSeen = JSON.parse(localStorage.getItem('cfm_magazyn_seen_alerts') || '[]'); } catch (e) { STATE.openAlertsSeen = []; }
       liveEl.className = 'live';
@@ -718,8 +734,9 @@ function projectionListHtml() {
       }
       var qtyClass = proj.balanceToday < 0 ? 'neg' : '';
       var unitTxt = p.unit === 'kg' ? ' kg' : ' szt.';
+      var safetySuffix = STATE.safetyDays > 0 ? ' (z zapasem ' + STATE.safetyDays + 'dn.)' : '';
       var covTxt = proj.coverageDays === null ? ('starczy > ' + HORIZON_DAYS + ' dni') :
-        proj.coverageDays <= 0 ? 'BRAKUJE JUŻ DZIŚ' : 'starczy na ~' + proj.coverageDays + ' dni';
+        proj.coverageDays <= 0 ? ('BRAKUJE JUŻ DZIŚ' + safetySuffix) : ('starczy na ~' + proj.coverageDays + ' dni' + safetySuffix);
       // Suma cartonQty dla WSZYSTKICH linii BOM tego numeru (zwykle takie
       // samo dla kazdej linii tej samej fizycznej czesci — bierzemy
       // pierwsza niepusta wartosc, nie sume, bo to nie jest "zuzycie").

@@ -214,12 +214,12 @@ tbody tr:last-child td{border-bottom:none}
 
 <div class="modal-overlay" id="nokModal">
   <div class="modal-box">
-    <div class="modal-title">Ile faktycznie brakuje? <span class="cn">·实际缺少多少？</span></div>
+    <div class="modal-title">Ile zamawiasz? <span class="cn">·订购多少？</span></div>
     <div class="modal-sub" id="nokModalPart"></div>
-    <div class="field"><label>Ilość <span class="cn">&#183; 数量</span></label><input type="number" min="0" id="nokQtyInput" placeholder="np. 200"></div>
+    <div class="field"><label>Zamawiana ilość <span class="cn">&#183; 订购数量</span></label><input type="number" min="0" id="nokQtyInput" placeholder="np. 200"></div>
     <div class="modal-actions">
       <button class="modal-btn-cancel" onclick="closeNokModal()">Anuluj <span class="cn">&#183; 取消</span></button>
-      <button class="modal-btn-confirm" onclick="confirmNok()">Zatwierdź NOK <span class="cn">&#183; 确认NOK</span></button>
+      <button class="modal-btn-confirm" onclick="confirmNok()">Zamawiam <span class="cn">&#183; 确认订购</span></button>
     </div>
   </div>
 </div>
@@ -794,26 +794,29 @@ function projectionListHtml() {
         '<div class="partrow-meta">' + (p.station || '') + ' &#183; inwent. ' + proj.lastCountDate.split('-').slice(1).reverse().join('/') + '</div>' + sharedNote + '</div>' +
         '<div class="partrow-qty"><div class="n ' + qtyClass + '">' + fmtQty(proj.balanceToday, p.unit) + unitTxt + '</div><div class="cov">' + covTxt + '</div>' + orderTxt + '</div>' +
         '<div class="partrow-actions">' +
-          '<button class="btn-ok" onclick="confirmOk(\'' + p.number + '\', ' + proj.balanceToday + ')">OK</button>' +
-          '<button class="btn-nok" onclick="openNokModal(\'' + p.number + '\')">NOK</button>' +
+          '<button class="btn-ok" onclick="confirmOk(\'' + p.number + '\', ' + proj.balanceToday + ', ' + orderQty + ')">OK</button>' +
+          '<button class="btn-nok" onclick="openNokModal(\'' + p.number + '\', ' + proj.balanceToday + ', ' + orderQty + ')">NOK</button>' +
         '</div></div>';
     }).filter(Boolean).join('') || '<div style="font-size:12px;color:var(--faint);margin-bottom:16px;">Wszystkiego starcza na najbliższe ' + STATE.orderDays + ' dni — nic do zrobienia <span class="cn">&#183; 近' + STATE.orderDays + '天内库存充足，无需操作</span></div>';
     return '<div class="magazyn-group-head">' + g + '</div>' + rows;
   }).join('');
 }
-// OK/NOK to NIE tylko "odhaczenie" na dzis — to RZECZYWISTA swieza
-// inwentaryzacja na dzis (patrz computePartProjection, ktory od teraz
-// traktuje kazda wpisana liczbe jako stan NA KONIEC dnia): OK potwierdza,
-// ze wyliczony bilans zgadza sie z fizycznym stanem, wiec zapisuje go jako
-// taki; NOK zapisuje reczne skorygowana (realna) liczbe. Bez tego
-// klikniecie OK/NOK nie zmienialoby niczego w obliczeniach i jutro system
-// policzylby dokladnie to samo, od tego samego, juz nieaktualnego punktu.
-function saveConfirmation(partNumber, status, qty) {
+// OK/NOK = "zamawiam" — potwierdza, ze zamowienie zostalo zlozone, wiec
+// fizyczny stan magazynowy liczony dalej ma juz UWZGLEDNIAC te sztuki
+// (traktujemy zamowienie jako "doliczone" od razu, zeby ten sam niedobor
+// nie wracal codziennie na liste, dopoki realnie nie dojedzie i ktos tego
+// nie skoryguje recznie przez Inwentaryzacje fizyczna powyzej). Nowy stan
+// = (to co fizycznie jest teraz, nigdy ponizej zera) + zamawiana ilosc.
+// OK = akceptuje WYLICZONA (sugerowana) ilosc zamowienia; NOK = wpisujesz
+// wlasna ilosc zamiast sugerowanej (np. zamawiasz od razu wiecej, bo i tak
+// trzeba zlozyc zamowienie u dostawcy).
+function saveConfirmation(partNumber, status, orderedQty, balanceToday) {
   var todayISO = toISO(new Date());
+  var newBalance = Math.max(0, balanceToday) + orderedQty;
   if (!STATE.potwierdzenia[todayISO]) STATE.potwierdzenia[todayISO] = {};
-  STATE.potwierdzenia[todayISO][partNumber] = { status: status, qty: qty, ts: new Date().toISOString() };
+  STATE.potwierdzenia[todayISO][partNumber] = { status: status, ordered: orderedQty, newBalance: newBalance, ts: new Date().toISOString() };
   if (!STATE.magazynStany[partNumber]) STATE.magazynStany[partNumber] = {};
-  STATE.magazynStany[partNumber][todayISO] = qty;
+  STATE.magazynStany[partNumber][todayISO] = newBalance;
   var wh = getWH();
   Promise.all([
     fetch(wh, {
@@ -825,17 +828,18 @@ function saveConfirmation(partNumber, status, qty) {
       body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_magazyn_stany', wartosc: JSON.stringify(STATE.magazynStany) })
     })
   ]).then(function() {
-    showToast('Potwierdzone: ' + status + '! <span class="cn">&#183; 已确认</span>', status === 'OK' ? 'ok' : 'err');
+    showToast('Zamówiono ' + fmt(orderedQty) + ' szt.! <span class="cn">&#183; 已订购</span>', 'ok');
     renderApp();
   }).catch(function() { showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err'); });
 }
-function confirmOk(partNumber, qty) { saveConfirmation(partNumber, 'OK', qty); }
-var nokTargetPart = null;
-function openNokModal(partNumber) {
+function confirmOk(partNumber, balanceToday, orderQty) { saveConfirmation(partNumber, 'OK', orderQty, balanceToday); }
+var nokTargetPart = null, nokTargetBalance = 0;
+function openNokModal(partNumber, balanceToday, orderQty) {
   nokTargetPart = partNumber;
+  nokTargetBalance = balanceToday;
   var p = STATE.parts.filter(function(x) { return x.number === partNumber; })[0];
   document.getElementById('nokModalPart').textContent = partNumber + (p && p.desc ? ' — ' + p.desc : '');
-  document.getElementById('nokQtyInput').value = '';
+  document.getElementById('nokQtyInput').value = orderQty > 0 ? orderQty : '';
   document.getElementById('nokModal').classList.add('open');
   setTimeout(function() { document.getElementById('nokQtyInput').focus(); }, 50);
 }
@@ -843,9 +847,9 @@ function closeNokModal() { document.getElementById('nokModal').classList.remove(
 function confirmNok() {
   var q = Number(document.getElementById('nokQtyInput').value);
   if (isNaN(q) || q < 0) { showToast('Wpisz poprawną ilość <span class="cn">&#183; 请输入正确数量</span>', 'err'); return; }
-  var part = nokTargetPart;
+  var part = nokTargetPart, balance = nokTargetBalance;
   closeNokModal();
-  saveConfirmation(part, 'NOK', q);
+  saveConfirmation(part, 'NOK', q, balance);
 }
 
 init();

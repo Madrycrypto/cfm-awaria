@@ -980,27 +980,39 @@ function handleDeleteReworkProcessing(ss, p) {
 function handleReworkBuffer(ss, p) {
   var zoneKey = p.zone;
   var stations = REWORK_ZONES[zoneKey] || [];
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  // Biezacy miesiac kalendarzowy (wg daty WPISU, nie timestampu wysylki —
+  // backdatowane przetworzenie zaleglosci z poprzedniego miesiaca ma sie
+  // liczyc do TAMTEGO miesiaca, nie do dzisiejszego). To osobne, dodatkowe
+  // podsumowanie OBOK wiecznego licznika bufora ponizej — bufor fizyczny
+  // (ile sztuk realnie czeka) nie zna miesiecy, ale user chce tez widziec
+  // "jak poszedl ten miesiac" bez liczenia tego recznie.
+  var monthKey = Utilities.formatDate(new Date(), tz, 'yyyy-MM');
 
-  var reworkTotal = 0;
+  var reworkTotal = 0, monthReworkTotal = 0;
   var byReason = {};
   var reportSheet = ss.getSheetByName('RaportDzienny');
   if (reportSheet) {
     var data = reportSheet.getDataRange().getValues();
     for (var i = 1; i < data.length; i++) {
       if (stations.indexOf(data[i][3]) < 0) continue;
-      reworkTotal += Number(data[i][7]) || 0;
+      var reworkQty = Number(data[i][7]) || 0;
+      reworkTotal += reworkQty;
+      if (normalizeDate_(data[i][1]).indexOf(monthKey) === 0) monthReworkTotal += reworkQty;
       addReworkReasonsFromReport_(byReason, data[i][12]);
     }
   }
 
-  var recoveredTotal = 0, finalScrapTotal = 0;
+  var recoveredTotal = 0, finalScrapTotal = 0, monthRecoveredTotal = 0, monthFinalScrapTotal = 0;
   var reworkSheet = ss.getSheetByName('ReworkProcessing');
   if (reworkSheet) {
     var rdata = reworkSheet.getDataRange().getValues();
     for (var j = 1; j < rdata.length; j++) {
       if (rdata[j][2] !== zoneKey) continue;
-      recoveredTotal += Number(rdata[j][4]) || 0;
-      finalScrapTotal += Number(rdata[j][5]) || 0;
+      var rec = Number(rdata[j][4]) || 0, scrap = Number(rdata[j][5]) || 0;
+      recoveredTotal += rec;
+      finalScrapTotal += scrap;
+      if (normalizeDate_(rdata[j][1]).indexOf(monthKey) === 0) { monthRecoveredTotal += rec; monthFinalScrapTotal += scrap; }
       addReasonQty_(byReason, rdata[j][8], -1);  // reasons_json = przyczyny "Do złomowania"
       addReasonQty_(byReason, rdata[j][11], -1); // recovered_reasons_json = przyczyny "Odzyskane"
     }
@@ -1008,7 +1020,10 @@ function handleReworkBuffer(ss, p) {
   Object.keys(byReason).forEach(function (r) { byReason[r] = Math.max(0, byReason[r]); });
 
   var buffer = Math.max(0, reworkTotal - recoveredTotal - finalScrapTotal);
-  return jsonResponse({ status: 'ok', rework_total: reworkTotal, recovered_total: recoveredTotal, final_scrap_total: finalScrapTotal, buffer: buffer, by_reason: byReason });
+  return jsonResponse({
+    status: 'ok', rework_total: reworkTotal, recovered_total: recoveredTotal, final_scrap_total: finalScrapTotal, buffer: buffer, by_reason: byReason,
+    month_key: monthKey, month_rework_total: monthReworkTotal, month_recovered_total: monthRecoveredTotal, month_final_scrap_total: monthFinalScrapTotal
+  });
 }
 
 function handleReworkHistory(ss, p) {
@@ -1201,7 +1216,7 @@ function ustawTriggerEscalations() {
   ScriptApp.newTrigger('checkAwariaEscalations').timeBased().everyMinutes(5).create();
 }
 
-// ── MAGAZYN CZESCI: DZIENNE PODSUMOWANIE DO ZAMOWIENIA (Feishu, przed 7:00) ──
+// ── MAGAZYN CZESCI: DZIENNE PODSUMOWANIE DO ZAMOWIENIA (Feishu+Telegram, przed 7:00) ──
 // Ta sama logika projekcji co CFM_magazyn.html (client, patrz tam obszerny
 // komentarz o modelu deplecyjnym z wbudowanym "efektem tego samego dnia").
 // Do zamowienia trafia: (a) kazda czesc z DZISIEJSZYM potwierdzeniem NOK
@@ -1229,6 +1244,12 @@ function planSumForDayWithFallback_(monthlyPlan, targets, station, dateIso) {
   if (any) return sum;
   return Number(targets[station]) || 0;
 }
+function magazynAddDays_(dateIso, n) {
+  var p = dateIso.split('-');
+  var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  d.setDate(d.getDate() + n);
+  return Utilities.formatDate(d, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+}
 function magazynEnumerateDays_(startIso, endIso) {
   var days = [];
   var sp = startIso.split('-'), ep = endIso.split('-');
@@ -1241,19 +1262,37 @@ function magazynEnumerateDays_(startIso, endIso) {
   }
   return days;
 }
-function magazynPartConsumption_(part, dateIso, rowsByStationDate, monthlyPlan, targets, todayIso) {
-  var stations = String(part.station || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-  var units = 0;
-  var isFuture = dateIso > todayIso;
-  stations.forEach(function (st) {
-    var key = st + '||' + dateIso;
-    var a = (!isFuture && rowsByStationDate.hasOwnProperty(key)) ? rowsByStationDate[key] : null;
-    units += a !== null ? a : planSumForDayWithFallback_(monthlyPlan, targets, st, dateIso);
+// Ta sama fizyczna czesc moze wystapic w katalogu kilka razy (grupy
+// CFM-1/CFM-2, rozna ilosc/stacja per produkt) - to NIE duplikat, tylko
+// niezalezne linie BOM zuzywajace TEN SAM fizyczny zapas. Zuzycie musi
+// sumowac WSZYSTKIE wiersze naraz (patrz identyczny komentarz w
+// CFM_magazyn.html), inaczej dwie osobne projekcje zjadalyby ten sam zapas
+// dwa razy.
+function magazynGroupPartsByNumber_(parts) {
+  var map = {};
+  parts.forEach(function (p) {
+    if (!map[p.number]) map[p.number] = [];
+    map[p.number].push(p);
   });
-  return units * (Number(part.qty) || 1);
+  return map;
 }
-function magazynComputeProjection_(part, stany, rowsByStationDate, monthlyPlan, targets, todayIso) {
-  var partStany = stany[part.number] || {};
+function magazynPartConsumption_(bomLines, dateIso, rowsByStationDate, monthlyPlan, targets, todayIso) {
+  var isFuture = dateIso > todayIso;
+  var total = 0;
+  bomLines.forEach(function (line) {
+    var stations = String(line.station || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var units = 0;
+    stations.forEach(function (st) {
+      var key = st + '||' + dateIso;
+      var a = (!isFuture && rowsByStationDate.hasOwnProperty(key)) ? rowsByStationDate[key] : null;
+      units += a !== null ? a : planSumForDayWithFallback_(monthlyPlan, targets, st, dateIso);
+    });
+    total += units * (Number(line.qty) || 1);
+  });
+  return total;
+}
+function magazynComputeProjection_(bomLines, partNumber, stany, rowsByStationDate, monthlyPlan, targets, todayIso) {
+  var partStany = stany[partNumber] || {};
   var pastCountDates = Object.keys(partStany).filter(function (d) { return d <= todayIso; }).sort();
   if (!pastCountDates.length) return null;
   var lastCountDate = pastCountDates[pastCountDates.length - 1];
@@ -1264,15 +1303,46 @@ function magazynComputeProjection_(part, stany, rowsByStationDate, monthlyPlan, 
   var running = Number(partStany[lastCountDate]) || 0;
   var balanceToday = running;
   var runOutDate = null;
+  var minRunning = running;
+  // Prawdziwy fizyczny bilans, bez zadnych marginesow — tylko do informacji
+  // (coverageDays/"BRAKUJE JUZ DZIS"). Ile faktycznie zamowic liczy osobno
+  // magazynNeededForDays_ ponizej, patrz komentarz tam.
   days.forEach(function (d) {
     var countToday = partStany[d] !== undefined ? Number(partStany[d]) : null;
     if (countToday !== null && d !== lastCountDate) running = countToday;
-    running -= magazynPartConsumption_(part, d, rowsByStationDate, monthlyPlan, targets, todayIso);
+    running -= magazynPartConsumption_(bomLines, d, rowsByStationDate, monthlyPlan, targets, todayIso);
     if (d <= todayIso) balanceToday = running;
     if (runOutDate === null && running < 0) runOutDate = d;
+    if (running < minRunning) minRunning = running;
   });
   var coverageDays = runOutDate ? magazynEnumerateDays_(todayIso, runOutDate).length - 1 : null;
-  return { balanceToday: balanceToday, coverageDays: coverageDays };
+  return { balanceToday: balanceToday, coverageDays: coverageDays, minRunning: minRunning };
+}
+// Jak neededForNextDays w CFM_magazyn.html (klient) — ta sama logika,
+// zduplikowana celowo (Apps Script nie dzieli kodu z klientem).
+function magazynNeededForDays_(bomLines, todayIso, days, rowsByStationDate, monthlyPlan, targets) {
+  if (days <= 0) return 0;
+  var total = 0;
+  for (var k = 1; k <= days; k++) {
+    total += magazynPartConsumption_(bomLines, magazynAddDays_(todayIso, k), rowsByStationDate, monthlyPlan, targets, todayIso);
+  }
+  return total;
+}
+// Jak suggestedOrderQty w CFM_magazyn.html (klient) — ta sama logika,
+// zduplikowana celowo (Apps Script nie dzieli kodu z klientem), zeby
+// Telegram pokazywal TA SAMA sugerowana ilosc co magazynier widzi w apce.
+function magazynSuggestedOrderQty_(balanceToday, needed, paletaQty) {
+  var shortfall = needed - balanceToday;
+  if (shortfall <= 0) return 0;
+  if (paletaQty > 0) return Math.ceil(shortfall / paletaQty) * paletaQty;
+  return shortfall;
+}
+// Polska odmiana: 1 paleta, 2-4 palety (ale NIE 12-14), 5+/0 palet.
+function plPalety_(n) {
+  if (n === 1) return 'paleta';
+  var mod10 = n % 10, mod100 = n % 100;
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return 'palety';
+  return 'palet';
 }
 
 function wyslijPodsumowanieMagazynu() {
@@ -1280,7 +1350,7 @@ function wyslijPodsumowanieMagazynu() {
   var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
   var todayIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
 
-  var parts = [], stany = {}, potwierdzenia = {}, monthlyPlan = {}, targets = {};
+  var parts = [], stany = {}, potwierdzenia = {}, monthlyPlan = {}, targets = {}, orderDays = 1;
   var ustSheet = ss.getSheetByName('Ustawienia');
   if (ustSheet) {
     var udata = ustSheet.getDataRange().getValues();
@@ -1291,6 +1361,7 @@ function wyslijPodsumowanieMagazynu() {
       if (klucz === 'cfm_magazyn_potwierdzenia') { try { potwierdzenia = JSON.parse(wartosc || '{}'); } catch (e) {} }
       if (klucz === 'cfm_monthly_plan') { try { monthlyPlan = JSON.parse(wartosc || '{}'); } catch (e) {} }
       if (klucz === 'cfm_station_targets') { try { targets = JSON.parse(wartosc || '{}'); } catch (e) {} }
+      if (klucz === 'cfm_magazyn_order_days') { orderDays = Number(wartosc) || 0; }
     }
   }
   if (!parts.length) return; // katalog czesci jeszcze nie skonfigurowany w Panelu Admina
@@ -1319,26 +1390,37 @@ function wyslijPodsumowanieMagazynu() {
   }
 
   var todaysConfirm = potwierdzenia[todayIso] || {};
+  var byNumber = magazynGroupPartsByNumber_(parts);
+  var seenNumbers = {};
   var lines = [];
   parts.forEach(function (p) {
+    if (seenNumbers[p.number]) return; // ta sama fizyczna czesc juz policzona (patrz magazynGroupPartsByNumber_)
+    seenNumbers[p.number] = true;
     var confirm = todaysConfirm[p.number];
     if (confirm && confirm.status === 'NOK') {
       lines.push('  ' + p.number + (p.desc ? ' (' + p.desc + ')' : '') + ': brakuje ' + Math.round(confirm.qty) + ' szt. [magazynier]');
       return;
     }
     if (confirm && confirm.status === 'OK') return;
-    var proj = magazynComputeProjection_(p, stany, rowsByStationDate, monthlyPlan, targets, todayIso);
+    var proj = magazynComputeProjection_(byNumber[p.number], p.number, stany, rowsByStationDate, monthlyPlan, targets, todayIso);
     if (!proj) return; // brak inwentaryzacji tej czesci — nie da sie nic policzyc
     if (proj.coverageDays !== null && proj.coverageDays <= MAGAZYN_WIDOCZNOSC_DNI) {
       var covTxt = proj.coverageDays <= 0 ? 'BRAKUJE JUZ DZIS' : ('starczy na ~' + proj.coverageDays + ' dni');
-      lines.push('  ' + p.number + (p.desc ? ' (' + p.desc + ')' : '') + ': ' + Math.round(proj.balanceToday) + ' szt. (' + covTxt + ') [auto, niepotwierdzone]');
+      var paletaQty = 0;
+      (byNumber[p.number] || []).some(function (bl) { if (bl.paletaQty > 0) { paletaQty = Number(bl.paletaQty); return true; } return false; });
+      var needed = magazynNeededForDays_(byNumber[p.number], todayIso, orderDays, rowsByStationDate, monthlyPlan, targets);
+      var orderQty = magazynSuggestedOrderQty_(proj.balanceToday, needed, paletaQty);
+      var paletaCount = paletaQty > 0 ? Math.round(orderQty / paletaQty) : 0;
+      var orderTxt = orderQty > 0 ? ', zamow na ' + orderDays + ' dn.: ' + Math.round(orderQty) + ' szt.' + (paletaQty > 0 ? ' (' + paletaCount + ' ' + plPalety_(paletaCount) + ')' : '') : '';
+      lines.push('  ' + p.number + (p.desc ? ' (' + p.desc + ')' : '') + ': ' + Math.round(proj.balanceToday) + ' szt. (' + covTxt + orderTxt + ') [auto, niepotwierdzone]');
     }
   });
 
   if (!lines.length) return; // nic do zamowienia — nie spamujemy pusta wiadomoscia
   var dd = todayIso.split('-');
   var text = '📦 MAGAZYN — DO ZAMÓWIENIA / 待订购 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + '\n\n' + lines.join('\n');
-  sendFeishuBotMessage_(text);
+  sendFeishuBotMessage_(text); // glowna grupa (szefowie)
+  sendTelegramMessage_(text); // magazynier - zeby widzial efekt swoich wczorajszych OK/NOK
 }
 
 // Uruchom RECZNIE JEDEN RAZ z edytora Apps Script, zeby zainstalowac

@@ -455,10 +455,21 @@ function computePartProjection(bomLines, partNumber, todayISO) {
   // Prawdziwy fizyczny bilans, bez zadnych marginesow — tylko do informacji
   // ("starczy na ~N dni", "BRAKUJE JUZ DZIS"). Ile faktycznie zamowic liczy
   // osobno neededForNextDays() ponizej, patrz komentarz tam.
-  days.forEach(function(d) {
+  // WAZNE: kazda wpisana inwentaryzacja (nie tylko ta pierwsza/ostatnia) to
+  // stan NA KONIEC danego dnia — magazynier liczy fizycznie po tym, jak
+  // produkcja tego dnia juz sie odbyla. Dlatego dla dnia z WLASNA
+  // inwentaryzacja NIE odejmujemy jeszcze raz zuzycia z tego samego dnia
+  // (zrobilibysmy to podwojnie: raz "w" samej policzonej liczbie, raz w
+  // symulacji) — dopiero KOLEJNE dni bez swiezego liczenia odejmuja swoje
+  // zuzycie od tego punktu w przod. Bez tego inwentaryzacja np. z wczoraj
+  // (juz po dzisiejszej... nie, po WCZORAJSZEJ produkcji) fałszywie traciła
+  // jeszcze raz wczorajsze zuzycie, zanim w ogole doszlismy do dzisiaj.
+  days.forEach(function(d, idx) {
     var countToday = stany[d] !== undefined ? Number(stany[d]) : null;
-    if (countToday !== null && d !== lastCountDate) running = countToday;
-    running -= partConsumptionForDay(bomLines, d, STATE.rows, todayISO);
+    if (idx > 0) {
+      if (countToday !== null) running = countToday;
+      else running -= partConsumptionForDay(bomLines, d, STATE.rows, todayISO);
+    }
     if (d <= todayISO) balanceToday = running;
     if (runOutDate === null && running < 0) runOutDate = d;
     if (running < minRunning) minRunning = running;
@@ -790,15 +801,30 @@ function projectionListHtml() {
     return '<div class="magazyn-group-head">' + g + '</div>' + rows;
   }).join('');
 }
+// OK/NOK to NIE tylko "odhaczenie" na dzis — to RZECZYWISTA swieza
+// inwentaryzacja na dzis (patrz computePartProjection, ktory od teraz
+// traktuje kazda wpisana liczbe jako stan NA KONIEC dnia): OK potwierdza,
+// ze wyliczony bilans zgadza sie z fizycznym stanem, wiec zapisuje go jako
+// taki; NOK zapisuje reczne skorygowana (realna) liczbe. Bez tego
+// klikniecie OK/NOK nie zmienialoby niczego w obliczeniach i jutro system
+// policzylby dokladnie to samo, od tego samego, juz nieaktualnego punktu.
 function saveConfirmation(partNumber, status, qty) {
   var todayISO = toISO(new Date());
   if (!STATE.potwierdzenia[todayISO]) STATE.potwierdzenia[todayISO] = {};
   STATE.potwierdzenia[todayISO][partNumber] = { status: status, qty: qty, ts: new Date().toISOString() };
+  if (!STATE.magazynStany[partNumber]) STATE.magazynStany[partNumber] = {};
+  STATE.magazynStany[partNumber][todayISO] = qty;
   var wh = getWH();
-  fetch(wh, {
-    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_magazyn_potwierdzenia', wartosc: JSON.stringify(STATE.potwierdzenia) })
-  }).then(function() {
+  Promise.all([
+    fetch(wh, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_magazyn_potwierdzenia', wartosc: JSON.stringify(STATE.potwierdzenia) })
+    }),
+    fetch(wh, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_magazyn_stany', wartosc: JSON.stringify(STATE.magazynStany) })
+    })
+  ]).then(function() {
     showToast('Potwierdzone: ' + status + '! <span class="cn">&#183; 已确认</span>', status === 'OK' ? 'ok' : 'err');
     renderApp();
   }).catch(function() { showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err'); });

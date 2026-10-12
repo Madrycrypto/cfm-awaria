@@ -839,7 +839,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
     </div>
     <div class="div"></div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Katalog cz&#281;&#347;ci (BOM) <span class="cn">&#183; &#38646;&#20214;&#30446;&#24405;(BOM)</span></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">U&#380;ywany w zg&#322;oszeniu "Brak materia&#322;u" oraz do oblicze&#324; zapotrzebowania magazynowego. Stacja = stanowisko(a) zu&#380;ywaj&#261;ce cz&#281;&#347;&#263; w tej apce (przy kilku rozdziel przecinkiem, np. OP33A,OP33B). Grupa = produkt (CFM-1/CFM-2) — ta sama cz&#281;&#347;&#263; mo&#380;e wyst&#261;pi&#263; w OBU grupach jako osobne wiersze, je&#347;li oba produkty zu&#380;ywaj&#261; j&#261; w innym tempie. Jednostka "kg" dla cz&#281;&#347;ci zamawianych na wag&#281; (np. rolki ta&#347;my) — wtedy Ilo&#347;&#263; to kg na 1 sztuk&#281; produktu. "Min. karton" (opcjonalnie) = ile sztuk w jednym zamawianym kartonie/opakowaniu — sugerowane zam&#243;wienie w podsumowaniu magazynowym zostanie zaokr&#261;glone W G&#211;R&#280; do wielokrotno&#347;ci tej liczby (np. brakuje 300 szt., karton to 4800 szt. → zam&#243;wi "1 karton (4800 szt.)", nie "300 szt."). Puste = bez zaokr&#261;glania. <span class="cn">&#183; 用于"缺料"报告以及仓库需求计算。工位=消耗该零件的工位(多个用逗号分隔)。组=产品(CFM-1/CFM-2)。单位"kg"用于按重量订购的零件。"最小箱量"（可选）=每箱的件数——仓库汇总中的建议订购量会向上取整到整箱数量。留空表示不取整。</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">U&#380;ywany w zg&#322;oszeniu "Brak materia&#322;u" oraz do oblicze&#324; zapotrzebowania magazynowego. Stacja = stanowisko(a) zu&#380;ywaj&#261;ce cz&#281;&#347;&#263; w tej apce (przy kilku rozdziel przecinkiem, np. OP33A,OP33B). Grupa = produkt (CFM-1/CFM-2) — ta sama cz&#281;&#347;&#263; mo&#380;e wyst&#261;pi&#263; w OBU grupach jako osobne wiersze, je&#347;li oba produkty zu&#380;ywaj&#261; j&#261; w innym tempie. Jednostka "kg" dla cz&#281;&#347;ci zamawianych na wag&#281; (np. rolki ta&#347;my) — wtedy Ilo&#347;&#263; to kg na 1 sztuk&#281; produktu. "Min. paleta" (opcjonalnie) = ile sztuk na jednej palecie — tyle minimalnie da si&#281; zam&#243;wi&#263; z magazynu naraz. Sugerowane zam&#243;wienie w podsumowaniu magazynowym zostanie zaokr&#261;glone W G&#211;R&#280; do wielokrotno&#347;ci tej liczby (np. brakuje 300 szt., paleta to 4800 szt. → zam&#243;wi "1 paleta (4800 szt.)"; brakuje 5500 szt. → "2 palety (9600 szt.)"). Puste = bez zaokr&#261;glania. <span class="cn">&#183; 用于"缺料"报告以及仓库需求计算。工位=消耗该零件的工位(多个用逗号分隔)。组=产品(CFM-1/CFM-2)。单位"kg"用于按重量订购的零件。"最小托盘量"（可选）=每托盘的件数——这是从仓库一次能订购的最小数量。仓库汇总中的建议订购量会向上取整到整托盘数量。留空表示不取整。</span></div>
     <div id="magazynPartsList"></div>
     <div style="display:flex;gap:8px;margin-top:4px;">
       <button class="list-add-btn" style="flex:1;" onclick="addMagazynPart('CFM-1')">+ CFM-1 <span class="cn">&#183; &#28155;&#21152;</span></button>
@@ -2628,23 +2628,23 @@ var AWARIA_OPISY = {
 // Sealing, stary Gasket/Core na OP51/52) zostala USUNIETA na prosbe klienta
 // — CFM-1 to teraz WYLACZNIE 4 pozycje z ostatniej, potwierdzonej listy.
 var DEFAULT_MAGAZYN_PARTS = [
-  { number: '6530159-01', desc: 'Header', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1', cartonQty: 4800 },
-  { number: '6530160-01', desc: 'Side plate', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1', cartonQty: 7200 },
+  { number: '6530159-01', desc: 'Header', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1', paletaQty: 4800 },
+  { number: '6530160-01', desc: 'Side plate', station: 'OP33A,OP33B', qty: 2, group: 'CFM-1', paletaQty: 7200 },
   { number: '90340837', desc: 'Fins 铝材', station: 'OP30', qty: 0.62, unit: 'kg', group: 'CFM-1' },
   { number: '90330858', desc: 'Pipes 铝材', station: 'OP33A,OP33B', qty: 1.312, unit: 'kg', group: 'CFM-1' },
   { number: '6530154', desc: 'Core', station: 'GP12', qty: 1, group: 'CFM-2' },
-  { number: '6743787-01', desc: 'Upper isolator', station: 'GP12', qty: 2, group: 'CFM-2', cartonQty: 5280 },
-  { number: '6743865-01', desc: 'Electrical machinery', station: 'GP12', qty: 1, group: 'CFM-2', cartonQty: 216 },
-  { number: '6743788-01', desc: 'Lower isolator', station: 'GP12', qty: 2, group: 'CFM-2', cartonQty: 12800 },
-  { number: '6743789-01', desc: 'Bushing', station: 'GP12', qty: 2, group: 'CFM-2', cartonQty: 17280 },
-  { number: '6743791-01', desc: 'Bolts M6', station: 'GP12', qty: 2, group: 'CFM-2', cartonQty: 16800 },
-  { number: '6743790-01', desc: 'Washer', station: 'GP12', qty: 2, group: 'CFM-2', cartonQty: 48000 },
-  { number: '6530152-80', desc: 'Sealing', station: 'GP12', qty: 2, group: 'CFM-2', cartonQty: 19008 },
-  { number: '6530152-81', desc: 'Sealing', station: 'GP12', qty: 2, group: 'CFM-2', cartonQty: 14080 },
+  { number: '6743787-01', desc: 'Upper isolator', station: 'GP12', qty: 2, group: 'CFM-2', paletaQty: 5280 },
+  { number: '6743865-01', desc: 'Electrical machinery', station: 'GP12', qty: 1, group: 'CFM-2', paletaQty: 216 },
+  { number: '6743788-01', desc: 'Lower isolator', station: 'GP12', qty: 2, group: 'CFM-2', paletaQty: 12800 },
+  { number: '6743789-01', desc: 'Bushing', station: 'GP12', qty: 2, group: 'CFM-2', paletaQty: 17280 },
+  { number: '6743791-01', desc: 'Bolts M6', station: 'GP12', qty: 2, group: 'CFM-2', paletaQty: 16800 },
+  { number: '6743790-01', desc: 'Washer', station: 'GP12', qty: 2, group: 'CFM-2', paletaQty: 48000 },
+  { number: '6530152-80', desc: 'Sealing', station: 'GP12', qty: 2, group: 'CFM-2', paletaQty: 19008 },
+  { number: '6530152-81', desc: 'Sealing', station: 'GP12', qty: 2, group: 'CFM-2', paletaQty: 14080 },
   { number: '690235-01', desc: 'Bolts M8 long', station: 'GP12', qty: 0, group: 'CFM-2' },
   { number: '690235-02', desc: 'Bolts M8 short', station: 'GP12', qty: 3, group: 'CFM-2' },
-  { number: '6530151-01', desc: 'Gasket', station: 'GP12', qty: 2, group: 'CFM-2', cartonQty: 12600 },
-  { number: 'B7003-56', desc: 'PLUG', station: 'GP12', qty: 2, group: 'CFM-2', cartonQty: 4500 },
+  { number: '6530151-01', desc: 'Gasket', station: 'GP12', qty: 2, group: 'CFM-2', paletaQty: 12600 },
+  { number: 'B7003-56', desc: 'PLUG', station: 'GP12', qty: 2, group: 'CFM-2', paletaQty: 4500 },
   { number: '91195355', desc: '800MG', station: 'GP12', qty: 1, group: 'CFM-2' },
   { number: '91195357', desc: '300MG', station: 'GP12', qty: 1, group: 'CFM-2' },
   { number: '91195356', desc: '500MG', station: 'GP12', qty: 1, group: 'CFM-2' },
@@ -3274,7 +3274,7 @@ function magazynPartRowHtml(p, i) {
     '<input class="list-item-input" id="mp-desc-' + i + '" value="' + (p.desc || '') + '" placeholder="Opis" style="flex:1.7 1 110px;">' +
     '<input class="list-item-input" id="mp-station-' + i + '" value="' + (p.station || '') + '" placeholder="Stacja(e)" style="flex:1.1 1 80px;">' +
     '<input class="list-item-input" id="mp-qty-' + i + '" value="' + (p.qty !== undefined && p.qty !== '' ? p.qty : 1) + '" placeholder="Il./montaż" style="flex:0.8 1 60px;" type="number" step="any">' +
-    '<input class="list-item-input" id="mp-carton-' + i + '" value="' + (p.cartonQty || '') + '" placeholder="Min. karton" style="flex:0.8 1 70px;" type="number" min="0" step="1">' +
+    '<input class="list-item-input" id="mp-paleta-' + i + '" value="' + (p.paletaQty || '') + '" placeholder="Min. paleta" style="flex:0.8 1 70px;" type="number" min="0" step="1">' +
     '<select class="list-item-input" id="mp-unit-' + i + '" style="flex:0.6 1 55px;"><option value="szt"' + (unit === 'szt' ? ' selected' : '') + '>szt</option><option value="kg"' + (unit === 'kg' ? ' selected' : '') + '>kg</option></select>' +
     '<select class="list-item-input" id="mp-group-' + i + '" style="flex:0.8 1 70px;">' + MAGAZYN_GROUPS.map(function(g) { return '<option value="' + g + '"' + (g === grp ? ' selected' : '') + '>' + g + '</option>'; }).join('') + '</select>' +
     '<button class="list-item-del" onclick="delMagazynPart(' + i + ')">×</button></div>';
@@ -3295,7 +3295,7 @@ function renderMagazynPartsList() {
 }
 function addMagazynPart(group) {
   var p = getMagazynParts();
-  p.push({ number: '', desc: '', station: '', qty: 1, cartonQty: 0, unit: 'szt', group: group === 'CFM-2' ? 'CFM-2' : 'CFM-1' });
+  p.push({ number: '', desc: '', station: '', qty: 1, paletaQty: 0, unit: 'szt', group: group === 'CFM-2' ? 'CFM-2' : 'CFM-1' });
   localStorage.setItem('cfm_magazyn_parts', JSON.stringify(p));
   renderMagazynPartsList();
 }
@@ -3310,14 +3310,14 @@ function saveMagazynParts() {
   var saved = p.map(function(x, i) {
     var num = document.getElementById('mp-num-' + i), desc = document.getElementById('mp-desc-' + i),
         st = document.getElementById('mp-station-' + i), qty = document.getElementById('mp-qty-' + i),
-        carton = document.getElementById('mp-carton-' + i),
+        paleta = document.getElementById('mp-paleta-' + i),
         unit = document.getElementById('mp-unit-' + i), grp = document.getElementById('mp-group-' + i);
     return {
       number: num ? num.value.trim() : x.number,
       desc: desc ? desc.value.trim() : x.desc,
       station: st ? st.value.trim() : x.station,
       qty: qty && qty.value !== '' ? Number(qty.value) : 1,
-      cartonQty: carton && carton.value !== '' ? Number(carton.value) : 0,
+      paletaQty: paleta && paleta.value !== '' ? Number(paleta.value) : 0,
       unit: unit ? unit.value : 'szt',
       group: grp ? grp.value : 'CFM-1',
     };

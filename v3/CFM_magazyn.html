@@ -340,7 +340,7 @@ function getMagazynParts() {
   try { var arr = JSON.parse(s); return arr.length ? arr : DEFAULT_MAGAZYN_PARTS.slice(); } catch (e) { return DEFAULT_MAGAZYN_PARTS.slice(); }
 }
 
-var STATE = { parts: [], magazynStany: {}, potwierdzenia: {}, monthlyPlan: {}, stationTargets: {}, rows: [], openAlertsSeen: [], currentAlerts: [], safetyDays: 0 };
+var STATE = { parts: [], magazynStany: {}, potwierdzenia: {}, monthlyPlan: {}, stationTargets: {}, rows: [], openAlertsSeen: [], currentAlerts: [], orderDays: 1 };
 var HORIZON_DAYS = 30;
 var MAGAZYN_GROUPS = ['CFM-1', 'CFM-2'];
 
@@ -452,41 +452,45 @@ function computePartProjection(bomLines, partNumber, todayISO) {
   var balanceToday = running;
   var runOutDate = null;
   var minRunning = running;
-  // Bezpieczny zapas (STATE.safetyDays, ustawiany w Panelu Admina): zamiast
-  // czekac az saldo realnie spadnie ponizej zera, "efektywne" saldo kazdego
-  // dnia jest pomniejszone o to, co i tak zuzyje sie w ciagu kolejnych N dni
-  // (wg Planu/Celu) — wiec alarm i sugerowana ilosc zamowienia licza sie
-  // tak, zeby PO zamowieniu nadal zostawalo w rece co najmniej N dni
-  // zapasu, a nie dokladnie zero. balanceToday/running (prawdziwy fizyczny
-  // stan) NIE sa tym dotkniete — to tylko przesuwa punkt alarmowy wczesniej.
+  // Prawdziwy fizyczny bilans, bez zadnych marginesow — tylko do informacji
+  // ("starczy na ~N dni", "BRAKUJE JUZ DZIS"). Ile faktycznie zamowic liczy
+  // osobno neededForNextDays() ponizej, patrz komentarz tam.
   days.forEach(function(d) {
     var countToday = stany[d] !== undefined ? Number(stany[d]) : null;
     if (countToday !== null && d !== lastCountDate) running = countToday;
     running -= partConsumptionForDay(bomLines, d, STATE.rows, todayISO);
     if (d <= todayISO) balanceToday = running;
-    var effective = running;
-    if (STATE.safetyDays > 0) {
-      var futureNeed = 0;
-      for (var k = 1; k <= STATE.safetyDays; k++) {
-        futureNeed += partConsumptionForDay(bomLines, toISO(addDays(isoToDate(d), k)), STATE.rows, todayISO);
-      }
-      effective = running - futureNeed;
-    }
-    if (runOutDate === null && effective < 0) runOutDate = d;
-    if (effective < minRunning) minRunning = effective;
+    if (runOutDate === null && running < 0) runOutDate = d;
+    if (running < minRunning) minRunning = running;
   });
   var coverageDays = null;
   if (runOutDate) coverageDays = enumerateDays(todayISO, runOutDate).length - 1;
   return { balanceToday: balanceToday, runOutDate: runOutDate, coverageDays: coverageDays, lastCountDate: lastCountDate, minRunning: minRunning };
 }
-// Ile sztuk faktycznie trzeba zamowic, zeby pokryc najglebszy przewidywany
-// niedobor w horyzoncie (nie tylko dzisiejszy stan) — zaokraglone W GORE do
-// pelnej palety, jesli czesc ma skonfigurowane paletaQty (np. brakuje 300
-// szt., paleta to 4800 szt. -> trzeba zamowic cala palete, nie 300 szt.,
-// bo z magazynu nie da sie dostac mniej niz pelna palete — a brakuje 5500
-// szt. -> 2 palety (9600 szt.), bo jedna by nie wystarczyla).
-function suggestedOrderQty(minRunning, paletaQty) {
-  var shortfall = minRunning < 0 ? -minRunning : 0;
+// Ile sztuk tej czesci zuzyje sie w ciagu najblizszych `days` dni (NIE
+// liczac dzisiaj — dzisiejsze zuzycie jest juz w balanceToday), wg
+// prawdziwego Planu/Celu. To jest "zapotrzebowanie", z ktorym porownujemy
+// to co fizycznie jest na stanie, zeby policzyc ile realnie zamowic —
+// CELOWO nie patrzymy na caly 30-dniowy horyzont (tak liczy sie tylko
+// dlugoterminowe ostrzezenie coverageDays/runOutDate powyzej), bo user
+// zamawia na konkretna, znana z gory liczbe dni, nie "z zapasem na caly
+// miesiac" — kolejnego dnia i tak przeliczy sie to na nowo.
+function neededForNextDays(bomLines, todayISO, days, rows) {
+  if (days <= 0) return 0;
+  var total = 0;
+  for (var k = 1; k <= days; k++) {
+    total += partConsumptionForDay(bomLines, toISO(addDays(isoToDate(todayISO), k)), rows, todayISO);
+  }
+  return total;
+}
+// Ile sztuk faktycznie trzeba zamowic: zapotrzebowanie na najblizsze N dni
+// (STATE.orderDays, user wpisuje sam w aplikacji Magazyn) MINUS to, co juz
+// fizycznie jest na stanie — zaokraglone W GORE do pelnej minimalnej
+// jednostki zamowienia (paletaQty w katalogu czesci), bo z magazynu nie da
+// sie zamowic mniej (np. brakuje 300 szt., paleta to 4800 szt. -> trzeba
+// zamowic cala palete; brakuje 5500 szt. -> 2 palety/9600 szt.).
+function suggestedOrderQty(balanceToday, needed, paletaQty) {
+  var shortfall = needed - balanceToday;
   if (shortfall <= 0) return 0;
   if (paletaQty > 0) return Math.ceil(shortfall / paletaQty) * paletaQty;
   return shortfall;
@@ -513,7 +517,7 @@ function init() {
       try { STATE.potwierdzenia = JSON.parse(u.cfm_magazyn_potwierdzenia || '{}'); } catch (e) { STATE.potwierdzenia = {}; }
       try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
       try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
-      STATE.safetyDays = Number(u.cfm_magazyn_safety_days) || 0;
+      STATE.orderDays = u.cfm_magazyn_order_days !== undefined ? (Number(u.cfm_magazyn_order_days) || 0) : 1;
       if (u.cfm_magazyn_parts) { try { localStorage.setItem('cfm_magazyn_parts', u.cfm_magazyn_parts); STATE.parts = getMagazynParts(); } catch (e) {} }
       try { STATE.openAlertsSeen = JSON.parse(localStorage.getItem('cfm_magazyn_seen_alerts') || '[]'); } catch (e) { STATE.openAlertsSeen = []; }
       liveEl.className = 'live';
@@ -641,8 +645,28 @@ function renderApp() {
     '<div class="pagehead"><h1>Magazyn <span class="cn">仓库</span></h1><div class="sub">Alerty o braku materiału z hali oraz comiesięczna inwentaryzacja części z automatyczną projekcją zapotrzebowania z Planu. <span class="cn">来自车间的缺料警报，以及每月零件盘点，自动根据计划预测需求。</span></div></div>' +
     '<div id="alertBannerSlot"></div>' +
     '<div class="section"><div class="section-head"><h2>Inwentaryzacja fizyczna<span class="cn">实物盘点</span></h2></div>' + inventoryFormHtml() + '</div>' +
-    '<div class="section"><div class="section-head"><h2>Przegląd dzienny<span class="cn">每日审核</span></h2></div>' + projectionListHtml() + '</div>';
+    '<div class="section"><div class="section-head"><h2>Przegląd dzienny<span class="cn">每日审核</span></h2></div>' +
+      '<div class="formcard" style="margin-bottom:14px;"><div class="field" style="display:flex;align-items:flex-end;gap:8px;">' +
+        '<div style="flex:1;"><label>Zamawiaj z wyprzedzeniem na ile dni <span class="cn">&#183; 提前多少天订货</span></label><input type="number" min="0" step="1" id="orderDaysInput" value="' + STATE.orderDays + '"></div>' +
+        '<button type="button" class="btn-save" style="width:auto;padding:12px 16px;" onclick="saveOrderDays()">Zapisz <span class="cn">&#183; &#20445;&#23384;</span></button>' +
+      '</div><div style="font-size:11px;color:var(--muted);margin-top:6px;">Ile dni zapotrzebowania ma pokrywać sugerowane "zamów" poniżej — np. "1" liczy ile potrzeba na jutro i porównuje z tym co jest dziś na stanie. <span class="cn">&#183; 下方"订购建议"覆盖未来多少天的需求——例如"1"表示计算明天所需数量，并与今天的库存比较。</span></div></div>' +
+      projectionListHtml() + '</div>';
   wireInventoryForm();
+}
+function saveOrderDays() {
+  var v = Number(document.getElementById('orderDaysInput').value);
+  if (isNaN(v) || v < 0) { showToast('Wpisz poprawną liczbę dni <span class="cn">&#183; 请输入正确的天数</span>', 'err'); return; }
+  STATE.orderDays = v;
+  var wh = getWH();
+  fetch(wh, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_magazyn_order_days', wartosc: String(v) })
+  }).then(function() {
+    showToast('Zapisano! <span class="cn">&#183; 已保存</span>!', 'ok');
+    renderApp();
+  }).catch(function() {
+    showToast('Błąd zapisu <span class="cn">&#183; 保存失败</span>', 'err');
+  });
 }
 // Jedna pozycja fizycznego magazynu na numer czesci, nawet jesli katalog ma
 // dla niego kilka wierszy BOM (rozne grupy/stacje/ilosci) - magazynier
@@ -718,6 +742,12 @@ function projectionListHtml() {
   var byNumber = groupPartsByNumber(STATE.parts);
   return MAGAZYN_GROUPS.map(function(g) {
     var partsInGroup = uniquePartsInOrder(STATE.parts.filter(function(p) { return (p.group === 'CFM-2' ? 'CFM-2' : 'CFM-1') === g; }));
+    // Pokazujemy TYLKO czesci, ktorym faktycznie czegos brakuje na
+    // skonfigurowany horyzont (STATE.orderDays) — jesli materialu starcza,
+    // nie ma czego potwierdzac OK/NOK, wiec taki wiersz po prostu znika z
+    // listy zamiast wymagac klikniecia OK dla kazdej jednej czesci codziennie.
+    // Wyjatek: brak inwentaryzacji w ogole (null) ZAWSZE zostaje widoczny —
+    // to nie jest "wystarcza", to "nie wiadomo", wiec wymaga uwagi.
     var rows = partsInGroup.map(function(p) {
       var bomLines = byNumber[p.number];
       var shared = bomLines.length > 1;
@@ -733,19 +763,20 @@ function projectionListHtml() {
           '<div class="partrow-meta">' + (p.station || '') + '</div>' + sharedNote + '</div>' +
           '<div class="nodata-hint">Brak inwentaryzacji &#8212; wpisz ją powyżej <span class="cn">&#183; 尚无盘点数据，请在上方输入</span></div></div>';
       }
-      var qtyClass = proj.balanceToday < 0 ? 'neg' : '';
-      var unitTxt = p.unit === 'kg' ? ' kg' : ' szt.';
-      var safetySuffix = STATE.safetyDays > 0 ? ' (z zapasem ' + STATE.safetyDays + 'dn.)' : '';
-      var covTxt = proj.coverageDays === null ? ('starczy > ' + HORIZON_DAYS + ' dni') :
-        proj.coverageDays <= 0 ? ('BRAKUJE JUŻ DZIŚ' + safetySuffix) : ('starczy na ~' + proj.coverageDays + ' dni' + safetySuffix);
       // Suma paletaQty dla WSZYSTKICH linii BOM tego numeru (zwykle takie
       // samo dla kazdej linii tej samej fizycznej czesci — bierzemy
       // pierwsza niepusta wartosc, nie sume, bo to nie jest "zuzycie").
       var paletaQty = 0;
       bomLines.some(function(bl) { if (bl.paletaQty > 0) { paletaQty = Number(bl.paletaQty); return true; } return false; });
-      var orderQty = proj.coverageDays !== null ? suggestedOrderQty(proj.minRunning, paletaQty) : 0;
+      var needed = neededForNextDays(bomLines, todayISO, STATE.orderDays, STATE.rows);
+      var orderQty = suggestedOrderQty(proj.balanceToday, needed, paletaQty);
+      if (orderQty <= 0 && !confirm) return ''; // starcza na skonfigurowany horyzont — nic do potwierdzenia, pomijamy wiersz
+      var qtyClass = proj.balanceToday < 0 ? 'neg' : '';
+      var unitTxt = p.unit === 'kg' ? ' kg' : ' szt.';
+      var covTxt = proj.coverageDays === null ? ('starczy > ' + HORIZON_DAYS + ' dni') :
+        proj.coverageDays <= 0 ? 'BRAKUJE JUŻ DZIŚ' : ('starczy na ~' + proj.coverageDays + ' dni');
       var paletaCount = paletaQty > 0 ? Math.round(orderQty / paletaQty) : 0;
-      var orderTxt = orderQty > 0 ? '<div class="cov" style="color:var(--orange);">zamów: ' + fmtQty(orderQty, p.unit) + unitTxt +
+      var orderTxt = orderQty > 0 ? '<div class="cov" style="color:var(--orange);">zamów na ' + STATE.orderDays + ' dn.: ' + fmtQty(orderQty, p.unit) + unitTxt +
         (paletaQty > 0 ? ' (' + paletaCount + ' ' + plPalety(paletaCount) + ')' : '') + '</div>' : '';
       return '<div class="partrow ' + rowClass + '">' +
         '<div class="partrow-info"><div class="partrow-name">' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + ' ' + badge + '</div>' +
@@ -755,7 +786,7 @@ function projectionListHtml() {
           '<button class="btn-ok" onclick="confirmOk(\'' + p.number + '\', ' + proj.balanceToday + ')">OK</button>' +
           '<button class="btn-nok" onclick="openNokModal(\'' + p.number + '\')">NOK</button>' +
         '</div></div>';
-    }).join('') || '<div style="font-size:12px;color:var(--faint);margin-bottom:16px;">Brak części w tej grupie</div>';
+    }).filter(Boolean).join('') || '<div style="font-size:12px;color:var(--faint);margin-bottom:16px;">Wszystkiego starcza na najbliższe ' + STATE.orderDays + ' dni — nic do zrobienia <span class="cn">&#183; 近' + STATE.orderDays + '天内库存充足，无需操作</span></div>';
     return '<div class="magazyn-group-head">' + g + '</div>' + rows;
   }).join('');
 }

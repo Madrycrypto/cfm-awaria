@@ -831,13 +831,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
 
   <!-- MAGAZYN / CZĘŚCI -->
   <div class="admin-section" id="admin-magazyn">
-    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">Bezpieczny zapas <span class="cn">&#183; &#23433;&#20840;&#24211;&#23384;</span></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Ile dni zu&#380;ycia (wg Planu/Celu) chcesz zawsze mie&#263; w r&#281;ku, zanim alarm i sugerowane zam&#243;wienie sie wyzwol&#261; — np. "2" oznacza, &#380;e zam&#243;wienie wyzwoli si&#281; na tyle wcze&#347;niej, &#380;eby po dostawie nadal zosta&#322;y 2 dni zapasu, nie dok&#322;adnie zero. 0 lub puste = bez marginesu (jak dot&#261;d). Dotyczy wszystkich cz&#281;&#347;ci jednakowo. <span class="cn">&#183; 触发报警和建议订购前，希望手头始终保留的消耗天数（按计划/目标计算）——例如"2"表示提前触发订购，确保到货后仍剩2天库存，而非恰好为零。0或留空=不设余量（与之前相同）。对所有零件统一生效。</span></div>
-    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:16px;">
-      <div class="field" style="flex:1;margin:0;"><label>Dni bezpiecznego zapasu <span class="cn">&#183; &#23433;&#20840;&#24211;&#23384;&#22825;&#25968;</span></label><input type="number" min="0" step="1" id="magazynSafetyDaysInput" placeholder="np. 2"></div>
-      <button class="list-save-btn" style="flex:0 0 auto;margin:0;padding:12px 16px;" onclick="saveMagazynSafetyDays()">Zapisz <span class="cn">&#183; &#20445;&#23384;</span></button>
-    </div>
-    <div class="div"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Ile dni zam&#243;wienia z wyprzedzeniem ustawia si&#281; teraz bezpo&#347;rednio w aplikacji Magazyn (sekcja "Przegl&#261;d dzienny"), nie tutaj. <span class="cn">&#183; 提前订货天数现在直接在"仓库"应用中设置（"每日审核"部分），不在此处设置。</span></div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Katalog cz&#281;&#347;ci (BOM) <span class="cn">&#183; &#38646;&#20214;&#30446;&#24405;(BOM)</span></div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">U&#380;ywany w zg&#322;oszeniu "Brak materia&#322;u" oraz do oblicze&#324; zapotrzebowania magazynowego. Stacja = stanowisko(a) zu&#380;ywaj&#261;ce cz&#281;&#347;&#263; w tej apce (przy kilku rozdziel przecinkiem, np. OP33A,OP33B). Grupa = produkt (CFM-1/CFM-2) — ta sama cz&#281;&#347;&#263; mo&#380;e wyst&#261;pi&#263; w OBU grupach jako osobne wiersze, je&#347;li oba produkty zu&#380;ywaj&#261; j&#261; w innym tempie. Jednostka "kg" dla cz&#281;&#347;ci zamawianych na wag&#281; (np. rolki ta&#347;my) — wtedy Ilo&#347;&#263; to kg na 1 sztuk&#281; produktu. "Min. paleta" (opcjonalnie) = ile sztuk na jednej palecie — tyle minimalnie da si&#281; zam&#243;wi&#263; z magazynu naraz. Sugerowane zam&#243;wienie w podsumowaniu magazynowym zostanie zaokr&#261;glone W G&#211;R&#280; do wielokrotno&#347;ci tej liczby (np. brakuje 300 szt., paleta to 4800 szt. → zam&#243;wi "1 paleta (4800 szt.)"; brakuje 5500 szt. → "2 palety (9600 szt.)"). Puste = bez zaokr&#261;glania. <span class="cn">&#183; 用于"缺料"报告以及仓库需求计算。工位=消耗该零件的工位(多个用逗号分隔)。组=产品(CFM-1/CFM-2)。单位"kg"用于按重量订购的零件。"最小托盘量"（可选）=每托盘的件数——这是从仓库一次能订购的最小数量。仓库汇总中的建议订购量会向上取整到整托盘数量。留空表示不取整。</span></div>
     <div id="magazynPartsList"></div>
@@ -3327,12 +3321,6 @@ function saveMagazynParts() {
   showToast('Części zapisane! <span class="cn">· 零件已保存</span>!', 'ok');
   renderMagazynPartsList();
 }
-function saveMagazynSafetyDays() {
-  var v = Number(document.getElementById('magazynSafetyDaysInput').value) || 0;
-  localStorage.setItem('cfm_magazyn_safety_days', String(v));
-  pushSettingToServer('cfm_magazyn_safety_days');
-  showToast('Zapisano! <span class="cn">· 已保存</span>!', 'ok');
-}
 // Katalog raz zapisany (localStorage NA TYM URZADZENIU + wiersz w arkuszu
 // Ustawienia na serwerze) ma PIERWSZENSTWO przed DEFAULT_MAGAZYN_PARTS w
 // kodzie — aktualizacja tego pliku sama z siebie NIGDY nie zmieni juz raz
@@ -3678,8 +3666,6 @@ function pinOverlayConfirm() {
   document.getElementById('gearBtn').classList.add('active');
   renderWorkersList(); renderStationsList(); renderPrzyczynyStationSelect();
   renderAwariaTypesList(); renderMagazynPartsList(); updateWebhookStatus(); renderShiftsUI(); renderStationTargetsList();
-  var safetyDays = localStorage.getItem('cfm_magazyn_safety_days');
-  document.getElementById('magazynSafetyDaysInput').value = safetyDays && Number(safetyDays) > 0 ? safetyDays : '';
   var wh = getWH(); if (wh) document.getElementById('webhookUrlInput').value = wh;
   var tok = getApiToken(); if (tok) document.getElementById('apiTokenInput').value = tok;
   var fc = getFeishuConfig();
@@ -3789,7 +3775,7 @@ function syncStationTargetDefaults() {
 // webhook co awarie/rework) — dzieki temu wszystkie telefony dostaja te same
 // ustawienia bez recznego przepisywania na kazdym z osobna. Przy starcie apka
 // pobiera arkusz i nadpisuje lokalne dane, jesli sie roznia.
-var SYNCED_SETTINGS_KEYS = ['cfm_workers', 'cfm_stations', 'cfm_station_status', 'cfm_scrap_reasons', 'cfm_rework_reasons', 'cfm_types', 'cfm_station_targets', 'cfm_shifts', 'cfm_station_overtime', 'cfm_monthly_plan', 'cfm_magazyn_parts', 'cfm_magazyn_safety_days'];
+var SYNCED_SETTINGS_KEYS = ['cfm_workers', 'cfm_stations', 'cfm_station_status', 'cfm_scrap_reasons', 'cfm_rework_reasons', 'cfm_types', 'cfm_station_targets', 'cfm_shifts', 'cfm_station_overtime', 'cfm_monthly_plan', 'cfm_magazyn_parts'];
 
 // cfm_monthly_plan jest tu TYLKO do ODCZYTU (pobierania z serwera w
 // loadSettingsFromServer) — NIGDY nie jest zbiorczo wypychany przez

@@ -1307,10 +1307,15 @@ function magazynComputeProjection_(bomLines, partNumber, stany, rowsByStationDat
   // Prawdziwy fizyczny bilans, bez zadnych marginesow — tylko do informacji
   // (coverageDays/"BRAKUJE JUZ DZIS"). Ile faktycznie zamowic liczy osobno
   // magazynNeededForDays_ ponizej, patrz komentarz tam.
-  days.forEach(function (d) {
+  // WAZNE: kazda wpisana inwentaryzacja to stan NA KONIEC danego dnia (po
+  // tegodziennej produkcji) — patrz identyczny komentarz przy
+  // computePartProjection w CFM_magazyn.html (klient).
+  days.forEach(function (d, idx) {
     var countToday = partStany[d] !== undefined ? Number(partStany[d]) : null;
-    if (countToday !== null && d !== lastCountDate) running = countToday;
-    running -= magazynPartConsumption_(bomLines, d, rowsByStationDate, monthlyPlan, targets, todayIso);
+    if (idx > 0) {
+      if (countToday !== null) running = countToday;
+      else running -= magazynPartConsumption_(bomLines, d, rowsByStationDate, monthlyPlan, targets, todayIso);
+    }
     if (d <= todayIso) balanceToday = running;
     if (runOutDate === null && running < 0) runOutDate = d;
     if (running < minRunning) minRunning = running;

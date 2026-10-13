@@ -110,6 +110,7 @@ tbody td{padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums;fon
 tbody td:first-child,tbody td:nth-child(2){text-align:left}
 tbody tr:last-child td{border-bottom:none}
 #sqdiHelper th:nth-child(2),#sqdiHelper td:nth-child(2){text-align:right}
+.sqdisummary td{background:var(--surface-2);font-weight:700;border-bottom:2px solid var(--border)!important}
 tbody tr.grouphead td{padding-top:16px}
 .stationname{font-family:var(--fh);font-weight:700;font-size:15px;color:var(--text)}
 .shiftpill{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);font-weight:700;font-size:12px;letter-spacing:0.03em}
@@ -778,7 +779,7 @@ function render() {
   var filledCount = periodGroups.filter(function(g) { return Object.keys(g.byDate).length > 0; }).length;
   document.getElementById('weekLabel').innerHTML = (isMonth ? 'Cały miesiąc' : fmtWeekRangePlain(STATE.weeks[STATE.selectedWeekIdx])) + ' · ' + filledCount + '/' + periodGroups.length + ' pozycji z wpisami <span class="cn">· ' + filledCount + '/' + periodGroups.length + ' 项有记录</span>';
   renderKpis(periodGroups, days, periodLabel);
-  renderSqdiHelper(periodGroups, days);
+  renderSqdiHelper(periodGroups, days, isMonth);
   renderShiftComparison(periodGroups, days);
   renderPivot(periodGroups, days, periodLabel);
   renderDailyBalance(days);
@@ -1000,7 +1001,7 @@ function renderKpis(groups, days, periodLabel) {
 //  - Jakosc: pass rate GP12 (jednorazowa zdawalnosc)
 //  - Wysylka: % wykonania planu GP12 (wskaznik realizacji)
 //  - Produktywnosc: Wydajnosc z OEE, usredniona ze wszystkich stanowisk
-function renderSqdiHelper(groups, days) {
+function renderSqdiHelper(groups, days, isMonth) {
   var table = document.getElementById('sqdiHelper');
   var todayISO = toISO(new Date());
   var thead = '<thead><tr><th>Dzień<span class="cn">日期</span></th>' +
@@ -1008,6 +1009,10 @@ function renderSqdiHelper(groups, days) {
     '<th>Wysłane &#183; % planu GP12<span class="cn">发运 &#183; 计划完成率</span></th>' +
     '<th>Produktywność &#183; wydajność<span class="cn">生产率 &#183; 效能率</span></th>' +
     '<th>Inwentarz &#183; stracone godziny linii<span class="cn">库存 &#183; 产线损失工时</span></th></tr></thead>';
+
+  // Sumy do wiersza podsumowania miesiaca (patrz nizej) — zbierane w tej
+  // samej petli co wiersze dzienne, zeby nie liczyc wszystkiego dwa razy.
+  var sumActual = 0, sumOk = 0, sumPlan = 0, sumLostMin = 0, perfAll = [];
   var rows = days.map(function(d) {
     var dd = d.split('-');
     var wd = new Date(Number(dd[0]), Number(dd[1]) - 1, Number(dd[2])).getDay();
@@ -1026,9 +1031,11 @@ function renderSqdiHelper(groups, days) {
     });
     var passRate = actual > 0 ? ((ok / actual) * 100).toFixed(1) + '%' : '&#8212;';
     var planPct = plan > 0 ? Math.round((actual / plan) * 100) + '%' : '&#8212;';
+    sumActual += actual; sumOk += ok; sumPlan += plan;
 
     var perfResults = groups.map(function(g) { return computeOee(g, [d]); }).filter(function(r) { return r && r.performance !== null; });
     var perfAvg = perfResults.length ? Math.round(perfResults.reduce(function(s, r) { return s + r.performance; }, 0) / perfResults.length * 100) + '%' : '&#8212;';
+    perfAll = perfAll.concat(perfResults.map(function(r) { return r.performance; }));
 
     // Stracone godziny tego dnia — TYLKO stanowiska nalezace do tej
     // konkretnej linii (OP51/52, OP60/61, GP12), nie wszystkie stanowiska
@@ -1037,10 +1044,20 @@ function renderSqdiHelper(groups, days) {
     var lineStations = ['OP51/52', 'OP60/61', 'GP12'];
     var lostMin = STATE.awarieRows.filter(function(a) { return a.date === d && lineStations.indexOf(a.station) >= 0; }).reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
     var lostH = lostMin > 0 ? (lostMin / 60).toFixed(1) + ' h' : '&#8212;';
+    sumLostMin += lostMin;
 
     return '<tr><td>' + label + '</td><td>' + passRate + '</td><td>' + planPct + '</td><td>' + perfAvg + '</td><td>' + lostH + '</td></tr>';
   }).join('');
-  table.innerHTML = thead + '<tbody>' + rows + '</tbody>';
+
+  var summaryRow = '';
+  if (isMonth) {
+    var sPassRate = sumActual > 0 ? ((sumOk / sumActual) * 100).toFixed(1) + '%' : '&#8212;';
+    var sPlanPct = sumPlan > 0 ? Math.round((sumActual / sumPlan) * 100) + '%' : '&#8212;';
+    var sPerfAvg = perfAll.length ? Math.round(perfAll.reduce(function(s, v) { return s + v; }, 0) / perfAll.length * 100) + '%' : '&#8212;';
+    var sLostH = sumLostMin > 0 ? (sumLostMin / 60).toFixed(1) + ' h' : '&#8212;';
+    summaryRow = '<tr class="sqdisummary"><td>Średnia &#183; cały miesiąc<span class="cn">平均 &#183; 本月</span></td><td>' + sPassRate + '</td><td>' + sPlanPct + '</td><td>' + sPerfAvg + '</td><td>' + sLostH + '</td></tr>';
+  }
+  table.innerHTML = thead + '<tbody>' + summaryRow + rows + '</tbody>';
 }
 
 // Porownanie zmian liczone TYLKO z GP12 (ostatnie stanowisko, kontrola

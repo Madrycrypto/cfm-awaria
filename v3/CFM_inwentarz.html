@@ -309,7 +309,7 @@ function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
   try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
 })();
 
-var STATE = { inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderMonthDate: new Date(), solderFirstDate: null, solderOverrides: {}, chainMode: false, sameDayMode: false };
+var STATE = { inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderReworkRows: [], solderMonthDate: new Date(), solderFirstDate: null, solderOverrides: {}, chainMode: false, sameDayMode: false };
 
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -549,7 +549,7 @@ function deleteInventoryCount(dateIso) {
 // prawdziwy raport, dzien automatycznie zamienia sie z "plan" na "actual".
 function getSolderConfig() {
   var s = localStorage.getItem('cfm_solder_config');
-  var d = { produkcja: 'Lutowanie', zuzycie: 'GP12', batchMin: 0, batchMax: 0 };
+  var d = { produkcja: 'Lutowanie', zuzycie: 'GP12', batchMin: 0, batchMax: 0, gp12DailyMax: 0 };
   if (!s) return d;
   try { return Object.assign(d, JSON.parse(s)); } catch (e) { return d; }
 }
@@ -602,6 +602,15 @@ function actualSumForDay(rows, station, dateIso) {
   rows.forEach(function(r) { if (String(r.station || '').trim() === target && r.date === dateIso) { sum += Number(r.qty) || 0; has = true; } });
   return has ? sum : null;
 }
+// Odzysk z bufora Odzysk/Złom strefy OP40 (lutowanie core) to dodatkowe
+// dobre core, ktore fizycznie wraca do bufora lutowania — dolicza sie do
+// produkcji tego dnia (w odroznieniu od OP51/52 i OP60/61, ktorych odzysk
+// nigdzie w aplikacji sie nie dolicza).
+function solderRecoveredForDay(dateIso) {
+  var sum = 0;
+  STATE.solderReworkRows.forEach(function(r) { if (r.zone === 'OP40' && r.date === dateIso) sum += Number(r.recovered) || 0; });
+  return sum;
+}
 function loadSolderAndRender() {
   var countDates = Object.keys(STATE.solderInventoryCounts).sort();
   var todayISO = toISO(new Date());
@@ -613,6 +622,7 @@ function loadSolderAndRender() {
     .then(function(data) {
       if (data.status !== 'ok') return;
       STATE.solderRows = data.historia || [];
+      STATE.solderReworkRows = data.rework_historia || [];
       renderSolderSection(firstDate);
     })
     .catch(function() {});
@@ -636,7 +646,7 @@ function renderSolderNoBaseline() {
 // produktow (gorna sekcja "Saldo dzien po dniu"), a nie zakladajac zero.
 // Bez tego przy buforze np. 3845 szt. lancuch kazalby produkowac tyle,
 // ile wychodzi, zamiast najpierw zjadac istniejacy zapas.
-function computeGp12RequiredWalk(gp12Station, endIso) {
+function computeGp12RequiredWalk(gp12Station, endIso, dailyMax) {
   var countDates = Object.keys(STATE.inventoryCounts).sort();
   if (!countDates.length) return null;
   var todayISO = toISO(new Date());
@@ -664,7 +674,15 @@ function computeGp12RequiredWalk(gp12Station, endIso) {
     // dokladnie ta sama zasada "dzis wplywa na jutro" co reszta modelu:
     // jesli po dzisiejszej wysylce saldo spadloby ponizej zera, dzisiejsza
     // produkcja musi pokryc dokladnie ten niedobor, nie wiecej.
+    // dailyMax: realna fizyczna wydajnosc stanowiska zuzycia (np. GP12) —
+    // bez tego "potrzeba" mogla wyjsc wyzsza niz stanowisko jest w stanie
+    // fizycznie wyprodukowac w jeden dzien (w odroznieniu od OP40 IN, ktore
+    // juz ma wlasne ograniczenie przez batchMin/batchMax). Nadwyzka ponad
+    // limit NIE znika — zostaje w "running" i doliczy sie do potrzeby
+    // kolejnego dnia (idx>0: running += prevProd - prevShip), dokladnie tak
+    // jak prawdziwy zalegly niedobor by sie skumulowal.
     var prod = aProd !== null ? aProd : Math.max(0, ship - running);
+    if (aProd === null && dailyMax > 0) prod = Math.min(prod, dailyMax);
     byDate[d] = prod;
     prevProd = prod; prevShip = ship;
   });
@@ -673,7 +691,7 @@ function computeGp12RequiredWalk(gp12Station, endIso) {
 function computeSolderWalk(firstDate, endIso, cfg) {
   var todayISO = toISO(new Date());
   var days = enumerateDays(firstDate, endIso);
-  var gp12Required = STATE.chainMode ? computeGp12RequiredWalk(cfg.zuzycie, endIso) : null;
+  var gp12Required = STATE.chainMode ? computeGp12RequiredWalk(cfg.zuzycie, endIso, cfg.gp12DailyMax) : null;
 
   // Krok 1: potrzeba (zuzycie) kazdego dnia — niezalezna od decyzji o
   // produkcji, wiec liczymy ja najpierw w calosci (potrzebna do
@@ -682,6 +700,9 @@ function computeSolderWalk(firstDate, endIso, cfg) {
   days.forEach(function(d) {
     var aProd = actualSumForDay(STATE.solderRows, cfg.produkcja, d);
     var aUse = actualSumForDay(STATE.solderRows, cfg.zuzycie, d);
+    var recovered = solderRecoveredForDay(d);
+    if (aProd !== null) aProd += recovered;
+    else if (recovered > 0) aProd = recovered;
     aProdByDate[d] = aProd;
     isActualByDate[d] = aProd !== null || aUse !== null;
     var shipPlan = shipPlanForDay(d);
@@ -769,8 +790,9 @@ function solderConfigHtml(cfg) {
     '<div class="field"><label>Stanowisko - zużycie (montaż) <span class="cn">&#183; 消耗工位（装配）</span></label><input type="text" id="cfgZuzycie" value="' + cfg.zuzycie + '"></div>' +
     '<div class="field"><label>Partia produkcji — min <span class="cn">&#183; 批量最小值</span></label><input type="number" min="0" id="cfgBatchMin" value="' + (cfg.batchMin || '') + '" placeholder="np. 2500"></div>' +
     '<div class="field"><label>Partia produkcji — max <span class="cn">&#183; 批量最大值</span></label><input type="number" min="0" id="cfgBatchMax" value="' + (cfg.batchMax || '') + '" placeholder="np. 2700"></div>' +
+    '<div class="field"><label>Maks. dzienny ' + cfg.zuzycie + ' <span class="cn">&#183; 每日最大产量</span></label><input type="number" min="0" id="cfgGp12DailyMax" value="' + (cfg.gp12DailyMax || '') + '" placeholder="np. 1320"></div>' +
     '<button type="button" class="btn-save" id="btnSaveSolderCfg">Zapisz nazwy<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存名称</small></button>' +
-    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan <span class="cn">&#183; 请输入与管理面板中完全一致的工位名称</span><br>Partia produkcji (opcjonalnie): jeśli stanowisko produkcji lutuje TYLKO pełnymi partiami (np. 2500&#8211;2700 szt., nigdy mniej), wpisz tu ten zakres — tryb "Licz potrzebę od Wysyłek" będzie wtedy planował całe partie zamiast dowolnych ilości. Puste = bez ograniczenia. <span class="cn">&#183; 生产批量（可选）：如果生产工位只能整批生产（如</span>2500&#8211;2700件，不能更少），请在此填写范围 — "按发运计算需求"模式将按整批规划，而非任意数量。留空表示不限制。</div>' +
+    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan <span class="cn">&#183; 请输入与管理面板中完全一致的工位名称</span><br>Partia produkcji (opcjonalnie): jeśli stanowisko produkcji lutuje TYLKO pełnymi partiami (np. 2500&#8211;2700 szt., nigdy mniej), wpisz tu ten zakres — tryb "Licz potrzebę od Wysyłek" będzie wtedy planował całe partie zamiast dowolnych ilości. Puste = bez ograniczenia. <span class="cn">&#183; 生产批量（可选）：如果生产工位只能整批生产（如</span>2500&#8211;2700件，不能更少），请在此填写范围 — "按发运计算需求"模式将按整批规划，而非任意数量。留空表示不限制。<br>Maks. dzienny (opcjonalnie): realna górna granica tego, ile stanowisko zużycia (np. GP12) fizycznie wyrobi w ciągu jednego dnia — "potrzeba" liczona od Wysyłek nigdy nie przekroczy tej liczby, nadwyżka automatycznie przechodzi na kolejny dzień. Puste = bez ograniczenia. <span class="cn">&#183; 每日最大产量（可选）：消耗工位（如GP12）一天内实际能完成的上限 — 按发运计算的"需求"永远不会超过此数值，超出部分自动转入次日。留空表示不限制。</span></div>' +
   '</div>';
 }
 function solderFormHtml() {
@@ -789,6 +811,7 @@ function wireSolderConfig() {
       zuzycie: document.getElementById('cfgZuzycie').value.trim() || 'GP12',
       batchMin: Number(document.getElementById('cfgBatchMin').value) || 0,
       batchMax: Number(document.getElementById('cfgBatchMax').value) || 0,
+      gp12DailyMax: Number(document.getElementById('cfgGp12DailyMax').value) || 0,
     };
     saveSolderConfig(cfg);
     showToast('Nazwy zapisane! <span class="cn">&#183; 名称已保存</span>!', 'ok');

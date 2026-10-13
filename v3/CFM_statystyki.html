@@ -965,7 +965,7 @@ function renderKpis(groups, days, periodLabel) {
       totalActual += r.qty; totalOk += r.ok_count; totalNg += (r.scrap + r.rework);
     });
   });
-  var totalRecovered = STATE.reworkRows.filter(function(r) { return days.indexOf(r.date) >= 0; }).reduce(function(s, r) { return s + (Number(r.recovered) || 0); }, 0);
+  var totalRecovered = STATE.reworkRows.filter(function(r) { return r.zone === 'GP12' && days.indexOf(r.date) >= 0; }).reduce(function(s, r) { return s + (Number(r.recovered) || 0); }, 0);
   var totalOkWithRecovered = totalOk + totalRecovered;
   var completion = totalPlan > 0 ? Math.round((totalActual / totalPlan) * 100) : null;
   var passRate = totalActual > 0 ? ((totalOk / totalActual) * 100).toFixed(1) : null;

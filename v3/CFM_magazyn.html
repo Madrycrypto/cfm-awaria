@@ -707,7 +707,7 @@ function inventoryFormHtml() {
   var byNumber = groupPartsByNumber(STATE.parts);
   var unique = uniquePartsInOrder(STATE.parts);
   return '<div class="tablewrap"><div class="tablescroll"><table><thead><tr>' +
-    '<th>Część<span class="cn">零件</span></th><th>Używana w<span class="cn">用于</span></th><th>Ostatnia inwent.<span class="cn">上次盘点</span></th><th>Ilość dzisiaj<span class="cn">今日数量</span></th>' +
+    '<th>Część<span class="cn">零件</span></th><th>Używana w<span class="cn">用于</span></th><th>Ostatnia inwent.<span class="cn">上次盘点</span></th><th>Stan obecny<span class="cn">当前库存</span></th><th>Ilość dzisiaj<span class="cn">今日数量</span></th>' +
     '</tr></thead><tbody>' +
     unique.map(function(p) {
       var bomLines = byNumber[p.number];
@@ -715,7 +715,13 @@ function inventoryFormHtml() {
       var dates = Object.keys(stany).sort();
       var last = dates.length ? dates[dates.length - 1] : null;
       var lastTxt = last ? fmtQty(stany[last], p.unit) + (p.unit === 'kg' ? ' kg' : '') + ' (' + last.split('-').slice(1).reverse().join('/') + ')' : '&#8212;';
-      return '<tr><td>' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + '</td><td style="text-align:left;font-size:11px;color:var(--muted);">' + partStationsLabel(bomLines) + '</td><td>' + lastTxt + '</td>' +
+      // Stan obecny: ostatnia inwentaryzacja POMNIEJSZONA o zuzycie od tamtego
+      // dnia do dzis (ten sam przelicznik co "Przeglad dzienny" powyzej) —
+      // user chcial widziec realny stan PO ruchach, nie tylko surowy ostatni spis.
+      var proj = computePartProjection(bomLines, p.number, todayISO);
+      var currentTxt = proj ? fmtQty(proj.balanceToday, p.unit) + (p.unit === 'kg' ? ' kg' : '') : '&#8212;';
+      var currentColor = proj && proj.balanceToday <= 0 ? 'var(--red)' : proj && proj.balanceToday < Number(bomLines[0] && bomLines[0].paletaQty || 0) ? 'var(--orange)' : 'var(--text)';
+      return '<tr><td>' + (p.number || '') + (p.desc ? ' &#8212; ' + p.desc : '') + '</td><td style="text-align:left;font-size:11px;color:var(--muted);">' + partStationsLabel(bomLines) + '</td><td>' + lastTxt + '</td><td style="color:' + currentColor + ';font-weight:700;">' + currentTxt + '</td>' +
         '<td><input type="number" min="0" step="any" class="countinput" id="inv-' + p.number.replace(/[^a-zA-Z0-9]/g, '_') + '" placeholder="&#8212;"></td></tr>';
     }).join('') +
     '</tbody></table></div></div>' +

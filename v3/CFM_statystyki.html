@@ -56,7 +56,8 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .monthnav button:hover{color:var(--text);background:var(--surface-2)}
 .monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:uppercase;min-width:130px;text-align:center}
 .monthnav .mlabel .cn{font-size:11px;text-transform:none;margin-left:4px}
-.monthnav .mlabel-select{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:uppercase;color:var(--text);background:none;border:none;outline:none;cursor:pointer;text-align:center;text-align-last:center}
+.monthdd{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:uppercase;color:var(--text);background:var(--surface);border:1px solid var(--border);padding:8px 12px;border-radius:9px;cursor:pointer;outline:none;min-width:150px;text-align:center;text-align-last:center}
+.monthdd:focus{border-color:var(--blue)}
 .headactions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .btn-export{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:#fff;background:var(--green);border:none;padding:10px 16px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
 .btn-export:hover{background:#22b45c}
@@ -809,23 +810,28 @@ function fmtWeekRangePlain(week) {
   return 'Tydz. ' + isoWeekNumber(week.start) + ' · ' + s[2] + '/' + s[1] + ' – ' + e[2] + '/' + e[1];
 }
 
-// Zakres rozwijanej listy miesiecy: stale liczony od DZISIEJSZEJ daty (nie
-// od STATE.monthDate), zeby okno sie nie przesuwalo w trakcie przegladania
-// starszych/przyszlych miesiecy — 12 wstecz, 6 w przod, wystarczy na
-// praktyczne uzycie bez listy na kilkadziesiat lat.
+// Zakres rozwijanej listy miesiecy: od pierwszego miesiaca z danymi w
+// aplikacji (APP_START_MONTH, patrz definicja) do 5 miesiecy w przod od
+// DZISIEJSZEJ daty (nie od STATE.monthDate, zeby okno sie nie przesuwalo
+// w trakcie przegladania starszych/przyszlych miesiecy). Lista jest przez
+// to krotsza niz poprzednio (bylo 12 wstecz niezaleznie od tego, kiedy
+// faktycznie zaczely sie dane) — jesli kiedys bedzie za dluga, przegladarka
+// sama pokaze scrollbar w rozwijanym panelu (natywne zachowanie <select>).
+var APP_START_MONTH = { year: 2026, month: 7 }; // sierpien 2026 (month: 0-indeksowany, 7=sierpien)
 function monthOptionsHtml() {
   var today = new Date();
   var selectedTag = STATE.monthDate.getFullYear() + '-' + String(STATE.monthDate.getMonth() + 1).padStart(2, '0');
+  var start = new Date(APP_START_MONTH.year, APP_START_MONTH.month, 1);
+  var end = new Date(today.getFullYear(), today.getMonth() + 5, 1);
   var opts = [];
-  for (var i = 12; i >= -6; i--) {
-    var d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+  for (var d = start; d <= end; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
     var tag = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
     opts.push('<option value="' + tag + '"' + (tag === selectedTag ? ' selected' : '') + '>' + MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear() + ' &#183; ' + MONTH_NAMES_CN[d.getMonth()] + '</option>');
   }
   return opts.join('');
 }
 function monthNavHtml() {
-  return '<div class="monthnav"><button id="prevMonth">&#8249;</button><select id="monthSelect" class="mlabel-select">' + monthOptionsHtml() + '</select><button id="nextMonth">&#8250;</button></div>';
+  return '<div class="monthnav"><button id="prevMonth">&#8249;</button><select id="monthSelect" class="monthdd">' + monthOptionsHtml() + '</select><button id="nextMonth">&#8250;</button></div>';
 }
 function wireMonthNav() {
   document.getElementById('prevMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() - 1, 1); loadMonth(); };

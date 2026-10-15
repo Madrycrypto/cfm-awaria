@@ -458,7 +458,7 @@ function render() {
   var app = document.getElementById('app');
   app.innerHTML =
     '<div class="pagehead"><h1>Plan produkcji <span class="cn">生产计划</span></h1><div class="sub">Dla stanowisk pracujących codziennie: wpisz jedną liczbę i kliknij "Kopiuj pon–pt". Dla nieregularnych (np. lutowanie w piecu): rozwiń "Dni" i wypełnij ręcznie tylko potrzebne dni.<br><span class="cn">对于每天生产的工位：输入一个数字并点击"复制周一至周五"。对于不规律的工位（如炉内钎焊）：展开"天数"，只需手动填写需要的日期。</span></div></div>' +
-    '<div class="monthnav"><button id="prevMonth">&#8249;</button><select id="monthSelect" class="monthdd">' + monthOptionsHtml(STATE.viewMonth) + '</select><button id="nextMonth">&#8250;</button></div>' +
+    '<div class="monthnav"><select id="monthSelect" class="monthdd">' + monthOptionsHtml(STATE.viewMonth) + '</select></div>' +
     '<div class="legend"><span><i style="background:var(--sunday-bg);border:1px solid var(--border)"></i>Niedziela · <span class="cn">周日</span></span><span>"Kopiuj pon–pt" nigdy nie rusza soboty — wpisz ją ręcznie w rozwiniętych dniach, jeśli akurat pracujecie &#183; <span class="cn">"复制"不会填写周六 — 如有加班请在展开的天数中手动填写</span></span></div>' +
     '<div id="shippingSectionTop"></div>' +
     '<div class="gridlegend"><span><i style="background:rgba(217,43,43,0.4);box-shadow:inset 0 0 0 1px var(--red)"></i>wartość odstająca od reszty wiersza &#183; <span class="cn">与该行其他数值不同</span></span></div>' +
@@ -552,8 +552,6 @@ function render() {
     STATE.shippingPlan[curMk] = collectShippingFromInputs('plan');
     STATE.shippingActual[curMk] = collectShippingFromInputs('actual');
   }
-  document.getElementById('prevMonth').onclick = function() { stashCurrentMonthInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() - 1, 1); render(); };
-  document.getElementById('nextMonth').onclick = function() { stashCurrentMonthInputs(); STATE.viewMonth = new Date(STATE.viewMonth.getFullYear(), STATE.viewMonth.getMonth() + 1, 1); render(); };
   document.getElementById('monthSelect').onchange = function(e) {
     stashCurrentMonthInputs();
     var p = e.target.value.split('-');

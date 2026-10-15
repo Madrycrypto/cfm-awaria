@@ -588,11 +588,9 @@ function monthOptionsHtml() {
   return opts.join('');
 }
 function monthNavHtml() {
-  return '<div class="monthnav"><button id="prevMonth">&#8249;</button><select id="monthSelect" class="monthdd">' + monthOptionsHtml() + '</select><button id="nextMonth">&#8250;</button></div>';
+  return '<div class="monthnav"><select id="monthSelect" class="monthdd">' + monthOptionsHtml() + '</select></div>';
 }
 function wireMonthNav() {
-  document.getElementById('prevMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() - 1, 1); loadMonth(); };
-  document.getElementById('nextMonth').onclick = function() { STATE.monthDate = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() + 1, 1); loadMonth(); };
   document.getElementById('monthSelect').onchange = function(e) {
     var p = e.target.value.split('-');
     STATE.monthDate = new Date(Number(p[0]), Number(p[1]) - 1, 1);

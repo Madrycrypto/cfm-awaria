@@ -134,6 +134,8 @@ tbody tr.negative td{background:rgba(217,43,43,0.14)}
 .autoadjust-panel .btn-save{margin-top:12px;margin-right:8px}
 .monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:capitalize;min-width:140px;text-align:center}
 .monthnav .mlabel .cn{font-size:11px;text-transform:none;margin-left:4px}
+.monthdd{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:capitalize;color:var(--text);background:var(--surface);border:1px solid var(--border);padding:8px 12px;border-radius:9px;cursor:pointer;outline:none;min-width:150px;text-align:center;text-align-last:center}
+.monthdd:focus{border-color:var(--blue)}
 
 @media (max-width:760px){
   .kpis{grid-template-columns:1fr}
@@ -563,6 +565,7 @@ function saveSolderConfig(cfg) {
 }
 var SOLDER_MONTH_NAMES = ['styczeń','luty','marzec','kwiecień','maj','czerwiec','lipiec','sierpień','wrzesień','październik','listopad','grudzień'];
 var SOLDER_MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+var APP_START_MONTH = { year: 2026, month: 7 }; // sierpien 2026 - pierwszy miesiac z danymi w aplikacji
 function monthDays(monthDate) {
   var y = monthDate.getFullYear(), m = monthDate.getMonth();
   var days = [];
@@ -858,6 +861,23 @@ function deleteSolderInventoryCount(dateIso) {
 }
 function prevSolderMonth() { STATE.solderMonthDate = new Date(STATE.solderMonthDate.getFullYear(), STATE.solderMonthDate.getMonth() - 1, 1); renderSolderSection(STATE.solderFirstDate); }
 function nextSolderMonth() { STATE.solderMonthDate = new Date(STATE.solderMonthDate.getFullYear(), STATE.solderMonthDate.getMonth() + 1, 1); renderSolderSection(STATE.solderFirstDate); }
+function selectSolderMonth(tag) {
+  var p = tag.split('-');
+  STATE.solderMonthDate = new Date(Number(p[0]), Number(p[1]) - 1, 1);
+  renderSolderSection(STATE.solderFirstDate);
+}
+function solderMonthOptionsHtml() {
+  var today = new Date();
+  var selectedTag = STATE.solderMonthDate.getFullYear() + '-' + String(STATE.solderMonthDate.getMonth() + 1).padStart(2, '0');
+  var start = new Date(APP_START_MONTH.year, APP_START_MONTH.month, 1);
+  var end = new Date(today.getFullYear(), today.getMonth() + 5, 1);
+  var opts = [];
+  for (var d = start; d <= end; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+    var tag = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    opts.push('<option value="' + tag + '"' + (tag === selectedTag ? ' selected' : '') + '>' + SOLDER_MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear() + '</option>');
+  }
+  return opts.join('');
+}
 // Suma Wysylek i potrzeby GP12 za caly tydzien (pon-nd) zawierajacy dany
 // piatek — pokazywana TYLKO w wierszu piatku, jako doraznie podsumowanie
 // "ile w sumie na caly tydzien" bez liczenia recznie z 5-7 osobnych
@@ -925,7 +945,7 @@ function renderSolderSection(firstDate) {
     '</div>' +
     (chain ? '<div class="simhint chainhint">W tym trybie ' + cfg.zuzycie + ' i ' + cfg.produkcja + ' NIE pokazują już własnego Planu — pokazują, ile trzeba wyprodukować, żeby nadążyć za Planem wysyłek (dopóki nie ma prawdziwego raportu). Plan tych stacji w Panelu Admina pozostaje bez zmian, dopóki nie klikniesz "Zapisz do Planu" poniżej.' +
       '<br><span class="cn">此模式下' + cfg.zuzycie + '和' + cfg.produkcja + '不再显示各自的计划，而是显示为跟上发运计划所需的产量（在收到真实报告之前）。除非点击下方"保存到计划"，否则管理面板中的计划不会改变。</span></div>' : '') +
-    '<div class="monthnav"><button type="button" onclick="prevSolderMonth()">&#8249;</button><div class="mlabel">' + SOLDER_MONTH_NAMES[STATE.solderMonthDate.getMonth()] + ' ' + STATE.solderMonthDate.getFullYear() + '<span class="cn">' + SOLDER_MONTH_NAMES_CN[STATE.solderMonthDate.getMonth()] + '</span></div><button type="button" onclick="nextSolderMonth()">&#8250;</button></div>' +
+    '<div class="monthnav"><button type="button" onclick="prevSolderMonth()">&#8249;</button><select class="monthdd" onchange="selectSolderMonth(this.value)">' + solderMonthOptionsHtml() + '</select><button type="button" onclick="nextSolderMonth()">&#8250;</button></div>' +
     '<div class="simhint">Kliknij liczbę w kolumnie ' + cfg.produkcja + ' / ' + cfg.zuzycie + ', żeby doraźnie sprawdzić "co jeśli" — to lokalna symulacja, nie zmienia Planu ani nic nie wysyła.' +
       (hasOverrides ? ' <button type="button" class="btn-clearsim" onclick="clearSolderOverrides()">Wyczyść symulację</button>' : '') +
     '<br><span class="cn">点击' + cfg.produkcja + ' / ' + cfg.zuzycie + '列中的数字，即可临时进行"假设"测算 — 这只是本地模拟，不会更改计划或发送任何数据。</span></div>' +

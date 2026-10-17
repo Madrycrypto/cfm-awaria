@@ -242,6 +242,8 @@ td.qe-empty:hover,.cell-stack:hover{background:rgba(47,127,224,0.1)}
    wizualny), zeby uzytkownik od razu rozpoznal ten sam mechanizm. */
 .reason-row{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px 6px 10px}
 .reason-row-label{flex:1;font-size:13px;color:var(--text);line-height:1.3}
+.reason-row-label.scrap{color:#ff7070}
+.reason-row-label.rework{color:#f0c030}
 .reason-row-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .reason-row-btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:20px;font-weight:300;width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .reason-row-btn:active{background:#222;transform:scale(0.92)}
@@ -1238,7 +1240,7 @@ function isOtherReason(r) { return /inne|其他/i.test(r || ''); }
 function sumPieceQty(entries) {
   return entries.filter(function(e) { return !isWeightReason(e.reason); }).reduce(function(s, e) { return s + e.qty; }, 0);
 }
-function renderQeReasonTable(containerId, reasons, existingEntries) {
+function renderQeReasonTable(containerId, reasons, existingEntries, category) {
   var container = document.getElementById(containerId);
   if (!reasons || !reasons.length) {
     container.innerHTML = '<div class="reason-empty-hint">Brak zdefiniowanych przyczyn dla tego stanowiska &#8212; dodaj w Panel Admina &#8594; Przyczyny <span class="cn">&#183; 该工位尚无原因，请在管理面板&#8594;原因中添加</span></div>';
@@ -1246,13 +1248,14 @@ function renderQeReasonTable(containerId, reasons, existingEntries) {
   }
   var byReason = {};
   (existingEntries || []).forEach(function(e) { byReason[e.reason] = e; });
+  var labelClass = category ? ' ' + category : '';
   container.innerHTML = reasons.map(function(r) {
     var weight = isWeightReason(r);
     var other = isOtherReason(r);
     var existingEntry = byReason[r];
     var val = existingEntry ? existingEntry.qty : '';
     return '<div class="reason-row" data-reason="' + r.replace(/"/g, '&quot;') + '">' +
-      '<span class="reason-row-label">' + r + '</span>' +
+      '<span class="reason-row-label' + labelClass + '">' + r + '</span>' +
       '<div class="reason-row-controls">' +
         '<button type="button" class="reason-row-btn" onclick="adjustReasonRow(this,' + (weight ? '-0.1' : '-1') + ')">&#8722;</button>' +
         '<input type="number" class="reason-row-input" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' value="' + val + '" placeholder="0" inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="updateQeTotals()">' +
@@ -1338,8 +1341,8 @@ function openQuickEdit(station, shift, dateIso) {
   if (existing && existing.reasons_json) {
     try { var parsed = JSON.parse(existing.reasons_json); existingReasons.scrap = parsed.scrap || []; existingReasons.rework = parsed.rework || []; } catch (e) {}
   }
-  renderQeReasonTable('qeScrapTable', STATE.scrapReasons[station] || [], existingReasons.scrap);
-  renderQeReasonTable('qeReworkTable', STATE.reworkReasons[station] || [], existingReasons.rework);
+  renderQeReasonTable('qeScrapTable', STATE.scrapReasons[station] || [], existingReasons.scrap, 'scrap');
+  renderQeReasonTable('qeReworkTable', STATE.reworkReasons[station] || [], existingReasons.rework, 'rework');
   updateQeTotals();
   // Sekcja startuje rozwinieta TYLKO jesli edytowany wpis juz ma w niej
   // jakies dane (zeby od razu bylo widac co trzeba poprawic) — w

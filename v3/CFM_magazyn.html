@@ -694,10 +694,11 @@ function renderApp() {
   app.innerHTML =
     '<div class="pagehead"><h1>Magazyn <span class="cn">仓库</span></h1><div class="sub">Alerty o braku materiału z hali oraz comiesięczna inwentaryzacja części z automatyczną projekcją zapotrzebowania z Planu. <span class="cn">来自车间的缺料警报，以及每月零件盘点，自动根据计划预测需求。</span></div></div>' +
     '<div id="alertBannerSlot"></div>' +
-    '<div class="section"><div class="section-head" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><h2>Przegląd dzienny<span class="cn">每日审核</span></h2><button type="button" class="btn-save" style="margin-top:0;" onclick="exportOrderListToExcel()">Eksportuj Excel <span class="cn">&#183; &#23548;&#20986;Excel</span></button></div>' +
+    '<div class="section"><div class="section-head"><h2>Przegląd dzienny<span class="cn">每日审核</span></h2></div>' +
       '<div class="formcard" style="margin-bottom:14px;"><div class="field" style="display:flex;align-items:flex-end;gap:8px;">' +
         '<div style="flex:1;"><label>Zamawiaj z wyprzedzeniem na ile dni <span class="cn">&#183; 提前多少天订货</span></label><input type="number" min="0" step="1" id="orderDaysInput" value="' + STATE.orderDays + '"></div>' +
         '<button type="button" class="btn-save" style="width:auto;padding:12px 16px;" onclick="saveOrderDays()">Zapisz <span class="cn">&#183; &#20445;&#23384;</span></button>' +
+        '<button type="button" class="btn-save" style="width:auto;padding:12px 16px;" onclick="exportOrderListToExcel()">Eksportuj Excel <span class="cn">&#183; &#23548;&#20986;Excel</span></button>' +
       '</div><div style="font-size:11px;color:var(--muted);margin-top:6px;">Ile dni zapotrzebowania ma pokrywać sugerowane "zamów" poniżej — np. "1" liczy ile potrzeba na jutro i porównuje z tym co jest dziś na stanie. <span class="cn">&#183; 下方"订购建议"覆盖未来多少天的需求——例如"1"表示计算明天所需数量，并与今天的库存比较。</span></div></div>' +
       projectionListHtml() + '</div>' +
     '<div class="section"><div class="section-head"><h2>Inwentaryzacja fizyczna<span class="cn">实物盘点</span></h2></div>' + inventoryFormHtml() + '</div>';
@@ -874,27 +875,39 @@ function projectionListHtml() {
 function exportOrderListToExcel() {
   var todayISO = toISO(new Date());
   var byNumber = groupPartsByNumber(STATE.parts);
+  // Te same grupy (CFM-1/CFM-2) i ten sam podzial co na liscie "Przeglad
+  // dzienny" (patrz projectionListHtml) — user chce je widziec oddzielnie
+  // w eksporcie, nie jedna wspolna lista.
+  var groupLines = {};
+  MAGAZYN_GROUPS.forEach(function(g) { groupLines[g] = []; });
   var seen = {};
-  var lines = [];
-  uniquePartsInOrder(STATE.parts).forEach(function(p) {
-    if (seen[p.number]) return;
-    seen[p.number] = true;
-    var bomLines = byNumber[p.number];
-    var proj = computePartProjection(bomLines, p.number, todayISO);
-    if (!proj) return;
-    var paletaQty = 0;
-    bomLines.some(function(bl) { if (bl.paletaQty > 0) { paletaQty = Number(bl.paletaQty); return true; } return false; });
-    var needed = neededForNextDays(bomLines, todayISO, STATE.orderDays, STATE.rows);
-    var orderQty = suggestedOrderQty(proj.balanceToday, needed, paletaQty);
-    if (orderQty <= 0) return;
-    lines.push({ number: p.number, qty: Math.round(orderQty) });
+  MAGAZYN_GROUPS.forEach(function(g) {
+    var partsInGroup = uniquePartsInOrder(STATE.parts.filter(function(p) { return (p.group === 'CFM-2' ? 'CFM-2' : 'CFM-1') === g; }));
+    partsInGroup.forEach(function(p) {
+      if (seen[p.number]) return;
+      seen[p.number] = true;
+      var bomLines = byNumber[p.number];
+      var proj = computePartProjection(bomLines, p.number, todayISO);
+      if (!proj) return;
+      var paletaQty = 0;
+      bomLines.some(function(bl) { if (bl.paletaQty > 0) { paletaQty = Number(bl.paletaQty); return true; } return false; });
+      var needed = neededForNextDays(bomLines, todayISO, STATE.orderDays, STATE.rows);
+      var orderQty = suggestedOrderQty(proj.balanceToday, needed, paletaQty);
+      if (orderQty <= 0) return;
+      groupLines[g].push({ number: p.number, qty: Math.round(orderQty) });
+    });
   });
-  if (!lines.length) { showToast('Nic do zamówienia — brak pozycji do eksportu <span class="cn">&#183; 没有需要订购的项目</span>', 'err'); return; }
+  var totalLines = MAGAZYN_GROUPS.reduce(function(s, g) { return s + groupLines[g].length; }, 0);
+  if (!totalLines) { showToast('Nic do zamówienia — brak pozycji do eksportu <span class="cn">&#183; 没有需要订购的项目</span>', 'err'); return; }
   var html = '<table><tr><th>Inventory ID</th><th>Qty</th></tr>' +
-    lines.map(function(l) { return '<tr><td class="id">' + l.number + '</td><td>' + l.qty + '</td></tr>'; }).join('') +
+    MAGAZYN_GROUPS.map(function(g) {
+      if (!groupLines[g].length) return '';
+      return '<tr><td class="grp" colspan="2">' + g + '</td></tr>' +
+        groupLines[g].map(function(l) { return '<tr><td class="id">' + l.number + '</td><td>' + l.qty + '</td></tr>'; }).join('');
+    }).join('') +
     '</table>';
   var full = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
-    '<head><meta charset="UTF-8"><style>table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}th,td{border:1px solid #999999;padding:3px 8px;text-align:left}th{background:#1A6ED8;color:#ffffff;font-weight:bold}td.id{mso-number-format:"@"}</style></head>' +
+    '<head><meta charset="UTF-8"><style>table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}th,td{border:1px solid #999999;padding:3px 8px;text-align:left}th{background:#1A6ED8;color:#ffffff;font-weight:bold}td.id{mso-number-format:"@"}td.grp{background:#e8eef7;font-weight:bold}</style></head>' +
     '<body>' + html + '</body></html>';
   var blob = new Blob(['\uFEFF' + full], { type: 'application/vnd.ms-excel' });
   var a = document.createElement('a');

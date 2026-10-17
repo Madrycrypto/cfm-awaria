@@ -355,6 +355,7 @@ function localIsoString(d) {
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function isoToDate(iso) { var p = iso.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
+function isWeekend_(iso) { var wd = isoToDate(iso).getDay(); return wd === 0 || wd === 6; }
 function enumerateDays(startIso, endIso) {
   var days = [];
   var cursor = isoToDate(startIso);
@@ -397,6 +398,11 @@ function planSumForDayWithFallback(station, dateIso) {
     });
   }
   if (any) return sum;
+  // Brak wpisu w Planie na sobote/niedziele = nikt nie pracuje (chyba ze
+  // Plan jawnie mowi inaczej, patrz "any" wyzej) — bez tego kazdy weekend
+  // bez wpisu fałszywie liczyl sie jak zwykly dzien roboczy (plaski Cel
+  // stanowiska), zawyzajac "ile zamowic" o caly weekend ktory nic nie zuzyje.
+  if (isWeekend_(dateIso)) return 0;
   return Number(STATE.stationTargets[station]) || 0;
 }
 function actualSumForDay(rows, station, dateIso) {

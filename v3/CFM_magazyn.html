@@ -766,11 +766,8 @@ function inventoryFormHtml() {
         '<td><input type="number" min="0" step="any" class="countinput" id="inv-' + p.number.replace(/[^a-zA-Z0-9]/g, '_') + '" placeholder="&#8212;"></td></tr>';
     }).join('') +
     '</tbody></table></div></div>' +
-    '<div class="field" style="display:flex;flex-direction:row;align-items:flex-end;gap:8px;margin-top:14px;">' +
-      '<div style="max-width:200px;"><label>Data spisu <span class="cn">&#183; 盘点日期</span></label><input type="date" id="invDate" value="' + todayISO + '"></div>' +
-      '<button type="button" class="btn-save" style="width:auto;" onclick="saveInventoryBatch()">Zapisz inwentaryzację <span class="cn">&#183; 保存盘点</span></button>' +
-      '<button type="button" class="btn-save" style="width:auto;" onclick="exportOrderListToExcel()">Eksportuj Excel <span class="cn">&#183; &#23548;&#20986;Excel</span></button>' +
-    '</div>';
+    '<div class="field" style="max-width:200px;margin-top:14px;"><label>Data spisu <span class="cn">&#183; 盘点日期</span></label><input type="date" id="invDate" value="' + todayISO + '"></div>' +
+    '<button type="button" class="btn-save" onclick="saveInventoryBatch()">Zapisz inwentaryzację <span class="cn">&#183; 保存盘点</span></button>';
 }
 function wireInventoryForm() {}
 function saveInventoryBatch() {

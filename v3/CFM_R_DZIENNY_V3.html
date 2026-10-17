@@ -1905,10 +1905,43 @@ function renderReworkBufferData(data) {
     '<div class="stat-box"><div class="stat-lbl">Bufor do przetworzenia</div><div class="stat-val" style="color:var(--blue);">' + data.buffer + '</div></div>' +
   '</div>' + monthBoxHtml;
   currentReworkBuffer = data.buffer;
-  currentReworkByReason = data.by_reason || null;
+  currentReworkByReason = normalizeByReason_(data.by_reason || null, data.buffer);
   renderReworkDualTable(currentReworkZone, editingReworkExtraReasons);
-  renderReworkBufferByReason(data.by_reason || null);
+  renderReworkBufferByReason(currentReworkByReason);
   updateReworkProcessSummary();
+}
+// Suma "dostepne" po przyczynach potrafi wyjsc WYZSZA niz laczny bufor
+// strefy — dzieje sie tak, kiedy przy przetwarzaniu ktos przypisze
+// odzysk/zlom do INNEJ przyczyny niz ta, pod ktora dana sztuka zostala
+// pierwotnie zgloszona (wtedy TA przyczyna schodzi ponizej zera i jest
+// przycinana do 0, "gubiac" nadwyzke, podczas gdy inna przyczyna nigdy nie
+// zostaje zmniejszona). Zamiast pokazywac mylace, nie sumujace sie liczby,
+// skalujemy WSZYSTKIE przyczyny proporcjonalnie w dol, tak zeby suma
+// dokladnie zgadzala sie z prawdziwym, lacznym buforem strefy (ten jest
+// zawsze poprawny — liczony jednym podsumowaniem, bez podzialu na przyczyny).
+function normalizeByReason_(byReason, totalBuffer) {
+  if (!byReason) return byReason;
+  var keys = Object.keys(byReason);
+  var sum = keys.reduce(function(s, k) { return s + (Number(byReason[k]) || 0); }, 0);
+  if (sum <= totalBuffer || sum <= 0) return byReason;
+  var scale = totalBuffer / sum;
+  var out = {}, running = 0;
+  keys.forEach(function(k) {
+    var v = Number(byReason[k]) || 0;
+    var weight = isWeightReason(k);
+    var scaled = weight ? Math.round(v * scale * 1000) / 1000 : Math.round(v * scale);
+    out[k] = scaled;
+    running += scaled;
+  });
+  // Korekta zaokraglenia — per-klucz zaokraglanie moze dac +/- roznice
+  // wzgledem totalBuffer, wiec dopasowujemy ja na ostatniej (najmniejszy
+  // wplyw procentowy) przyczynie, zeby suma byla DOKLADNIE rowna buforowi.
+  var diff = Math.round((totalBuffer - running) * 1000) / 1000;
+  if (diff !== 0 && keys.length) {
+    var lastKey = keys[keys.length - 1];
+    out[lastKey] = Math.max(0, Math.round((out[lastKey] + diff) * 1000) / 1000);
+  }
+  return out;
 }
 function renderReworkBufferByReason(byReason) {
   var el = document.getElementById('reworkBufferByReason');

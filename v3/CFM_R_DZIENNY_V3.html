@@ -174,7 +174,8 @@ button{cursor:pointer;font-family:var(--fh)}
 .dual-ctrl-btns{display:flex;align-items:center;gap:4px}
 .dual-stepbtn{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;flex-shrink:0}
 .dual-stepbtn:active{background:#222}
-.dual-ctrl-val{font-family:var(--fh);font-size:14px;font-weight:800;min-width:16px;text-align:center}
+.dual-ctrl-val-input{font-family:var(--fh);font-size:14px;font-weight:800;min-width:34px;width:34px;text-align:center;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 2px;-webkit-appearance:none;-moz-appearance:textfield;appearance:none}
+.dual-ctrl-val-input::-webkit-outer-spin-button,.dual-ctrl-val-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 
 .summary-card{background:rgba(26,110,216,0.06);border:1.5px solid rgba(26,110,216,0.2);border-radius:12px;padding:12px;margin-bottom:16px}
 .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -1677,7 +1678,15 @@ function renderReworkDualTable(zoneKey, extraReasons) {
   if (currentReworkByReason) {
     var inBuffer = allReasons.filter(function(r) { return (currentReworkByReason[r] || 0) > 0; });
     var extras = (extraReasons || []).filter(function(r) { return allReasons.indexOf(r) >= 0 && inBuffer.indexOf(r) < 0; });
-    reasons = inBuffer.concat(extras);
+    // Przyczyny, ktore MAJA cos w buforze, ale juz nie figuruja w aktualnej
+    // liscie skonfigurowanej (np. ktos przemianowal/przeliczbowal ja w Panelu
+    // Admina PO tym jak zostala zaksiegowana pod stara nazwa) — bez tego taka
+    // pozycja znika z mozliwosci przetworzenia NA ZAWSZE, mimo ze fizycznie
+    // nadal czeka w buforze (zdarzylo sie realnie: "其他 · inne" -> "8. 其他 · Inne").
+    var orphaned = Object.keys(currentReworkByReason).filter(function(r) {
+      return (currentReworkByReason[r] || 0) > 0 && allReasons.indexOf(r) < 0;
+    });
+    reasons = inBuffer.concat(extras).concat(orphaned);
   }
   if (!reasons.length) {
     container.innerHTML = '<div class="reason-empty-hint">Bufor dla tej strefy jest pusty — brak przyczyn do przetworzenia <span class="cn">&#183; 该区域缓冲区为空</span></div>';
@@ -1693,14 +1702,12 @@ function renderReworkDualTable(zoneKey, extraReasons) {
       '<div class="reason-row-dual-ctrls">' +
         '<div class="dual-ctrl recovered"><span class="dual-ctrl-lbl">Odzysk</span><div class="dual-ctrl-btns">' +
           '<button type="button" class="dual-stepbtn" onclick="adjustDualRow(this,-' + step + ')">&#8722;</button>' +
-          '<input type="number" class="dual-ctrl-val-input" value="0" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="updateReworkProcessSummary()" style="display:none;">' +
-          '<span class="dual-ctrl-val">0</span>' +
+          '<input type="number" class="dual-ctrl-val-input" value="0" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="onReworkDualInput(this)" onchange="clampReworkDualInput(this)">' +
           '<button type="button" class="dual-stepbtn" onclick="adjustDualRow(this,' + step + ')">+</button>' +
         '</div></div>' +
         '<div class="dual-ctrl scrap"><span class="dual-ctrl-lbl">Złom</span><div class="dual-ctrl-btns">' +
           '<button type="button" class="dual-stepbtn" onclick="adjustDualRow(this,-' + step + ')">&#8722;</button>' +
-          '<input type="number" class="dual-ctrl-val-input" value="0" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="updateReworkProcessSummary()" style="display:none;">' +
-          '<span class="dual-ctrl-val">0</span>' +
+          '<input type="number" class="dual-ctrl-val-input" value="0" min="0" ' + (weight ? 'step="0.001"' : 'step="1"') + ' inputmode="' + (weight ? 'decimal' : 'numeric') + '" oninput="onReworkDualInput(this)" onchange="clampReworkDualInput(this)">' +
           '<button type="button" class="dual-stepbtn" onclick="adjustDualRow(this,' + step + ')">+</button>' +
         '</div></div>' +
       '</div>' +
@@ -1711,12 +1718,26 @@ function renderReworkDualTable(zoneKey, extraReasons) {
 function adjustDualRow(btn, delta) {
   var ctrl = btn.closest('.dual-ctrl');
   var input = ctrl.querySelector('.dual-ctrl-val-input');
-  var valEl = ctrl.querySelector('.dual-ctrl-val');
   var v = Math.max(0, Math.round(((parseFloat(input.value) || 0) + parseFloat(delta)) * 1000) / 1000);
   input.value = v;
-  valEl.textContent = v;
   updateRowAvailDisplay(btn.closest('.reason-row-dual'));
   updateReworkProcessSummary();
+}
+// Wpisywanie ilosci wprost z klawiatury (nie tylko +/-) — user chcial moc
+// od razu wpisac liczbe zamiast klikac +1 kilkadziesiat razy.
+function onReworkDualInput(input) {
+  updateRowAvailDisplay(input.closest('.reason-row-dual'));
+  updateReworkProcessSummary();
+}
+// Po opuszczeniu pola (blur) porzadkujemy wpisana wartosc — ujemne/puste na
+// 0, zaokraglenie do precyzji wlasciwej dla tej przyczyny (sztuki vs kg) —
+// w trakcie samego pisania NIE poprawiamy na biezaco, zeby nie przeszkadzac.
+function clampReworkDualInput(input) {
+  var row = input.closest('.reason-row-dual');
+  var weight = row && row.getAttribute('data-weight') === '1';
+  var v = Math.max(0, Math.round(((parseFloat(input.value) || 0)) * (weight ? 1000 : 1)) / (weight ? 1000 : 1));
+  input.value = v;
+  onReworkDualInput(input);
 }
 // "dostepne" przy przyczynie ma na biezaco pokazywac ile JESZCZE zostaje
 // nierozdysponowane, w miare jak user klika Odzysk/Zlom — bez tego user
@@ -1761,11 +1782,10 @@ function populateReworkDualTable(scrapEntries, recoveredEntries) {
   container.querySelectorAll('.reason-row-dual').forEach(function(row) {
     var reason = row.getAttribute('data-reason');
     var ctrls = row.querySelectorAll('.dual-ctrl-val-input');
-    var vals = row.querySelectorAll('.dual-ctrl-val');
     var recMatch = recoveredEntries.filter(function(e) { return e.reason === reason; })[0];
     var scrapMatch = scrapEntries.filter(function(e) { return e.reason === reason; })[0];
-    ctrls[0].value = recMatch ? recMatch.qty : 0; vals[0].textContent = ctrls[0].value;
-    ctrls[1].value = scrapMatch ? scrapMatch.qty : 0; vals[1].textContent = ctrls[1].value;
+    ctrls[0].value = recMatch ? recMatch.qty : 0;
+    ctrls[1].value = scrapMatch ? scrapMatch.qty : 0;
     updateRowAvailDisplay(row);
   });
   updateReworkProcessSummary();

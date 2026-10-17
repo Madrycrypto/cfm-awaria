@@ -108,8 +108,10 @@ tbody tr.today td{background:rgba(26,110,216,0.08)}
 .tag.actual{background:rgba(47,127,224,0.18);color:var(--blue-soft)}
 .weeksum{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
 tbody tr.negative td{background:rgba(217,43,43,0.14)}
+tbody tr.warn td{background:rgba(240,192,48,0.1)}
 .balance.neg{color:var(--red)}
 .balance.ok{color:#3fd17a}
+.balance.warn{color:#f0c030}
 .configrow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
 .configrow .field input{width:180px}
 .configrow .hint{font-size:11px;color:var(--faint);flex-basis:100%}
@@ -318,6 +320,16 @@ function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' +
 function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function isoToDate(iso) { var p = iso.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
 function isWeekend_(iso) { var wd = isoToDate(iso).getDay(); return wd === 0 || wd === 6; }
+// Progi podswietlania bufora chlodnic (kolumna "Bufor" / kafelek "Stan
+// dzisiaj (liczony)") — user chce widziec ostrzezenie zanim bufor faktycznie
+// spadnie do zera, nie dopiero kiedy jest juz na minusie.
+var BUFOR_PROG_ZOLTY = 3000;
+var BUFOR_PROG_CZERWONY = 1000;
+function balanceSeverity_(balance) {
+  if (balance < BUFOR_PROG_CZERWONY) return 'neg';
+  if (balance < BUFOR_PROG_ZOLTY) return 'warn';
+  return 'ok';
+}
 var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
 var DAY_LABELS_CN = ['周一','周二','周三','周四','周五','周六','周日'];
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
@@ -455,7 +467,7 @@ function render(firstDate, todayISO) {
   app.innerHTML =
     '<div class="pagehead"><h1>Inwentarz <span class="cn">库存</span></h1><div class="sub">Stan liczony na żywo: ostatnia inwentaryzacja + dobre sztuki z GP12 &#8722; wysłano (z Planu). <span class="cn">实时库存 = 上次盘点 + GP12合格数量 &#8722; 实际发货数量。</span></div></div>' +
     '<div class="kpis">' +
-      '<div class="kpi"><div class="kpi-lbl">Stan dzisiaj (liczony)<span class="cn">今日库存（计算）</span></div><div class="kpi-val">' + fmt(todayRow.balance) + '</div><div class="kpi-sub">szt. <span class="cn">&#183; 件</span></div></div>' +
+      '<div class="kpi"><div class="kpi-lbl">Stan dzisiaj (liczony)<span class="cn">今日库存（计算）</span></div><div class="kpi-val balance ' + balanceSeverity_(todayRow.balance) + '">' + fmt(todayRow.balance) + '</div><div class="kpi-sub">szt. <span class="cn">&#183; 件</span></div></div>' +
       '<div class="kpi"><div class="kpi-lbl">Ostatnia inwentaryzacja<span class="cn">上次盘点</span></div><div class="kpi-val">' + fmt(Number(STATE.inventoryCounts[lastCountDate])) + '</div><div class="kpi-sub">' + fmtDateLabel(lastCountDate) + ' &#183; ' + daysSince + ' dni temu</div></div>' +
       '<div class="kpi"><div class="kpi-lbl">Od inwentaryzacji<span class="cn">自盘点以来</span></div><div class="kpi-val">' + (todayRow.balance - Number(STATE.inventoryCounts[lastCountDate]) >= 0 ? '+' : '') + fmt(todayRow.balance - Number(STATE.inventoryCounts[lastCountDate])) + '</div><div class="kpi-sub">produkcja &#8722; wysyłki <span class="cn">&#183; 生产</span>-发货</div></div>' +
     '</div>' +
@@ -471,7 +483,9 @@ function render(firstDate, todayISO) {
         var countCell = r.counted === null ? '&#8212;' :
           '<span class="recount">' + fmt(r.counted) + '</span>' + (r.discrepancy !== null ? ' <span class="' + (r.discrepancy >= 0 ? 'diff-pos' : 'diff-neg') + '">(' + (r.discrepancy >= 0 ? '+' : '') + fmt(r.discrepancy) + ')</span>' : '') +
           ' <button type="button" class="count-del-btn" title="Usuń tę inwentaryzację" onclick="deleteInventoryCount(\'' + r.date + '\')">&#10005;</button>';
-        return '<tr class="' + (r.date === todayISO ? 'today' : '') + '"><td>' + label + '</td><td>' + fmt(r.production) + '</td><td>' + fmt(r.shipped) + '</td><td class="balance">' + fmt(r.balance) + '</td><td>' + countCell + '</td></tr>';
+        var balCls = balanceSeverity_(r.balance);
+        var rowCls = balCls === 'neg' ? ' negative' : balCls === 'warn' ? ' warn' : '';
+        return '<tr class="' + (r.date === todayISO ? 'today' : '') + rowCls + '"><td>' + label + '</td><td>' + fmt(r.production) + '</td><td>' + fmt(r.shipped) + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td><td>' + countCell + '</td></tr>';
       }).join('') +
     '</tbody></table></div></div></div>';
 
@@ -965,14 +979,15 @@ function renderSolderSection(firstDate) {
           if (weekSum) label += '<div class="weeksum">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) +
             '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + '</span></div>';
         }
-        var balCls = r.balance < 0 ? 'neg' : 'ok';
+        var balCls = balanceSeverity_(r.balance);
         var prodCell = '<input type="number" class="cellinput' + (r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
         var useCell = '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
         var shipCell = chain ? '<td class="shipcell">' + fmt(r.shipPlan) + '</td>' : '';
         var countedVal = STATE.solderInventoryCounts[r.date];
         var countCell = countedVal === undefined ? '&#8212;' :
           '<span class="recount">' + fmt(Number(countedVal)) + '</span> <button type="button" class="count-del-btn" title="Usuń tę inwentaryzację" onclick="deleteSolderInventoryCount(\'' + r.date + '\')">&#10005;</button>';
-        return '<tr class="' + (r.isToday ? 'today' : '') + (r.balance < 0 ? ' negative' : '') + '"><td>' + label + '</td>' + shipCell + '<td>' + useCell + '</td><td>' + prodCell + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td><td>' + countCell + '</td></tr>';
+        var rowCls = balCls === 'neg' ? ' negative' : balCls === 'warn' ? ' warn' : '';
+        return '<tr class="' + (r.isToday ? 'today' : '') + rowCls + '"><td>' + label + '</td>' + shipCell + '<td>' + useCell + '</td><td>' + prodCell + '</td><td class="balance ' + balCls + '">' + fmt(r.balance) + '</td><td>' + countCell + '</td></tr>';
       }).join('') : '<tr><td colspan="' + (chain ? 6 : 5) + '" style="text-align:center;color:var(--faint)">Ten miesiąc jest przed pierwszą inwentaryzacją bufora <span class="cn">&#183; 该月早于第一次盘点</span></td></tr>') +
     '</tbody></table></div></div>' +
     solderFormHtml() +

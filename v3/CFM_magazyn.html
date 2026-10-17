@@ -695,7 +695,7 @@ function renderApp() {
     '<div class="pagehead"><h1>Magazyn <span class="cn">仓库</span></h1><div class="sub">Alerty o braku materiału z hali oraz comiesięczna inwentaryzacja części z automatyczną projekcją zapotrzebowania z Planu. <span class="cn">来自车间的缺料警报，以及每月零件盘点，自动根据计划预测需求。</span></div></div>' +
     '<div id="alertBannerSlot"></div>' +
     '<div class="section"><div class="section-head"><h2>Przegląd dzienny<span class="cn">每日审核</span></h2></div>' +
-      '<div class="formcard" style="margin-bottom:14px;"><div class="field" style="display:flex;align-items:flex-end;gap:8px;">' +
+      '<div class="formcard" style="margin-bottom:14px;"><div class="field" style="display:flex;flex-direction:row;align-items:flex-end;gap:8px;">' +
         '<div style="flex:1;"><label>Zamawiaj z wyprzedzeniem na ile dni <span class="cn">&#183; 提前多少天订货</span></label><input type="number" min="0" step="1" id="orderDaysInput" value="' + STATE.orderDays + '"></div>' +
         '<button type="button" class="btn-save" style="width:auto;padding:12px 16px;" onclick="saveOrderDays()">Zapisz <span class="cn">&#183; &#20445;&#23384;</span></button>' +
         '<button type="button" class="btn-save" style="width:auto;padding:12px 16px;" onclick="exportOrderListToExcel()">Eksportuj Excel <span class="cn">&#183; &#23548;&#20986;Excel</span></button>' +
@@ -766,8 +766,11 @@ function inventoryFormHtml() {
         '<td><input type="number" min="0" step="any" class="countinput" id="inv-' + p.number.replace(/[^a-zA-Z0-9]/g, '_') + '" placeholder="&#8212;"></td></tr>';
     }).join('') +
     '</tbody></table></div></div>' +
-    '<div class="field" style="max-width:200px;margin-top:14px;"><label>Data spisu <span class="cn">&#183; 盘点日期</span></label><input type="date" id="invDate" value="' + todayISO + '"></div>' +
-    '<button type="button" class="btn-save" onclick="saveInventoryBatch()">Zapisz inwentaryzację <span class="cn">&#183; 保存盘点</span></button>';
+    '<div class="field" style="display:flex;flex-direction:row;align-items:flex-end;gap:8px;margin-top:14px;">' +
+      '<div style="max-width:200px;"><label>Data spisu <span class="cn">&#183; 盘点日期</span></label><input type="date" id="invDate" value="' + todayISO + '"></div>' +
+      '<button type="button" class="btn-save" style="width:auto;" onclick="saveInventoryBatch()">Zapisz inwentaryzację <span class="cn">&#183; 保存盘点</span></button>' +
+      '<button type="button" class="btn-save" style="width:auto;" onclick="exportOrderListToExcel()">Eksportuj Excel <span class="cn">&#183; &#23548;&#20986;Excel</span></button>' +
+    '</div>';
 }
 function wireInventoryForm() {}
 function saveInventoryBatch() {

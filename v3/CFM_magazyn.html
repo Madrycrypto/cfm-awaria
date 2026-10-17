@@ -494,11 +494,42 @@ function computePartProjection(bomLines, partNumber, todayISO) {
 // dlugoterminowe ostrzezenie coverageDays/runOutDate powyzej), bo user
 // zamawia na konkretna, znana z gory liczbe dni, nie "z zapasem na caly
 // miesiac" — kolejnego dnia i tak przeliczy sie to na nowo.
+// Czy KTORAS ze stacji tej czesci ma jawny wpis w Planie na ten dzien —
+// jesli tak, to dzien "pracuje" NAWET jesli wypada w weekend (np. dodatkowa
+// sobota/niedziela wpisana recznie w Planie) i liczy sie jak normalny dzien
+// roboczy, zamiast byc pomijany tylko dlatego, ze to kalendarzowy weekend.
+function dayHasPlanEntry_(bomLines, dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var monthPlan = STATE.monthlyPlan[mk];
+  if (!monthPlan) return false;
+  return bomLines.some(function(line) {
+    var stations = String(line.station || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+    return stations.some(function(st) {
+      var stPlan = monthPlan[st];
+      if (!stPlan) return false;
+      return Object.keys(stPlan).some(function(shift) { return stPlan[shift] && stPlan[shift][dateIso] !== undefined; });
+    });
+  });
+}
+// "N dni" = N dni ROBOCZYCH naprzod, nie N dni kalendarzowych — jesli dzis
+// jest sobota, "1 dzien" przeskakuje niedziele (nikt nie pracuje, nikt nie
+// zlozy zamowienia) i liczy zapotrzebowanie na poniedzialek, bo to jest
+// NASTEPNY dzien, w ktorym cokolwiek sie faktycznie zuzyje/zmieni. Bez tego
+// "1 dzien" w weekend wychodzilby 0 (niedziela nic nie zuzywa) i nie
+// ostrzegalby przed prawdziwym zapotrzebowaniem czekajacym w poniedzialek.
+// WYJATEK: weekend z jawnym wpisem w Planie (patrz dayHasPlanEntry_ wyzej)
+// sie NIE pomija — to prawdziwy dzien roboczy, tylko akurat w weekend.
 function neededForNextDays(bomLines, todayISO, days, rows) {
   if (days <= 0) return 0;
-  var total = 0;
-  for (var k = 1; k <= days; k++) {
-    total += partConsumptionForDay(bomLines, toISO(addDays(isoToDate(todayISO), k)), rows, todayISO);
+  var total = 0, counted = 0, offset = 1;
+  while (counted < days) {
+    var d = toISO(addDays(isoToDate(todayISO), offset));
+    var skip = isWeekend_(d) && !dayHasPlanEntry_(bomLines, d);
+    if (!skip) {
+      total += partConsumptionForDay(bomLines, d, rows, todayISO);
+      counted++;
+    }
+    offset++;
   }
   return total;
 }

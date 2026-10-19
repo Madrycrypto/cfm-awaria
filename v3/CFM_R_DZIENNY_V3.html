@@ -3028,6 +3028,7 @@ function awariaSubmitBackfill() {
       token: getApiToken(), event_type: 'KONIEC', stanowisko: station, operator: operator,
       typ: typFull, start_timestamp: localIsoString(startD),
       koniec_timestamp: localIsoString(endD), czas_min: minVal, shift: awariaBackfillShift,
+      backfilled: '1',
     });
     sendToBackend(qs, function() {
       showToast('Przestój z ' + formatDatePl(dateVal) + ' zapisany: ' + minVal + ' min <span class="cn">&#183; 停机已录入</span>', 'ok');

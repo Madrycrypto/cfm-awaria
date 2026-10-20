@@ -451,8 +451,9 @@ function awarieChipsHtml(entries, showDate) {
   return entries.map(function(a) {
     var dateLbl = '';
     if (showDate && a.date) { var dd = a.date.split('-'); dateLbl = dd[2] + '/' + dd[1] + ' &#183; '; }
+    var timeLbl = (a.start_time && a.end_time) ? (a.start_time + '&#8211;' + a.end_time + ' &#183; ') : '';
     var cnLine = a.type_cn ? '<span class="cn-line">' + a.type_cn + '</span>' : '';
-    return '<span class="reason-chip awaria"><span>' + dateLbl + '<b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>' + cnLine + '</span>';
+    return '<span class="reason-chip awaria"><span>' + dateLbl + timeLbl + '<b>' + fmt(a.czas_min) + ' min</b>' + (a.type || '') + '</span>' + cnLine + '</span>';
   }).join('');
 }
 

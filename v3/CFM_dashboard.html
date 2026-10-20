@@ -156,12 +156,21 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .donutlegend .sw{width:11px;height:11px;border-radius:3px;flex-shrink:0}
 .donutlegend b{font-family:var(--fh);font-size:14px;margin-left:auto;padding-left:14px;font-variant-numeric:tabular-nums}
 
-.hbar-row{display:grid;grid-template-columns:84px 1fr 90px;align-items:center;gap:10px;margin-bottom:10px}
+.hbar-row{display:grid;grid-template-columns:84px 1fr 90px;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer;border-radius:8px;padding:4px;margin-left:-4px;margin-right:-4px}
+.hbar-row:hover{background:var(--surface-2)}
 .hbar-row:last-child{margin-bottom:0}
 .hbar-lbl{font-family:var(--fh);font-weight:700;font-size:13px}
 .hbar-track{height:14px;border-radius:4px;background:var(--border-soft);overflow:hidden}
 .hbar-fill{height:100%;border-radius:4px;background:var(--red)}
 .hbar-val{font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.hbar-toggle{display:flex;gap:6px;margin-left:auto}
+.hbar-toggle button{font-family:var(--fh);font-weight:700;font-size:11px;letter-spacing:0.02em;text-transform:uppercase;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:5px 10px;cursor:pointer}
+.hbar-toggle button.sel{color:#fff;background:var(--red);border-color:var(--red)}
+.hbar-detail{display:none;flex-direction:column;gap:5px;margin:0 0 12px;padding-left:4px}
+.hbar-detail.open{display:flex}
+.hbar-chip{display:flex;align-items:baseline;gap:7px;background:var(--surface-2);border:1px solid var(--border-soft);border-left:3px solid var(--red);border-radius:6px;padding:6px 10px;font-size:11.5px;color:var(--text)}
+.hbar-chip b{font-family:var(--fh);color:var(--red);flex-shrink:0}
+.hbar-chip .cn-line{display:block;font-family:var(--fc);color:var(--faint);font-size:10px}
 
 .section{margin-bottom:22px}
 .barsgrid{display:flex;flex-direction:column;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
@@ -777,7 +786,9 @@ function render(days) {
     '<div id="sqdipGrid">' + sqdipHtml(sqdipDaysVal) + '</div>' +
     '<div class="chartsgrid">' +
       '<div class="card"><h2>Jakość (GP12) <span class="cn">质量</span></h2><div id="qualityDonut"></div></div>' +
-      '<div class="card"><h2>Alerty wg stanowiska <span class="datebadge">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + '</span><span class="cn">警报 &#183; 按工位</span></h2><div id="downtimeBars"></div></div>' +
+      '<div class="card"><h2 style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">Alerty wg stanowiska <span class="datebadge">Tydz. ' + isoWeekNumber(days[0]) + ' &#183; ' + fmtRange(days) + '</span><span class="cn">警报 &#183; 按工位</span>' +
+        '<div class="hbar-toggle"><button type="button" class="' + (STATE.downtimeView !== 'day' ? 'sel' : '') + '" onclick="setDowntimeView(\'week\')">Tydzień <span class="cn">&#183; 本周</span></button><button type="button" class="' + (STATE.downtimeView === 'day' ? 'sel' : '') + '" onclick="setDowntimeView(\'day\')">Dziś <span class="cn">&#183; 今日</span></button></div>' +
+      '</h2><div id="downtimeBars"></div></div>' +
     '</div>' +
     '<div class="chartsgrid2">' +
       '<div class="card"><h2>Rework &#183; dziś <span class="cn">返修处理&#183;今日</span></h2><div id="reworkTodayCard"></div></div>' +
@@ -851,18 +862,50 @@ function renderQualityDonut(ok, scrap, rework, recovered) {
 // donut/pie do porownywania blizniaczych wartosci jest zly wybor (patrz
 // wytyczne wizualizacji) — pozioma listwa posortowana malejaco pokazuje
 // od razu i ranking, i skale, czego kolowy wykres nie potrafi.
+function setDowntimeView(mode) {
+  STATE.downtimeView = mode;
+  document.querySelectorAll('.hbar-toggle button').forEach(function(b, i) { b.classList.toggle('sel', (i === 0) === (mode !== 'day')); });
+  renderDowntimeBars(STATE.lastDowntimeWeekDays || []);
+}
+// Jeden wiersz na przyczyne/zdarzenie, w tym samym formacie co w Statystykach
+// (data &#183; godzina-godzina &#183; czas trwania, typ + tlumaczenie) — user chcial
+// widziec PO KLIKNIECIU w pasek stanowiska dokladnie to samo co juz zna z
+// innego miejsca w apce, zamiast uczyc sie nowego formatu.
+function downtimeDetailChipsHtml(entries, showDate) {
+  return entries.map(function(a) {
+    var dateLbl = '';
+    if (showDate && a.date) { var dd = a.date.split('-'); dateLbl = dd[2] + '/' + dd[1] + ' &#183; '; }
+    var timeLbl = (a.start_time && a.end_time) ? (a.start_time + '&#8211;' + a.end_time + ' &#183; ') : '';
+    var cnLine = a.type_cn ? '<span class="cn-line">' + a.type_cn + '</span>' : '';
+    return '<div class="hbar-chip">' + dateLbl + timeLbl + '<b>' + fmt(a.czas_min) + ' min</b>&nbsp;' + (a.type || '') + cnLine + '</div>';
+  }).join('');
+}
+function toggleDowntimeDetail(station) {
+  var el = document.getElementById('downtimeDetail-' + station.replace(/[^a-zA-Z0-9]/g, '_'));
+  if (el) el.classList.toggle('open');
+}
 function renderDowntimeBars(days) {
+  STATE.lastDowntimeWeekDays = days;
+  var todayISO = toISO(new Date());
+  var activeDays = STATE.downtimeView === 'day' ? [todayISO] : days;
   var el = document.getElementById('downtimeBars');
-  var rows = STATE.awarieRows.filter(function(a) { return days.indexOf(a.date) >= 0; });
-  if (!rows.length) { el.innerHTML = '<div class="empty">Brak awarii w tym tygodniu. <span class="cn">本周无故障。</span></div>'; return; }
-  var byStation = {};
-  rows.forEach(function(a) { byStation[a.station] = (byStation[a.station] || 0) + (Number(a.czas_min) || 0); });
+  var rows = STATE.awarieRows.filter(function(a) { return activeDays.indexOf(a.date) >= 0; });
+  if (!rows.length) { el.innerHTML = '<div class="empty">Brak awarii' + (STATE.downtimeView === 'day' ? ' dzisiaj' : ' w tym tygodniu') + '. <span class="cn">' + (STATE.downtimeView === 'day' ? '今日' : '本周') + '无故障。</span></div>'; return; }
+  var byStation = {}, entriesByStation = {};
+  rows.forEach(function(a) {
+    byStation[a.station] = (byStation[a.station] || 0) + (Number(a.czas_min) || 0);
+    (entriesByStation[a.station] = entriesByStation[a.station] || []).push(a);
+  });
   var list = Object.keys(byStation).map(function(st) { return { station: st, min: byStation[st] }; });
   list.sort(function(a, b) { return b.min - a.min; });
   var maxMin = list[0].min;
+  var showDate = STATE.downtimeView !== 'day';
   el.innerHTML = list.map(function(x) {
     var pct = Math.round((x.min / maxMin) * 100);
-    return '<div class="hbar-row"><div class="hbar-lbl">' + x.station + '</div><div class="hbar-track"><div class="hbar-fill" style="width:' + Math.max(pct, 4) + '%"></div></div><div class="hbar-val">' + fmt(x.min) + ' min</div></div>';
+    var safeId = 'downtimeDetail-' + x.station.replace(/[^a-zA-Z0-9]/g, '_');
+    var entries = entriesByStation[x.station].slice().sort(function(a, b) { return (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || '')); });
+    return '<div class="hbar-row" onclick="toggleDowntimeDetail(\'' + x.station + '\')"><div class="hbar-lbl">' + x.station + '</div><div class="hbar-track"><div class="hbar-fill" style="width:' + Math.max(pct, 4) + '%"></div></div><div class="hbar-val">' + fmt(x.min) + ' min</div></div>' +
+      '<div class="hbar-detail" id="' + safeId + '">' + downtimeDetailChipsHtml(entries, showDate) + '</div>';
   }).join('');
 }
 

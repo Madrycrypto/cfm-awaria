@@ -85,6 +85,11 @@ tbody td{padding:8px 12px;text-align:right;font-variant-numeric:tabular-nums;fon
 tbody td:first-child{text-align:left;font-weight:600}
 tbody tr:last-child td{border-bottom:none}
 tbody tr.today td{background:rgba(26,110,216,0.08)}
+/* Ostatnia kolumna (Inwentaryzacja) przypieta po prawej — na waskim
+   ekranie telefonu tabela ma wiecej kolumn niz sie miesci, a to wlasnie
+   ta kolumna (gdzie user wpisuje/widzi inwentaryzacje) musi byc zawsze
+   widoczna, zamiast liczyc na to, ze ktos przewinie do samego konca. */
+thead th:last-child,tbody td:last-child{position:sticky;right:0;background:var(--surface);box-shadow:-6px 0 6px -6px rgba(0,0,0,0.5)}
 .balance{font-weight:800;color:var(--text)}
 .recount{color:var(--blue-soft);font-weight:700}
 .diff-pos{color:#3fd17a}

@@ -385,8 +385,14 @@ function weekSummaryForGoods(byDate, fridayIso) {
   var weekStart = addDays(isoToDate(fridayIso), -6);
   var sumShip = 0, sumProd = 0, any = false;
   for (var i = 0; i < 7; i++) {
-    var r = byDate[toISO(addDays(weekStart, i))];
-    if (r) { sumShip += r.shipped || 0; sumProd += r.production || 0; any = true; }
+    var d = toISO(addDays(weekStart, i));
+    var r = byDate[d];
+    // Wysylki licz zawsze z PLANU, nie z tego co juz faktycznie wyjechalo —
+    // user nie ma wplywu na wysylki (to dane od klienta) i chce stabilny,
+    // znany cel tygodnia, a nie liczbe ktora rosnie w ciagu dnia w miare
+    // raportowania realnych wysylek. r.shipped (uzywane w walku salda) NADAL
+    // poprawnie miesza actual/plan — to dotyczy TYLKO tego podsumowania.
+    if (r) { sumShip += shipPlanForDay(d) || 0; sumProd += r.production || 0; any = true; }
   }
   return any ? { ship: sumShip, gp12: sumProd } : null;
 }

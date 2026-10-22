@@ -333,6 +333,21 @@ function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' +
 function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function isoToDate(iso) { var p = iso.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
 function isWeekend_(iso) { var wd = isoToDate(iso).getDay(); return wd === 0 || wd === 6; }
+// Suma Wysylek i produkcji GP12 (wyroby gotowe) za caly tydzien (pon-nd)
+// zawierajacy dany piatek — ten sam mechanizm co weekSummaryFor nizej dla
+// bufora chlodnic, ale na danych magazynu wyrobow gotowych (produkcja GP12
+// = to co faktycznie wyjezdza z GP12, wysylki = realne zamowienia), bo to
+// TUTAJ nalezy porownanie "wysylki vs produkcja", nie w buforze chlodnic
+// (ktory jest o jeden krok wczesniej w lancuchu i wysylek w ogole nie widzi).
+function weekSummaryForGoods(byDate, fridayIso) {
+  var monday = addDays(isoToDate(fridayIso), -4);
+  var sumShip = 0, sumProd = 0, any = false;
+  for (var i = 0; i < 7; i++) {
+    var r = byDate[toISO(addDays(monday, i))];
+    if (r) { sumShip += r.shipped || 0; sumProd += r.production || 0; any = true; }
+  }
+  return any ? { ship: sumShip, gp12: sumProd } : null;
+}
 // Progi podswietlania bufora chlodnic (kolumna "Bufor" / kafelek "Stan
 // dzisiaj (liczony)") — user chce widziec ostrzezenie zanim bufor faktycznie
 // spadnie do zera, nie dopiero kiedy jest juz na minusie.
@@ -481,6 +496,8 @@ function render(firstDate, todayISO) {
     out.push({ date: d, production: prod, shipped: ship, balance: running, counted: countToday, discrepancy: discrepancy, isFuture: isFuture });
   });
 
+  var byDateGoods = {};
+  out.forEach(function(r) { byDateGoods[r.date] = r; });
   var todayRow = out.filter(function(r) { return r.date === todayISO; })[0] || out[out.length - 1];
   var lastCountDate = firstDate;
   Object.keys(STATE.inventoryCounts).forEach(function(d) { if (d <= todayISO && d > lastCountDate) lastCountDate = d; });
@@ -502,8 +519,22 @@ function render(firstDate, todayISO) {
       out.slice().reverse().map(function(r) {
         var dd = r.date.split('-');
         var wd = isoToDate(r.date).getDay();
+        var isFriday = (wd + 6) % 7 === 4;
         var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (r.date === todayISO ? ' &#183; dziś' : '') +
           (r.isFuture ? ' <span class="tag plan">plan <span class="cn">&#183; 计划</span></span>' : '');
+        if (isFriday) {
+          var weekSum = weekSummaryForGoods(byDateGoods, r.date);
+          if (weekSum) {
+            // Zielony = produkcja GP12 w pelni pokrywa wysylki tego tygodnia,
+            // zolty = pokrywa 80-99%, czerwony = ponizej 80% — to samo
+            // kryterium co kiedys bylo (bledenie) w buforze chlodnic, teraz
+            // poprawnie na danych wyrobow gotowych.
+            var weekRatio = weekSum.ship > 0 ? weekSum.gp12 / weekSum.ship : 1;
+            var weeksumCls = weekRatio >= 1 ? 'wk-ok' : weekRatio >= 0.8 ? 'wk-warn' : 'wk-crit';
+            label += '<div class="weeksum ' + weeksumCls + '">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; GP12 ' + fmt(weekSum.gp12) + ' (bufor: ' + fmt(r.balance) + ')' +
+              '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; GP12 ' + fmt(weekSum.gp12) + ' &#183;（缓冲区：' + fmt(r.balance) + '）</span></div>';
+          }
+        }
         var countCell = r.counted === null ? '&#8212;' :
           '<span class="recount">' + fmt(r.counted) + '</span>' + (r.discrepancy !== null ? ' <span class="' + (r.discrepancy >= 0 ? 'diff-pos' : 'diff-neg') + '">(' + (r.discrepancy >= 0 ? '+' : '') + fmt(r.discrepancy) + ')</span>' : '') +
           ' <button type="button" class="count-del-btn" title="Usuń tę inwentaryzację" onclick="deleteInventoryCount(\'' + r.date + '\')">&#10005;</button>';
@@ -927,21 +958,6 @@ function solderMonthOptionsHtml() {
   }
   return opts.join('');
 }
-// Suma Wysylek i potrzeby GP12 za caly tydzien (pon-nd) zawierajacy dany
-// piatek — pokazywana TYLKO w wierszu piatku, jako doraznie podsumowanie
-// "ile w sumie na caly tydzien" bez liczenia recznie z 5-7 osobnych
-// wierszy. byDate pochodzi z pelnego, nieprzerwanego walku (patrz
-// computeSolderWalk), wiec ma dane nawet gdy tydzien przecina granice
-// miesiaca.
-function weekSummaryFor(byDate, fridayIso) {
-  var monday = addDays(isoToDate(fridayIso), -4);
-  var sumShip = 0, sumGp12 = 0, any = false;
-  for (var i = 0; i < 7; i++) {
-    var r = byDate[toISO(addDays(monday, i))];
-    if (r) { sumShip += r.shipPlan || 0; sumGp12 += r.zuzycie || 0; any = true; }
-  }
-  return any ? { ship: sumShip, gp12: sumGp12 } : null;
-}
 function renderSolderSection(firstDate) {
   STATE.solderFirstDate = firstDate;
   var cfg = getSolderConfig();
@@ -1008,28 +1024,8 @@ function renderSolderSection(firstDate) {
       (visible.length ? visible.map(function(r) {
         var dd = r.date.split('-');
         var wd = isoToDate(r.date).getDay();
-        var isFriday = (wd + 6) % 7 === 4;
         var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (r.isToday ? ' &#183; dziś' : '') +
           (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual <span class="cn">&#183; 实际</span>' : 'plan <span class="cn">&#183; 计划</span>') + '</span>');
-        if (chain && isFriday) {
-          var weekSum = weekSummaryFor(byDate, r.date);
-          if (weekSum) {
-            // Kolor PORÓWNUJE wprost te dwie liczby obok siebie (wysylki vs
-            // GP12), NIE poziom bufora przed GP12 — bufor moze byc zdrowy
-            // (bo nic z niego nie ubywa), a mimo to GP12 wcale nie nadaza z
-            // wysylkami (np. symulacja awarii GP12: zuzycie=0 ale wysylki
-            // dalej >0 — bufor rosnie/stoi, ale NIC sie nie wysle, wiec to
-            // musi byc czerwone). Zielony = GP12 w pelni pokrywa wysylki
-            // tego tygodnia, zolty = pokrywa 80-99%, czerwony = ponizej 80%.
-            var weekRatio = weekSum.ship > 0 ? weekSum.gp12 / weekSum.ship : 1;
-            var weeksumCls = weekRatio >= 1 ? 'wk-ok' : weekRatio >= 0.8 ? 'wk-warn' : 'wk-crit';
-            // Bufor (ile szt. realnie czeka PRZED GP12 na koniec tego tygodnia)
-            // podany jawnie w nawiasie — osobna liczba od samego porownania
-            // wysylki/GP12 powyzej, zeby bylo widac oba fakty na raz.
-            label += '<div class="weeksum ' + weeksumCls + '">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + ' (bufor: ' + fmt(r.balance) + ')' +
-              '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + ' &#183;（缓冲区：' + fmt(r.balance) + '）</span></div>';
-          }
-        }
         var balCls = balanceSeverity_(r.balance);
         // Czy wysylka tego dnia jest zapewniona: bufor na POCZATEK dnia
         // (r.balance, zanim doliczy sie dzisiejsza produkcja/zuzycie — tak

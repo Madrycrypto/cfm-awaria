@@ -998,13 +998,19 @@ function renderSolderSection(firstDate) {
           (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual <span class="cn">&#183; 实际</span>' : 'plan <span class="cn">&#183; 计划</span>') + '</span>');
         if (chain && isFriday) {
           var weekSum = weekSummaryFor(byDate, r.date);
-          // Kolor opisu tygodniowego wg poziomu bufora NA TEN piatek (ile
-          // chlodnic/core z GP12 realnie czeka) — osobne, wlasne progi (3000
-          // zielony / 2000 zolty / ponizej czerwony), inne niz te przy
-          // kolumnie Bufor (3000/1000) — user podal je tu wprost inaczej.
-          var weeksumCls = r.balance >= 3000 ? 'wk-ok' : r.balance >= 2000 ? 'wk-warn' : 'wk-crit';
-          if (weekSum) label += '<div class="weeksum ' + weeksumCls + '">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) +
-            '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + '</span></div>';
+          if (weekSum) {
+            // Kolor PORÓWNUJE wprost te dwie liczby obok siebie (wysylki vs
+            // GP12), NIE poziom bufora przed GP12 — bufor moze byc zdrowy
+            // (bo nic z niego nie ubywa), a mimo to GP12 wcale nie nadaza z
+            // wysylkami (np. symulacja awarii GP12: zuzycie=0 ale wysylki
+            // dalej >0 — bufor rosnie/stoi, ale NIC sie nie wysle, wiec to
+            // musi byc czerwone). Zielony = GP12 w pelni pokrywa wysylki
+            // tego tygodnia, zolty = pokrywa 80-99%, czerwony = ponizej 80%.
+            var weekRatio = weekSum.ship > 0 ? weekSum.gp12 / weekSum.ship : 1;
+            var weeksumCls = weekRatio >= 1 ? 'wk-ok' : weekRatio >= 0.8 ? 'wk-warn' : 'wk-crit';
+            label += '<div class="weeksum ' + weeksumCls + '">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) +
+              '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + '</span></div>';
+          }
         }
         var balCls = balanceSeverity_(r.balance);
         // Czy wysylka tego dnia jest zapewniona: bufor na POCZATEK dnia

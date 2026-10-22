@@ -458,20 +458,30 @@ function render(firstDate, todayISO) {
   var prodByDate = {};
   STATE.rows.forEach(function(r) { prodByDate[r.date] = (prodByDate[r.date] || 0) + (Number(r.ok_count) || 0); });
 
-  var days = enumerateDays(firstDate, todayISO);
+  // Tabela idzie do najblizszego piatku WLACZNIE (nie tylko do dzis) — zeby
+  // bylo widac stan magazynu JUZ PO odjeciu piatkowej wysylki, zanim ten
+  // dzien faktycznie sie odbedzie. Dni po dzisiejszym licza sie z Planu
+  // (produkcja GP12 + wysylki) zamiast z faktow, ktorych jeszcze fizycznie
+  // nie moze byc — ten sam mechanizm "fakt gdy jest, plan jako rezerwa" co w
+  // sekcji bufora chlodnic ponizej.
+  var friday = isoToDate(todayISO);
+  while (friday.getDay() !== 5) friday.setDate(friday.getDate() + 1);
+  var endIso = toISO(friday);
+  var days = enumerateDays(firstDate, endIso);
   var running = Number(STATE.inventoryCounts[firstDate]) || 0;
   var out = [];
   days.forEach(function(d, idx) {
-    var prod = prodByDate[d] || 0;
-    var ship = shippingActualFor(d);
+    var isFuture = d > todayISO;
+    var prod = prodByDate[d] !== undefined ? prodByDate[d] : (isFuture ? planSumForDay('GP12', d) : 0);
+    var ship = isFuture ? shipPlanForDay(d) : shippingActualFor(d);
     var countToday = STATE.inventoryCounts[d] !== undefined ? Number(STATE.inventoryCounts[d]) : null;
     var discrepancy = null;
     if (idx > 0) running += prod - ship;
     if (countToday !== null && idx > 0) { discrepancy = countToday - running; running = countToday; }
-    out.push({ date: d, production: prod, shipped: ship, balance: running, counted: countToday, discrepancy: discrepancy });
+    out.push({ date: d, production: prod, shipped: ship, balance: running, counted: countToday, discrepancy: discrepancy, isFuture: isFuture });
   });
 
-  var todayRow = out[out.length - 1];
+  var todayRow = out.filter(function(r) { return r.date === todayISO; })[0] || out[out.length - 1];
   var lastCountDate = firstDate;
   Object.keys(STATE.inventoryCounts).forEach(function(d) { if (d <= todayISO && d > lastCountDate) lastCountDate = d; });
   var daysSince = Math.round((isoToDate(todayISO) - isoToDate(lastCountDate)) / 86400000);
@@ -492,7 +502,8 @@ function render(firstDate, todayISO) {
       out.slice().reverse().map(function(r) {
         var dd = r.date.split('-');
         var wd = isoToDate(r.date).getDay();
-        var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (r.date === todayISO ? ' &#183; dziś' : '');
+        var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (r.date === todayISO ? ' &#183; dziś' : '') +
+          (r.isFuture ? ' <span class="tag plan">plan <span class="cn">&#183; 计划</span></span>' : '');
         var countCell = r.counted === null ? '&#8212;' :
           '<span class="recount">' + fmt(r.counted) + '</span>' + (r.discrepancy !== null ? ' <span class="' + (r.discrepancy >= 0 ? 'diff-pos' : 'diff-neg') + '">(' + (r.discrepancy >= 0 ? '+' : '') + fmt(r.discrepancy) + ')</span>' : '') +
           ' <button type="button" class="count-del-btn" title="Usuń tę inwentaryzację" onclick="deleteInventoryCount(\'' + r.date + '\')">&#10005;</button>';

@@ -583,9 +583,13 @@ function renderImpl_(firstDate, todayISO) {
             // Zielony = produkcja GP12 w pelni pokrywa wysylki tego tygodnia,
             // zolty = pokrywa 80-99%, czerwony = ponizej 80% — to samo
             // kryterium co kiedys bylo (bledenie) w buforze chlodnic, teraz
-            // poprawnie na danych wyrobow gotowych.
+            // poprawnie na danych wyrobow gotowych. Ale niezaleznie od tej
+            // proporcji: jesli magazyn na koniec tygodnia wychodzi na minus,
+            // to zawsze krytyczne (fizycznie nie ma czym wyslac), nawet gdy
+            // produkcja tego tygodnia sama w sobie pokrywala >80% wysylek —
+            // bo deficyt moze pochodzic z wczesniejszych tygodni.
             var weekRatio = weekSum.ship > 0 ? weekSum.gp12 / weekSum.ship : 1;
-            var weeksumCls = weekRatio >= 1 ? 'wk-ok' : weekRatio >= 0.8 ? 'wk-warn' : 'wk-crit';
+            var weeksumCls = r.balance < 0 ? 'wk-crit' : weekRatio >= 1 ? 'wk-ok' : weekRatio >= 0.8 ? 'wk-warn' : 'wk-crit';
             label += '<div class="weeksum ' + weeksumCls + '">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; GP12 ' + fmt(weekSum.gp12) + ' (magazyn: ' + fmt(r.balance) + ')' +
               '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; GP12 ' + fmt(weekSum.gp12) + ' &#183;（仓库：' + fmt(r.balance) + '）</span></div>';
           }
@@ -1096,7 +1100,7 @@ function renderSolderSectionImpl_(firstDate) {
           if (weekSumGoods) {
             var goodsRow = goodsWalk.byDate[r.date];
             var weekRatioGoods = weekSumGoods.ship > 0 ? weekSumGoods.gp12 / weekSumGoods.ship : 1;
-            var weeksumClsGoods = weekRatioGoods >= 1 ? 'wk-ok' : weekRatioGoods >= 0.8 ? 'wk-warn' : 'wk-crit';
+            var weeksumClsGoods = goodsRow.balance < 0 ? 'wk-crit' : weekRatioGoods >= 1 ? 'wk-ok' : weekRatioGoods >= 0.8 ? 'wk-warn' : 'wk-crit';
             label += '<div class="weeksum ' + weeksumClsGoods + '">Tydz.: wysyłki ' + fmt(weekSumGoods.ship) + ' &#183; GP12 ' + fmt(weekSumGoods.gp12) + ' (magazyn: ' + fmt(goodsRow.balance) + ')' +
               '<span class="cn"> &#183; 本周：发运' + fmt(weekSumGoods.ship) + ' &#183; GP12 ' + fmt(weekSumGoods.gp12) + ' &#183;（仓库：' + fmt(goodsRow.balance) + '）</span></div>';
           }

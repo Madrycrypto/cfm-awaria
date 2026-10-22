@@ -348,6 +348,18 @@ function weekSummaryForGoods(byDate, fridayIso) {
   }
   return any ? { ship: sumShip, gp12: sumProd } : null;
 }
+// To samo, ale na danych bufora chlodnic (tryb lancucha): Wysylki (plan) vs
+// potrzeba GP12 Z TEGO bufora — osobna liczba bufora od tej w wyrobach
+// gotowych (weekSummaryForGoods), bo to inny magazyn w lancuchu.
+function weekSummaryForSolder(byDate, fridayIso) {
+  var monday = addDays(isoToDate(fridayIso), -4);
+  var sumShip = 0, sumGp12 = 0, any = false;
+  for (var i = 0; i < 7; i++) {
+    var r = byDate[toISO(addDays(monday, i))];
+    if (r) { sumShip += r.shipPlan || 0; sumGp12 += r.zuzycie || 0; any = true; }
+  }
+  return any ? { ship: sumShip, gp12: sumGp12 } : null;
+}
 // Progi podswietlania bufora chlodnic (kolumna "Bufor" / kafelek "Stan
 // dzisiaj (liczony)") — user chce widziec ostrzezenie zanim bufor faktycznie
 // spadnie do zera, nie dopiero kiedy jest juz na minusie.
@@ -1024,8 +1036,18 @@ function renderSolderSection(firstDate) {
       (visible.length ? visible.map(function(r) {
         var dd = r.date.split('-');
         var wd = isoToDate(r.date).getDay();
+        var isFriday = (wd + 6) % 7 === 4;
         var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (r.isToday ? ' &#183; dziś' : '') +
           (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual <span class="cn">&#183; 实际</span>' : 'plan <span class="cn">&#183; 计划</span>') + '</span>');
+        if (chain && isFriday) {
+          var weekSumSolder = weekSummaryForSolder(byDate, r.date);
+          if (weekSumSolder) {
+            var weekRatioSolder = weekSumSolder.ship > 0 ? weekSumSolder.gp12 / weekSumSolder.ship : 1;
+            var weeksumClsSolder = weekRatioSolder >= 1 ? 'wk-ok' : weekRatioSolder >= 0.8 ? 'wk-warn' : 'wk-crit';
+            label += '<div class="weeksum ' + weeksumClsSolder + '">Tydz.: wysyłki ' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' (bufor: ' + fmt(r.balance) + ')' +
+              '<span class="cn"> &#183; 本周：发运' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' &#183;（缓冲区：' + fmt(r.balance) + '）</span></div>';
+          }
+        }
         var balCls = balanceSeverity_(r.balance);
         // Czy wysylka tego dnia jest zapewniona: bufor na POCZATEK dnia
         // (r.balance, zanim doliczy sie dzisiejsza produkcja/zuzycie — tak

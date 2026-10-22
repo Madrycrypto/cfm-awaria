@@ -20,12 +20,12 @@
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
 body{padding-bottom:60px}
-.wrap{max-width:1000px;margin:0 auto;padding:0 20px}
+.wrap{max-width:1600px;margin:0 auto;padding:0 20px}
 .cn{font-family:var(--fc);color:var(--faint);font-weight:400}
 ::selection{background:var(--blue);color:#fff}
 
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
-.topbar-inner{max-width:1000px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.topbar-inner{max-width:1600px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .logo{font-family:var(--fh);font-weight:900;font-size:22px;letter-spacing:0.5px;display:flex;align-items:center;gap:8px}
 .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--blue)}
 .crumb{font-size:13px;color:var(--muted)}
@@ -356,12 +356,13 @@ var STATE = { inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, rows: [
 function withPreservedScroll_(containerId, renderFn) {
   var container = document.getElementById(containerId);
   var innerScroll = container ? container.querySelector('.tablescroll') : null;
-  var savedInner = innerScroll ? innerScroll.scrollTop : null;
+  var savedTop = innerScroll ? innerScroll.scrollTop : null;
+  var savedLeft = innerScroll ? innerScroll.scrollLeft : null;
   var savedPage = window.scrollY;
   renderFn();
-  if (savedInner !== null) {
+  if (savedTop !== null) {
     var newInner = document.getElementById(containerId).querySelector('.tablescroll');
-    if (newInner) newInner.scrollTop = savedInner;
+    if (newInner) { newInner.scrollTop = savedTop; newInner.scrollLeft = savedLeft; }
   }
   window.scrollTo(window.scrollX, savedPage);
 }

@@ -357,18 +357,6 @@ function weekSummaryForGoods(byDate, fridayIso) {
   }
   return any ? { ship: sumShip, gp12: sumProd } : null;
 }
-// To samo, ale na danych bufora chlodnic (tryb lancucha): Wysylki (plan) vs
-// potrzeba GP12 Z TEGO bufora — osobna liczba bufora od tej w wyrobach
-// gotowych (weekSummaryForGoods), bo to inny magazyn w lancuchu.
-function weekSummaryForSolder(byDate, fridayIso) {
-  var monday = addDays(isoToDate(fridayIso), -4);
-  var sumShip = 0, sumGp12 = 0, any = false;
-  for (var i = 0; i < 7; i++) {
-    var r = byDate[toISO(addDays(monday, i))];
-    if (r) { sumShip += r.shipPlan || 0; sumGp12 += r.zuzycie || 0; any = true; }
-  }
-  return any ? { ship: sumShip, gp12: sumGp12 } : null;
-}
 // Progi podswietlania bufora chlodnic (kolumna "Bufor" / kafelek "Stan
 // dzisiaj (liczony)") — user chce widziec ostrzezenie zanim bufor faktycznie
 // spadnie do zera, nie dopiero kiedy jest juz na minusie.
@@ -490,10 +478,39 @@ function renderNoBaseline() {
   wireForm();
 }
 
-function render(firstDate, todayISO) {
+// Walk magazynu wyrobow gotowych — wydzielony z render(), zeby mogla go
+// wywolac TEZ sekcja bufora chlodnic (renderSolderSection), bo symulacja
+// "co jesli" wpisana tam (GP12 potrzeba = ile GP12 skonsumuje chlodnic)
+// jest FIZYCZNIE tym samym zdarzeniem co produkcja GP12 tutaj (chlodnica
+// skonsumowana przez GP12 = w tej samej chwili gotowy wyrob wyprodukowany)
+// — user chce wiec widziec w symulacji chlodnic efekt na magazynie
+// wyrobow gotowych, nie osobny "stan chlodnic".
+function computeGoodsWalk(firstDate, endIso, todayISO) {
   var prodByDate = {};
   STATE.rows.forEach(function(r) { prodByDate[r.date] = (prodByDate[r.date] || 0) + (Number(r.ok_count) || 0); });
-
+  var days = enumerateDays(firstDate, endIso);
+  var running = Number(STATE.inventoryCounts[firstDate]) || 0;
+  var out = [];
+  days.forEach(function(d, idx) {
+    var isFuture = d > todayISO;
+    // Nadpisanie GP12 (potrzeba) w symulacji bufora chlodnic = nadpisanie
+    // produkcji GP12 tutaj (patrz komentarz wyzej) — stosowane TYLKO gdy
+    // nie ma jeszcze prawdziwego raportu, tak jak kazde inne "co jesli".
+    var ov = STATE.solderOverrides[d];
+    var chainOverride = (ov && ov.zuzycie !== undefined) ? ov.zuzycie : undefined;
+    var prod = prodByDate[d] !== undefined ? prodByDate[d] : (chainOverride !== undefined ? chainOverride : (isFuture ? planSumForDay('GP12', d) : 0));
+    var ship = isFuture ? shipPlanForDay(d) : shippingActualFor(d);
+    var countToday = STATE.inventoryCounts[d] !== undefined ? Number(STATE.inventoryCounts[d]) : null;
+    var discrepancy = null;
+    if (idx > 0) running += prod - ship;
+    if (countToday !== null && idx > 0) { discrepancy = countToday - running; running = countToday; }
+    out.push({ date: d, production: prod, shipped: ship, balance: running, counted: countToday, discrepancy: discrepancy, isFuture: isFuture });
+  });
+  var byDate = {};
+  out.forEach(function(r) { byDate[r.date] = r; });
+  return { out: out, byDate: byDate };
+}
+function render(firstDate, todayISO) {
   // Tabela idzie do najblizszego piatku WLACZNIE (nie tylko do dzis) — zeby
   // bylo widac stan magazynu JUZ PO odjeciu piatkowej wysylki, zanim ten
   // dzien faktycznie sie odbedzie. Dni po dzisiejszym licza sie z Planu
@@ -503,22 +520,9 @@ function render(firstDate, todayISO) {
   var friday = isoToDate(todayISO);
   while (friday.getDay() !== 5) friday.setDate(friday.getDate() + 1);
   var endIso = toISO(friday);
-  var days = enumerateDays(firstDate, endIso);
-  var running = Number(STATE.inventoryCounts[firstDate]) || 0;
-  var out = [];
-  days.forEach(function(d, idx) {
-    var isFuture = d > todayISO;
-    var prod = prodByDate[d] !== undefined ? prodByDate[d] : (isFuture ? planSumForDay('GP12', d) : 0);
-    var ship = isFuture ? shipPlanForDay(d) : shippingActualFor(d);
-    var countToday = STATE.inventoryCounts[d] !== undefined ? Number(STATE.inventoryCounts[d]) : null;
-    var discrepancy = null;
-    if (idx > 0) running += prod - ship;
-    if (countToday !== null && idx > 0) { discrepancy = countToday - running; running = countToday; }
-    out.push({ date: d, production: prod, shipped: ship, balance: running, counted: countToday, discrepancy: discrepancy, isFuture: isFuture });
-  });
-
-  var byDateGoods = {};
-  out.forEach(function(r) { byDateGoods[r.date] = r; });
+  var walk = computeGoodsWalk(firstDate, endIso, todayISO);
+  var out = walk.out, byDateGoods = walk.byDate;
+  STATE.goodsFirstDate = firstDate;
   var todayRow = out.filter(function(r) { return r.date === todayISO; })[0] || out[out.length - 1];
   var lastCountDate = firstDate;
   Object.keys(STATE.inventoryCounts).forEach(function(d) { if (d <= todayISO && d > lastCountDate) lastCountDate = d; });
@@ -1048,22 +1052,22 @@ function renderSolderSection(firstDate) {
         var isFriday = (wd + 6) % 7 === 4;
         var label = DAY_LABELS[(wd + 6) % 7] + ' <span class="cn">' + DAY_LABELS_CN[(wd + 6) % 7] + '</span> ' + dd[2] + '/' + dd[1] + (r.isToday ? ' &#183; dziś' : '') +
           (r.date === firstDate ? '' : ' <span class="tag ' + (r.isActual ? 'actual' : 'plan') + '">' + (r.isActual ? 'actual <span class="cn">&#183; 实际</span>' : 'plan <span class="cn">&#183; 计划</span>') + '</span>');
-        if (chain && isFriday) {
-          var weekSumSolder = weekSummaryForSolder(byDate, r.date);
-          if (weekSumSolder) {
-            var weekRatioSolder = weekSumSolder.ship > 0 ? weekSumSolder.gp12 / weekSumSolder.ship : 1;
-            var weeksumClsSolder = weekRatioSolder >= 1 ? 'wk-ok' : weekRatioSolder >= 0.8 ? 'wk-warn' : 'wk-crit';
-            // r.balance to stan na POCZATEK piatku (tryb domyslny pokazuje
-            // efekt dnia dopiero NASTEPNEGO dnia — patrz komentarz przy
-            // computeSolderWalk) — wiec NIE zawiera jeszcze piatkowej wlasnej
-            // produkcji/zuzycia. Tu celowo doliczamy ten efekt (niezaleznie od
-            // globalnego przelacznika "efekt tego samego dnia"), bo ten
-            // konkretny numerek ma pokazywac stan PO zakonczeniu piatku, nie
-            // przed nim — inaczej nie zgadza sie z recznym liczeniem na
-            // koniec tygodnia.
-            var fridayEndBalance = STATE.sameDayMode ? r.balance : (r.balance + r.produkcja - r.zuzycie);
-            label += '<div class="weeksum ' + weeksumClsSolder + '">Tydz.: wysyłki ' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' (stan chłodnic: ' + fmt(fridayEndBalance) + ')' +
-              '<span class="cn"> &#183; 本周：发运' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' &#183;（散热器库存：' + fmt(fridayEndBalance) + '）</span></div>';
+        // User chce w tej symulacji widziec efekt na magazynie WYROBOW
+        // GOTOWYCH, nie "stan chlodnic" — bo to co tu wpisuje (GP12
+        // potrzeba) to fizycznie ta sama produkcja GP12, ktora w gornej
+        // tabeli liczy sie jako "Produkcja GP12". computeGoodsWalk()
+        // automatycznie bierze te same nadpisania "co jesli" (patrz jej
+        // komentarz), wiec liczba tutaj zawsze odzwierciedla to, co user
+        // aktualnie symuluje w tej tabeli.
+        if (chain && isFriday && STATE.goodsFirstDate) {
+          var goodsWalk = computeGoodsWalk(STATE.goodsFirstDate, r.date, todayISO);
+          var weekSumGoods = weekSummaryForGoods(goodsWalk.byDate, r.date);
+          if (weekSumGoods) {
+            var goodsRow = goodsWalk.byDate[r.date];
+            var weekRatioGoods = weekSumGoods.ship > 0 ? weekSumGoods.gp12 / weekSumGoods.ship : 1;
+            var weeksumClsGoods = weekRatioGoods >= 1 ? 'wk-ok' : weekRatioGoods >= 0.8 ? 'wk-warn' : 'wk-crit';
+            label += '<div class="weeksum ' + weeksumClsGoods + '">Tydz.: wysyłki ' + fmt(weekSumGoods.ship) + ' &#183; GP12 ' + fmt(weekSumGoods.gp12) + ' (magazyn: ' + fmt(goodsRow.balance) + ')' +
+              '<span class="cn"> &#183; 本周：发运' + fmt(weekSumGoods.ship) + ' &#183; GP12 ' + fmt(weekSumGoods.gp12) + ' &#183;（仓库：' + fmt(goodsRow.balance) + '）</span></div>';
           }
         }
         var balCls = balanceSeverity_(r.balance);

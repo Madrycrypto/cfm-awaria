@@ -126,13 +126,13 @@ tbody tr.warn td{background:rgba(240,192,48,0.1)}
 .balance.neg{color:var(--red)}
 .balance.ok{color:#3fd17a}
 .balance.warn{color:#f0c030}
-.configrow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:16px}
-.configrow .field input{width:180px}
-.configrow .hint{font-size:11px;color:var(--faint)}
-.cfg-stations{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
-.cfg-groups{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
-.cfg-group{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
-.cfg-group .grouplbl{flex-basis:100%;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em}
+.configrow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:16px;max-width:720px}
+.configrow .field input{width:160px}
+.configrow .hint{font-size:11px;color:var(--faint);margin-top:6px}
+.cfg-stations{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.cfg-groups{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.cfg-group{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.cfg-group .grouplbl{flex-basis:100%;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px}
 .cfgdetails{margin-bottom:16px}
 .cfgdetails summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:8px 2px;list-style:none;display:flex;align-items:center;gap:6px}
 .cfgdetails summary::-webkit-details-marker{display:none}
@@ -948,13 +948,12 @@ function solderConfigHtml(cfg) {
     '<div class="cfg-groups">' +
       '<div class="cfg-group"><div class="grouplbl">' + cfg.produkcja + ' &#8212; partia produkcji <span class="cn">&#183; 生产批量</span></div>' +
         '<div class="field"><label>Min <span class="cn">&#183; 最小值</span></label><input type="number" min="0" id="cfgBatchMin" value="' + (cfg.batchMin || '') + '" placeholder="np. 2500"></div>' +
-        '<div class="field"><label>Max <span class="cn">&#183; 最大值</span></label><input type="number" min="0" id="cfgBatchMax" value="' + (cfg.batchMax || '') + '" placeholder="np. 2700"></div>' +
       '</div>' +
-      '<div class="cfg-group"><div class="grouplbl">' + cfg.zuzycie + ' &#8212; maks. dzienny <span class="cn">&#183; 每日最大产量</span></div>' +
-        '<div class="field"><label>Max <span class="cn">&#183; 最大值</span></label><input type="number" min="0" id="cfgGp12DailyMax" value="' + (cfg.gp12DailyMax || '') + '" placeholder="np. 1320"></div>' +
+      '<div class="cfg-group"><div class="grouplbl">' + cfg.zuzycie + ' &#8212; dzienny <span class="cn">&#183; 每日产量</span></div>' +
+        '<div class="field"><label>Min <span class="cn">&#183; 最小值</span></label><input type="number" min="0" id="cfgGp12DailyMax" value="' + (cfg.gp12DailyMax || '') + '" placeholder="np. 1320"></div>' +
       '</div>' +
     '</div>' +
-    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan <span class="cn">&#183; 请输入与管理面板中完全一致的工位名称</span><br>Partia produkcji (opcjonalnie): jeśli stanowisko produkcji lutuje TYLKO pełnymi partiami (np. 2500&#8211;2700 szt., nigdy mniej), wpisz tu ten zakres — tryb "Licz potrzebę od Wysyłek" będzie wtedy planował całe partie zamiast dowolnych ilości. Puste = bez ograniczenia. <span class="cn">&#183; 生产批量（可选）：如果生产工位只能整批生产（如</span>2500&#8211;2700件，不能更少），请在此填写范围 — "按发运计算需求"模式将按整批规划，而非任意数量。留空表示不限制。<br>Maks. dzienny (opcjonalnie): realna górna granica tego, ile stanowisko zużycia (np. GP12) fizycznie wyrobi w ciągu jednego dnia — "potrzeba" liczona od Wysyłek nigdy nie przekroczy tej liczby, nadwyżka automatycznie przechodzi na kolejny dzień. Puste = bez ograniczenia. <span class="cn">&#183; 每日最大产量（可选）：消耗工位（如GP12）一天内实际能完成的上限 — 按发运计算的"需求"永远不会超过此数值，超出部分自动转入次日。留空表示不限制。</span></div>' +
+    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan <span class="cn">&#183; 请输入与管理面板中完全一致的工位名称</span><br>' + cfg.produkcja + ' partia (opcjonalnie): minimalna wielkość pełnej partii lutowania. Puste = bez ograniczenia. <span class="cn">&#183; ' + cfg.produkcja + '批量（可选）：焊接的最小整批数量。留空表示不限制。</span><br>' + cfg.zuzycie + ' dzienny (opcjonalnie): ile ' + cfg.zuzycie + ' realnie wyrabia w ciągu jednego dnia. Puste = bez ograniczenia. <span class="cn">&#183; ' + cfg.zuzycie + '每日（可选）：' + cfg.zuzycie + '一天内实际产量。留空表示不限制。</span></div>' +
   '</div>';
 }
 function solderFormHtml() {
@@ -972,7 +971,6 @@ function wireSolderConfig() {
       produkcja: document.getElementById('cfgProdukcja').value.trim() || 'Lutowanie',
       zuzycie: document.getElementById('cfgZuzycie').value.trim() || 'GP12',
       batchMin: Number(document.getElementById('cfgBatchMin').value) || 0,
-      batchMax: Number(document.getElementById('cfgBatchMax').value) || 0,
       gp12DailyMax: Number(document.getElementById('cfgGp12DailyMax').value) || 0,
     };
     saveSolderConfig(cfg);

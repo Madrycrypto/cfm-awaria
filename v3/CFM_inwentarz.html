@@ -126,13 +126,12 @@ tbody tr.warn td{background:rgba(240,192,48,0.1)}
 .balance.neg{color:var(--red)}
 .balance.ok{color:#3fd17a}
 .balance.warn{color:#f0c030}
-.configrow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:16px;max-width:720px}
-.configrow .field input{width:160px}
-.configrow .hint{font-size:11px;color:var(--faint);margin-top:6px}
-.cfg-stations{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
-.cfg-groups{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
-.cfg-group{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
-.cfg-group .grouplbl{flex-basis:100%;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px}
+.configrow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin-bottom:16px;width:fit-content;max-width:100%}
+.configrow .field{gap:3px}
+.configrow .field input{width:110px}
+.configrow .field label{font-size:10px;white-space:nowrap}
+.configrow .hint{font-size:10.5px;color:var(--faint);margin-top:6px;max-width:600px}
+.cfg-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 .cfgdetails{margin-bottom:16px}
 .cfgdetails summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:8px 2px;list-style:none;display:flex;align-items:center;gap:6px}
 .cfgdetails summary::-webkit-details-marker{display:none}
@@ -940,20 +939,14 @@ function computeSolderWalk(firstDate, endIso, cfg) {
 }
 function solderConfigHtml(cfg) {
   return '<div class="configrow">' +
-    '<div class="cfg-stations">' +
-      '<div class="field"><label>Stanowisko - produkcja (lutowanie) <span class="cn">&#183; 生产工位（焊接）</span></label><input type="text" id="cfgProdukcja" value="' + cfg.produkcja + '"></div>' +
-      '<div class="field"><label>Stanowisko - zużycie (montaż) <span class="cn">&#183; 消耗工位（装配）</span></label><input type="text" id="cfgZuzycie" value="' + cfg.zuzycie + '"></div>' +
-      '<button type="button" class="btn-save" id="btnSaveSolderCfg">Zapisz nazwy<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存名称</small></button>' +
+    '<div class="cfg-row">' +
+      '<div class="field"><label>Stanowisko produkcja <span class="cn">&#183; 生产工位</span></label><input type="text" id="cfgProdukcja" value="' + cfg.produkcja + '"></div>' +
+      '<div class="field"><label>Stanowisko zużycie <span class="cn">&#183; 消耗工位</span></label><input type="text" id="cfgZuzycie" value="' + cfg.zuzycie + '"></div>' +
+      '<div class="field"><label>' + cfg.produkcja + ' partia min <span class="cn">&#183; 批量最小值</span></label><input type="number" min="0" id="cfgBatchMin" value="' + (cfg.batchMin || '') + '" placeholder="np. 2500"></div>' +
+      '<div class="field"><label>' + cfg.zuzycie + ' dzienny min <span class="cn">&#183; 每日最小值</span></label><input type="number" min="0" id="cfgGp12DailyMax" value="' + (cfg.gp12DailyMax || '') + '" placeholder="np. 1320"></div>' +
+      '<button type="button" class="btn-save" id="btnSaveSolderCfg">Zapisz<br><small style="font-family:var(--fb);font-weight:400;text-transform:none">保存</small></button>' +
     '</div>' +
-    '<div class="cfg-groups">' +
-      '<div class="cfg-group"><div class="grouplbl">' + cfg.produkcja + ' &#8212; partia produkcji <span class="cn">&#183; 生产批量</span></div>' +
-        '<div class="field"><label>Min <span class="cn">&#183; 最小值</span></label><input type="number" min="0" id="cfgBatchMin" value="' + (cfg.batchMin || '') + '" placeholder="np. 2500"></div>' +
-      '</div>' +
-      '<div class="cfg-group"><div class="grouplbl">' + cfg.zuzycie + ' &#8212; dzienny <span class="cn">&#183; 每日产量</span></div>' +
-        '<div class="field"><label>Min <span class="cn">&#183; 最小值</span></label><input type="number" min="0" id="cfgGp12DailyMax" value="' + (cfg.gp12DailyMax || '') + '" placeholder="np. 1320"></div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="hint">Wpisz TU dokładnie te same nazwy stanowisk, co w Panelu Admina → Stanowiska/Plan <span class="cn">&#183; 请输入与管理面板中完全一致的工位名称</span><br>' + cfg.produkcja + ' partia (opcjonalnie): minimalna wielkość pełnej partii lutowania. Puste = bez ograniczenia. <span class="cn">&#183; ' + cfg.produkcja + '批量（可选）：焊接的最小整批数量。留空表示不限制。</span><br>' + cfg.zuzycie + ' dzienny (opcjonalnie): ile ' + cfg.zuzycie + ' realnie wyrabia w ciągu jednego dnia. Puste = bez ograniczenia. <span class="cn">&#183; ' + cfg.zuzycie + '每日（可选）：' + cfg.zuzycie + '一天内实际产量。留空表示不限制。</span></div>' +
+    '<div class="hint">Nazwy stanowisk — takie same jak w Panelu Admina → Stanowiska/Plan. Oba pola ilościowe opcjonalne, puste = bez ograniczenia. <span class="cn">&#183; 工位名称需与管理面板一致。数量字段均为可选，留空表示不限制。</span></div>' +
   '</div>';
 }
 function solderFormHtml() {

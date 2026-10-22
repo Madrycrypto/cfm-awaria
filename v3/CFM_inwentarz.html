@@ -130,6 +130,7 @@ tbody tr.warn td{background:rgba(240,192,48,0.1)}
 .cellinput:hover{border-color:var(--border)}
 .cellinput:focus{border-color:var(--blue-soft);outline:none;background:var(--surface-2)}
 .cellinput.overridden{color:#f0a030;border-color:rgba(240,160,48,0.4);background:rgba(240,160,48,0.08)}
+.cellinput.atrisk{color:#ff7070;border-color:rgba(217,43,43,0.5);background:rgba(217,43,43,0.12)}
 .togglerow{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .togglerow .chaintoggle{flex:1 1 260px;margin-bottom:0}
 .chaintoggle{display:block;font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;cursor:pointer;line-height:1.5}
@@ -998,7 +999,14 @@ function renderSolderSection(firstDate) {
             '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + '</span></div>';
         }
         var balCls = balanceSeverity_(r.balance);
-        var prodCell = '<input type="number" class="cellinput' + (r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
+        // Czy wysylka tego dnia jest zapewniona: bufor na POCZATEK dnia
+        // (r.balance, zanim doliczy sie dzisiejsza produkcja/zuzycie — tak
+        // dziala walk w trybie domyslnym) + dzisiejsza produkcja musi
+        // pokryc dzisiejsza potrzebe (r.zuzycie). Jesli nie — czerwona
+        // ramka na komorce Produkcja, zeby bylo widac PRZY TYM dniu, nie
+        // dopiero jutro jak saldo spadnie ponizej zera.
+        var shipmentAtRisk = chain && (r.balance + r.produkcja) < r.zuzycie;
+        var prodCell = '<input type="number" class="cellinput' + (shipmentAtRisk ? ' atrisk' : r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
         var useCell = '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
         var shipCell = chain ? '<td class="shipcell">' + fmt(r.shipPlan) + '</td>' : '';
         var countedVal = STATE.solderInventoryCounts[r.date];

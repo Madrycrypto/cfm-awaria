@@ -1007,7 +1007,12 @@ function renderSolderSection(firstDate) {
         // dopiero jutro jak saldo spadnie ponizej zera.
         var shipmentAtRisk = chain && (r.balance + r.produkcja) < r.zuzycie;
         var prodCell = '<input type="number" class="cellinput' + (shipmentAtRisk ? ' atrisk' : r.overrideProd ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="produkcja" value="' + r.produkcja + '">';
-        var useCell = '<input type="number" class="cellinput' + (r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
+        // Ta sama czerwona flaga co w Produkcji — jesli ktos symuluje "co
+        // jesli" wpisujac Zuzycie recznie, a wynikowy bilans (bufor+
+        // produkcja) tego nie pokrywa, ta komorka tez ma byc czerwona, nie
+        // pomaranczowa — zeby bylo widac PRZY KTOREJ liczbie user cos zmienil
+        // problem, a nie tylko w Produkcji.
+        var useCell = '<input type="number" class="cellinput' + (shipmentAtRisk ? ' atrisk' : r.overrideUse ? ' overridden' : '') + '" data-date="' + r.date + '" data-role="zuzycie" value="' + r.zuzycie + '">';
         var shipCell = chain ? '<td class="shipcell">' + fmt(r.shipPlan) + '</td>' : '';
         var countedVal = STATE.solderInventoryCounts[r.date];
         var countCell = countedVal === undefined ? '&#8212;' :

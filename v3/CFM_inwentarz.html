@@ -77,7 +77,9 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .btn-save:hover{filter:brightness(1.1)}
 
 .tablewrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.tablescroll{overflow-x:auto}
+.tablescroll{overflow-x:auto;max-height:560px;overflow-y:auto}
+.tablescroll thead th{position:sticky;top:0;z-index:3;background:var(--surface)}
+.tablescroll thead th:first-child,.tablescroll thead th:last-child{z-index:4}
 table{border-collapse:collapse;width:100%;min-width:600px}
 thead th{font-family:var(--fb);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);text-align:right;padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
 thead th:first-child{text-align:left}

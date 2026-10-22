@@ -543,8 +543,8 @@ function render(firstDate, todayISO) {
             // poprawnie na danych wyrobow gotowych.
             var weekRatio = weekSum.ship > 0 ? weekSum.gp12 / weekSum.ship : 1;
             var weeksumCls = weekRatio >= 1 ? 'wk-ok' : weekRatio >= 0.8 ? 'wk-warn' : 'wk-crit';
-            label += '<div class="weeksum ' + weeksumCls + '">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; GP12 ' + fmt(weekSum.gp12) + ' (bufor: ' + fmt(r.balance) + ')' +
-              '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; GP12 ' + fmt(weekSum.gp12) + ' &#183;（缓冲区：' + fmt(r.balance) + '）</span></div>';
+            label += '<div class="weeksum ' + weeksumCls + '">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; GP12 ' + fmt(weekSum.gp12) + ' (magazyn: ' + fmt(r.balance) + ')' +
+              '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; GP12 ' + fmt(weekSum.gp12) + ' &#183;（仓库：' + fmt(r.balance) + '）</span></div>';
           }
         }
         var countCell = r.counted === null ? '&#8212;' :
@@ -1044,8 +1044,17 @@ function renderSolderSection(firstDate) {
           if (weekSumSolder) {
             var weekRatioSolder = weekSumSolder.ship > 0 ? weekSumSolder.gp12 / weekSumSolder.ship : 1;
             var weeksumClsSolder = weekRatioSolder >= 1 ? 'wk-ok' : weekRatioSolder >= 0.8 ? 'wk-warn' : 'wk-crit';
-            label += '<div class="weeksum ' + weeksumClsSolder + '">Tydz.: wysyłki ' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' (bufor: ' + fmt(r.balance) + ')' +
-              '<span class="cn"> &#183; 本周：发运' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' &#183;（缓冲区：' + fmt(r.balance) + '）</span></div>';
+            // r.balance to stan na POCZATEK piatku (tryb domyslny pokazuje
+            // efekt dnia dopiero NASTEPNEGO dnia — patrz komentarz przy
+            // computeSolderWalk) — wiec NIE zawiera jeszcze piatkowej wlasnej
+            // produkcji/zuzycia. Tu celowo doliczamy ten efekt (niezaleznie od
+            // globalnego przelacznika "efekt tego samego dnia"), bo ten
+            // konkretny numerek ma pokazywac stan PO zakonczeniu piatku, nie
+            // przed nim — inaczej nie zgadza sie z recznym liczeniem na
+            // koniec tygodnia.
+            var fridayEndBalance = STATE.sameDayMode ? r.balance : (r.balance + r.produkcja - r.zuzycie);
+            label += '<div class="weeksum ' + weeksumClsSolder + '">Tydz.: wysyłki ' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' (magazyn: ' + fmt(fridayEndBalance) + ')' +
+              '<span class="cn"> &#183; 本周：发运' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' &#183;（仓库：' + fmt(fridayEndBalance) + '）</span></div>';
           }
         }
         var balCls = balanceSeverity_(r.balance);

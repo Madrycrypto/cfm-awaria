@@ -90,6 +90,10 @@ tbody tr.today td{background:rgba(26,110,216,0.08)}
    ta kolumna (gdzie user wpisuje/widzi inwentaryzacje) musi byc zawsze
    widoczna, zamiast liczyc na to, ze ktos przewinie do samego konca. */
 thead th:last-child,tbody td:last-child{position:sticky;right:0;background:var(--surface);box-shadow:-6px 0 6px -6px rgba(0,0,0,0.5)}
+/* Pierwsza kolumna (Dzien) przypieta po lewej z tego samego powodu — przy
+   przewijaniu w prawo (zeby zobaczyc Zuzycie/Produkcje/Bufor) user tracil
+   z oczu, ktorego dnia dotyczy dany wiersz. */
+thead th:first-child,tbody td:first-child{position:sticky;left:0;background:var(--surface);box-shadow:6px 0 6px -6px rgba(0,0,0,0.5);z-index:1}
 .balance{font-weight:800;color:var(--text)}
 .recount{color:var(--blue-soft);font-weight:700}
 .diff-pos{color:#3fd17a}

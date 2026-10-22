@@ -127,6 +127,13 @@ tbody tr.warn td{background:rgba(240,192,48,0.1)}
 .configrow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
 .configrow .field input{width:180px}
 .configrow .hint{font-size:11px;color:var(--faint);flex-basis:100%}
+.cfgdetails{margin-bottom:16px}
+.cfgdetails summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:8px 2px;list-style:none;display:flex;align-items:center;gap:6px}
+.cfgdetails summary::-webkit-details-marker{display:none}
+.cfgdetails summary::before{content:'\25B8';display:inline-block;transition:transform .15s}
+.cfgdetails[open] summary::before{transform:rotate(90deg)}
+.cfgdetails .configrow{margin-top:8px;margin-bottom:0}
+.cfgdetails:not([open]) .configrow{display:none}
 .monthnav{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;margin-bottom:14px}
 .monthnav button{background:none;border:none;color:var(--muted);font-size:18px;padding:6px 14px;cursor:pointer;border-radius:8px;font-family:var(--fh)}
 .monthnav button:hover{color:var(--text);background:var(--surface-2)}
@@ -1013,7 +1020,7 @@ function renderSolderSection(firstDate) {
     '<div class="section"><div class="section-head"><h2>Bufor chłodnic zlutowanych<span class="cn">已焊接散热器缓冲区</span></h2></div>' +
     '<div class="hero"><span class="n" style="color:' + heroColor + '">' + heroText + '</span></div>' +
     '<div class="hero-sub">stan dzisiaj: ' + fmt(todayRow ? todayRow.balance : null) + ' szt. &#183; ' + heroSub + '</div>' +
-    solderConfigHtml(cfg) +
+    '<details class="cfgdetails"><summary>Ustawienia stacji i partii produkcji <span class="cn">&#183; 工位及批量设置</span></summary>' + solderConfigHtml(cfg) + '</details>' +
     '<div class="togglerow">' +
     '<label class="chaintoggle"><input type="checkbox" id="chainModeToggle" ' + (chain ? 'checked' : '') + '> Licz potrzebę od Wysyłek: Wysyłki &#8594; ' + cfg.zuzycie + ' &#8594; ' + cfg.produkcja +
       '<br><span class="cn">从发运倒推需求：发运 &#8594; ' + cfg.zuzycie + ' &#8594; ' + cfg.produkcja + '</span></label>' +
@@ -1053,8 +1060,8 @@ function renderSolderSection(firstDate) {
             // przed nim — inaczej nie zgadza sie z recznym liczeniem na
             // koniec tygodnia.
             var fridayEndBalance = STATE.sameDayMode ? r.balance : (r.balance + r.produkcja - r.zuzycie);
-            label += '<div class="weeksum ' + weeksumClsSolder + '">Tydz.: wysyłki ' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' (magazyn: ' + fmt(fridayEndBalance) + ')' +
-              '<span class="cn"> &#183; 本周：发运' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' &#183;（仓库：' + fmt(fridayEndBalance) + '）</span></div>';
+            label += '<div class="weeksum ' + weeksumClsSolder + '">Tydz.: wysyłki ' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' (stan chłodnic: ' + fmt(fridayEndBalance) + ')' +
+              '<span class="cn"> &#183; 本周：发运' + fmt(weekSumSolder.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSumSolder.gp12) + ' &#183;（散热器库存：' + fmt(fridayEndBalance) + '）</span></div>';
           }
         }
         var balCls = balanceSeverity_(r.balance);

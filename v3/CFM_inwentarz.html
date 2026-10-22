@@ -1012,8 +1012,11 @@ function renderSolderSection(firstDate) {
             // tego tygodnia, zolty = pokrywa 80-99%, czerwony = ponizej 80%.
             var weekRatio = weekSum.ship > 0 ? weekSum.gp12 / weekSum.ship : 1;
             var weeksumCls = weekRatio >= 1 ? 'wk-ok' : weekRatio >= 0.8 ? 'wk-warn' : 'wk-crit';
-            label += '<div class="weeksum ' + weeksumCls + '">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) +
-              '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + '</span></div>';
+            // Bufor (ile szt. realnie czeka PRZED GP12 na koniec tego tygodnia)
+            // podany jawnie w nawiasie — osobna liczba od samego porownania
+            // wysylki/GP12 powyzej, zeby bylo widac oba fakty na raz.
+            label += '<div class="weeksum ' + weeksumCls + '">Tydz.: wysyłki ' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + ' (bufor: ' + fmt(r.balance) + ')' +
+              '<span class="cn"> &#183; 本周：发运' + fmt(weekSum.ship) + ' &#183; ' + cfg.zuzycie + ' ' + fmt(weekSum.gp12) + ' &#183;（缓冲区：' + fmt(r.balance) + '）</span></div>';
           }
         }
         var balCls = balanceSeverity_(r.balance);

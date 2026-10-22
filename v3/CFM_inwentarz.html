@@ -524,7 +524,7 @@ function renderNoBaseline() {
 // skonsumowana przez GP12 = w tej samej chwili gotowy wyrob wyprodukowany)
 // — user chce wiec widziec w symulacji chlodnic efekt na magazynie
 // wyrobow gotowych, nie osobny "stan chlodnic".
-function computeGoodsWalk(firstDate, endIso, todayISO) {
+function computeGoodsWalk(firstDate, endIso, todayISO, allowTodayOverride) {
   var prodByDate = {};
   STATE.rows.forEach(function(r) { prodByDate[r.date] = (prodByDate[r.date] || 0) + (Number(r.ok_count) || 0); });
   var days = enumerateDays(firstDate, endIso);
@@ -533,16 +533,17 @@ function computeGoodsWalk(firstDate, endIso, todayISO) {
   days.forEach(function(d, idx) {
     var isFuture = d > todayISO;
     // Nadpisanie GP12 (potrzeba) w symulacji bufora chlodnic = nadpisanie
-    // produkcji GP12 tutaj (patrz komentarz wyzej) — ale TYLKO dla dni
-    // PRZYSZLYCH (tak jak fallback do Planu ponizej). "Stan dzisiaj" i dni
-    // przeszle MUSZA zostac realnym 0 gdy brak raportu — to jest kafelek
-    // "na zywo", ktory user explicite potwierdzil ze pokazuje FAKTYCZNE
-    // sztuki, nie hipoteze z symulacji w innej tabeli. Bez tego warunku
-    // "co jesli" ustawione w buforze chlodnic (choc lokalne i nieszkodliwe
-    // tam) potrafilo po cichu podmienic PRAWDZIWA dzisiejsza liczbe tutaj.
+    // produkcji GP12 tutaj (patrz komentarz wyzej) — dla dni PRZYSZLYCH
+    // zawsze, a dla DZISIAJ TYLKO gdy allowTodayOverride=true (wywolanie z
+    // podsumowania w buforze chlodnic — tam dzisiaj jeszcze "trwa" i user
+    // explicite chce zobaczyc hipoteze "a gdyby dzisiaj bylo X"). Gorna
+    // tabela (Saldo/"Stan dzisiaj") NIGDY nie dostaje allowTodayOverride —
+    // ten kafelek user explicite potwierdzil ze ma pokazywac FAKTYCZNE
+    // sztuki, nie hipoteze z symulacji w innej tabeli.
     var ov = STATE.solderOverrides[d];
     var chainOverride = (ov && ov.zuzycie !== undefined) ? ov.zuzycie : undefined;
-    var prod = prodByDate[d] !== undefined ? prodByDate[d] : (isFuture ? (chainOverride !== undefined ? chainOverride : planSumForDay('GP12', d)) : 0);
+    var overrideAllowedToday = allowTodayOverride && d === todayISO;
+    var prod = prodByDate[d] !== undefined ? prodByDate[d] : ((isFuture || overrideAllowedToday) ? (chainOverride !== undefined ? chainOverride : planSumForDay('GP12', d)) : 0);
     var ship = isFuture ? shipPlanForDay(d) : shippingActualFor(d);
     var countToday = STATE.inventoryCounts[d] !== undefined ? Number(STATE.inventoryCounts[d]) : null;
     var discrepancy = null;
@@ -1110,7 +1111,7 @@ function renderSolderSectionImpl_(firstDate) {
         // komentarz), wiec liczba tutaj zawsze odzwierciedla to, co user
         // aktualnie symuluje w tej tabeli.
         if (chain && isFriday && STATE.goodsFirstDate) {
-          var goodsWalk = computeGoodsWalk(STATE.goodsFirstDate, r.date, todayISO);
+          var goodsWalk = computeGoodsWalk(STATE.goodsFirstDate, r.date, todayISO, true);
           var weekSumGoods = weekSummaryForGoods(goodsWalk.byDate, r.date);
           if (weekSumGoods) {
             var goodsRow = goodsWalk.byDate[r.date];

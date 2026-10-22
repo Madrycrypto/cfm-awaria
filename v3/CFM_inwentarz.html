@@ -718,7 +718,7 @@ function computeSolderWalk(firstDate, endIso, cfg) {
   // Krok 1: potrzeba (zuzycie) kazdego dnia — niezalezna od decyzji o
   // produkcji, wiec liczymy ja najpierw w calosci (potrzebna do
   // zaplanowania partii lutowania z wyprzedzeniem w Kroku 2).
-  var useByDate = {}, aProdByDate = {}, isActualByDate = {};
+  var useByDate = {}, aProdByDate = {}, aUseByDate = {}, isActualByDate = {};
   days.forEach(function(d) {
     var aProd = actualSumForDay(STATE.solderRows, cfg.produkcja, d);
     var aUse = actualSumForDay(STATE.solderRows, cfg.zuzycie, d);
@@ -726,6 +726,7 @@ function computeSolderWalk(firstDate, endIso, cfg) {
     if (aProd !== null) aProd += recovered;
     else if (recovered > 0) aProd = recovered;
     aProdByDate[d] = aProd;
+    aUseByDate[d] = aUse;
     isActualByDate[d] = aProd !== null || aUse !== null;
     var shipPlan = shipPlanForDay(d);
     // Jesli mamy prawdziwy punkt odniesienia dla magazynu gotowych
@@ -735,8 +736,14 @@ function computeSolderWalk(firstDate, endIso, cfg) {
     // bezpieczny fallback to dawne 1:1 z Planem wysylek.
     var chainUse = gp12Required && gp12Required[d] !== undefined ? gp12Required[d] : shipPlan;
     var use = aUse !== null ? aUse : (STATE.chainMode ? chainUse : planSumForDay(cfg.zuzycie, d));
+    // Symulacja "co jesli" ma nadpisywac TYLKO dni, dla ktorych jeszcze nie
+    // ma prawdziwego raportu (aUse === null) — to narzedzie do sprawdzania
+    // nieznanej przyszlosci, nie do trwalego zasloniecia dnia, ktory
+    // pozniej doczekal sie realnych danych. Bez tego warunku "co jesli"
+    // kliknietego kiedys na dzien X zostawalo na zawsze, nawet gdy X stal
+    // sie przeszloscia z gotowym raportem w Statystykach.
     var ov = STATE.solderOverrides[d];
-    if (ov && ov.zuzycie !== undefined) use = ov.zuzycie;
+    if (ov && ov.zuzycie !== undefined && aUse === null) use = ov.zuzycie;
     useByDate[d] = use;
   });
 
@@ -785,9 +792,15 @@ function computeSolderWalk(firstDate, endIso, cfg) {
     // Reczna symulacja "co jesli" nadpisuje wszystko inne (actual/plan/
     // partia) — to celowo lokalny "co by bylo gdyby", niezalezny od
     // Planu/raportow.
+    // Jak w Kroku 1 (useByDate) — symulacja "co jesli" nadpisuje produkcje
+    // TYLKO dla dni bez jeszcze prawdziwego raportu. Flagi overrideProd/
+    // overrideUse (ktore steruja pomaranczowa ramka ".overridden" w
+    // komorce) odzwierciedlaja to, czy nadpisanie FAKTYCZNIE zadzialalo —
+    // inaczej komorka pokazywalaby juz prawdziwa liczbe, ale dalej
+    // wygladala jak recznie nadpisana, co by mylilo.
     var ov = STATE.solderOverrides[d];
-    var overrideProd = ov && ov.produkcja !== undefined;
-    var overrideUse = ov && ov.zuzycie !== undefined;
+    var overrideProd = !!(ov && ov.produkcja !== undefined && aProdByDate[d] === null);
+    var overrideUse = !!(ov && ov.zuzycie !== undefined && aUseByDate[d] === null);
     if (overrideProd) prod = ov.produkcja;
     // Domyslnie: dzisiejsza aktywnosc wplywa na JUTRZEJSZE saldo (patrz
     // komentarz przy computeSolderWalk) - tak dziala arkusz usera. W

@@ -335,8 +335,32 @@ function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
   try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
 })();
 
-var STATE = { inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderReworkRows: [], solderMonthDate: new Date(), solderFirstDate: null, solderOverrides: {}, chainMode: false, sameDayMode: false };
+// Licz potrzebe od Wysylek / efekt tego samego dnia — zapamietane per
+// przegladarke (localStorage), zeby NIE resetowaly sie do wylaczonych po
+// kazdym odswiezeniu strony (user musial wlaczac je od nowa za kazdym
+// razem, co bylo mylace — wygladalo jakby ustawienia "znikaly").
+function loadBoolPref_(key) { try { return localStorage.getItem(key) === '1'; } catch (e) { return false; } }
+var STATE = { inventoryCounts: {}, shippingActual: {}, shippingPlan: {}, rows: [], solderInventoryCounts: {}, monthlyPlan: {}, solderRows: [], solderReworkRows: [], solderMonthDate: new Date(), solderFirstDate: null, solderOverrides: {}, chainMode: loadBoolPref_('cfm_solder_chainmode'), sameDayMode: loadBoolPref_('cfm_solder_samedaymode') };
 
+// Kazdy re-render podmienia cale innerHTML kontenera, wiec przegladarka
+// domyslnie resetuje scroll (zarowno strony, jak i wewnetrznego
+// .tablescroll) do zera — bardzo uciazliwe przy tabeli ktora ma teraz
+// wlasny pionowy scroll (klikniecie "co jesli" gdzies w srodku listy
+// katapultowalo z powrotem na gore). Ten helper zapamietuje scrollTop
+// wewnetrznego .tablescroll (i scrollY calej strony) PRZED wywolaniem
+// renderFn, i przywraca je PO, zeby user nie gubil miejsca w tabeli.
+function withPreservedScroll_(containerId, renderFn) {
+  var container = document.getElementById(containerId);
+  var innerScroll = container ? container.querySelector('.tablescroll') : null;
+  var savedInner = innerScroll ? innerScroll.scrollTop : null;
+  var savedPage = window.scrollY;
+  renderFn();
+  if (savedInner !== null) {
+    var newInner = document.getElementById(containerId).querySelector('.tablescroll');
+    if (newInner) newInner.scrollTop = savedInner;
+  }
+  window.scrollTo(window.scrollX, savedPage);
+}
 function pad(n) { return String(n).padStart(2, '0'); }
 function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
@@ -510,7 +534,8 @@ function computeGoodsWalk(firstDate, endIso, todayISO) {
   out.forEach(function(r) { byDate[r.date] = r; });
   return { out: out, byDate: byDate };
 }
-function render(firstDate, todayISO) {
+function render(firstDate, todayISO) { withPreservedScroll_('app', function() { renderImpl_(firstDate, todayISO); }); }
+function renderImpl_(firstDate, todayISO) {
   // Tabela idzie do najblizszego piatku WLACZNIE (nie tylko do dzis) — zeby
   // bylo widac stan magazynu JUZ PO odjeciu piatkowej wysylki, zanim ten
   // dzien faktycznie sie odbedzie. Dni po dzisiejszym licza sie z Planu
@@ -983,7 +1008,8 @@ function solderMonthOptionsHtml() {
   }
   return opts.join('');
 }
-function renderSolderSection(firstDate) {
+function renderSolderSection(firstDate) { withPreservedScroll_('solderApp', function() { renderSolderSectionImpl_(firstDate); }); }
+function renderSolderSectionImpl_(firstDate) {
   STATE.solderFirstDate = firstDate;
   var cfg = getSolderConfig();
   var todayISO = toISO(new Date());
@@ -1097,9 +1123,17 @@ function renderSolderSection(firstDate) {
     '</div>';
   wireSolderConfig(); wireSolderForm(); wireSolderCells();
   var toggle = document.getElementById('chainModeToggle');
-  if (toggle) toggle.onchange = function() { STATE.chainMode = toggle.checked; renderSolderSection(STATE.solderFirstDate); };
+  if (toggle) toggle.onchange = function() {
+    STATE.chainMode = toggle.checked;
+    try { localStorage.setItem('cfm_solder_chainmode', STATE.chainMode ? '1' : '0'); } catch (e) {}
+    renderSolderSection(STATE.solderFirstDate);
+  };
   var sdToggle = document.getElementById('sameDayModeToggle');
-  if (sdToggle) sdToggle.onchange = function() { STATE.sameDayMode = sdToggle.checked; renderSolderSection(STATE.solderFirstDate); };
+  if (sdToggle) sdToggle.onchange = function() {
+    STATE.sameDayMode = sdToggle.checked;
+    try { localStorage.setItem('cfm_solder_samedaymode', STATE.sameDayMode ? '1' : '0'); } catch (e) {}
+    renderSolderSection(STATE.solderFirstDate);
+  };
 }
 // "Auto-dopasuj Plan" — pokazuje PODGLAD roznic miedzy tym, co jest teraz
 // jawnie wpisane w Planie (dla przyszlych dni), a tym, co wychodzi z

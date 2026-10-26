@@ -259,6 +259,16 @@ function normalizeDate_(val) {
   }
   return String(val || '');
 }
+// Jak normalizeDate_ ale do godziny HH:mm — ten sam dwuscieszkowy wzorzec
+// (Sheets czasem zwraca prawdziwy obiekt Date, czasem surowy string ISO,
+// zaleznie od tego jak komorka zostala zapisana).
+function formatTime_(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone() || 'Europe/Warsaw', 'HH:mm');
+  }
+  var m = String(val || '').match(/T(\d{2}:\d{2})/);
+  return m ? m[1] : '';
+}
 
 // ── RAPORT ZMIANY ────────────────────────────────────────────────────
 // timestamp | date | shift | station | operator | qty | scrap | rework | recovered | ok_count | pass_rate | notes | reasons_json | plan
@@ -389,7 +399,16 @@ function handleStatystyki(ss, p) {
       var ad = normalizeDate_(ar.start_timestamp).slice(0, 10);
       if (p.start && ad < p.start) continue;
       if (p.end && ad > p.end) continue;
-      awarieHistoria.push({ date: ad, station: ar.station, type: ar.type, shift: ar.shift || '', czas_min: Number(ar.czas_min) || 0, type_cn: ar.type_cn || '' });
+      // start_time/end_time TYLKO dla awarii zglaszanych na biezaco — wpisy
+      // wsteczne (backfilled) maja syntetyczny timestamp (data w poludnie +
+      // dlugosc trwania), nie prawdziwa godzine, wiec pokazywanie ich jako
+      // zakresu godzin byloby myloce (wygladaloby na realny czas, a to
+      // zmyslone "12:00-12:35").
+      awarieHistoria.push({
+        date: ad, station: ar.station, type: ar.type, shift: ar.shift || '', czas_min: Number(ar.czas_min) || 0, type_cn: ar.type_cn || '',
+        start_time: ar.backfilled ? '' : formatTime_(ar.start_timestamp),
+        end_time: ar.backfilled ? '' : formatTime_(ar.koniec_timestamp),
+      });
     }
   }
   return jsonResponse({ status: 'ok', historia: historia, rework_historia: reworkHistoria, awarie_historia: awarieHistoria });
@@ -626,7 +645,7 @@ function handleHistoriaGodzinna(ss, p) {
 // (awarieHeaderMap_/awarieRowToObj_/awarieAppendRow_/awarieSetField_), nie
 // po sztywnej pozycji - bezpieczne niezaleznie od tego, jakie jeszcze inne
 // kolumny ktos kiedys dopisze z zewnatrz.
-var AWARIE_HEADERS = ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator', 'shift', 'type_cn'];
+var AWARIE_HEADERS = ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator', 'shift', 'type_cn', 'backfilled'];
 function awarieHeaderMap_(sheet) {
   var lastCol = sheet.getLastColumn();
   var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
@@ -641,6 +660,7 @@ function awarieRowToObj_(row, map) {
     koniec_timestamp: g('koniec_timestamp'), czas_min: g('czas_min'), status: g('status'),
     operator: g('operator'), shift: g('shift'), type_cn: g('type_cn'),
     alert_15min_sent: g('alert_15min_sent'), alert_1h_sent: g('alert_1h_sent'),
+    backfilled: g('backfilled'),
   };
 }
 // Dopisuje nowy wiersz jako obiekt {naglowek: wartosc} zamiast tablicy
@@ -718,6 +738,7 @@ function handleAwariaEnd(ss, p) {
     start_timestamp: p.start_timestamp || '', station: p.stanowisko || '', type: p.typ || '',
     koniec_timestamp: p.koniec_timestamp || '', czas_min: czasMin, status: 'ZAMKNIETA',
     operator: p.operator || '', shift: p.shift || '', type_cn: tr2.cn,
+    backfilled: p.backfilled ? '1' : '',
   });
   sendFeishuBotMessage_('✅ ALERT END / 警报结束\n' + (p.stanowisko || '?') + ' · ' + tr2.en + ' / ' + tr2.cn + '\nDuration / 时长: ' + czasMin + ' min');
   return jsonResponse({ status: 'ok' });
@@ -1156,11 +1177,14 @@ function wyslijPodsumowanieDnia() {
 // trigger o 6:00 wysyłający podsumowanie na Feishu. Bezpieczne uruchomić
 // wielokrotnie — najpierw usuwa stare triggery tej samej funkcji, żeby
 // nie zdublować wysyłki.
+// NIE 6:00 — zmiana C konczy sie dopiero o 7:00, wiec trigger o 6:00
+// strzelal zanim jej raport w ogole mogl zostac zlozony (stad
+// brakujace/puste podsumowania). Poprawne: 7:30.
 function ustawTriggerPodsumowania() {
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'wyslijPodsumowanieDnia') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('wyslijPodsumowanieDnia').timeBased().atHour(6).everyDays(1).create();
+  ScriptApp.newTrigger('wyslijPodsumowanieDnia').timeBased().atHour(7).nearMinute(30).everyDays(1).create();
 }
 
 // ── ESKALACJA DLUGO OTWARTYCH AWARII (trigger co 5 min) ─────────────
@@ -1403,27 +1427,37 @@ function wyslijPodsumowanieMagazynu() {
     seenNumbers[p.number] = true;
     var confirm = todaysConfirm[p.number];
     if (confirm && confirm.status === 'NOK') {
-      lines.push('  ' + p.number + (p.desc ? ' (' + p.desc + ')' : '') + ': brakuje ' + Math.round(confirm.qty) + ' szt. [magazynier]');
+      // confirm.ordered, NIE confirm.qty — klient (CFM_magazyn.html) zapisuje
+      // pole "ordered", "qty" tu nigdy nie istnialo (martwe odwolanie dajace
+      // NaN w wiadomosci).
+      lines.push('🔴 ' + p.number + (p.desc ? ' — ' + p.desc : '') +
+        '\nBrakuje: ' + Math.round(confirm.ordered) + ' szt. [potwierdzone przez magazyniera]');
       return;
     }
     if (confirm && confirm.status === 'OK') return;
     var proj = magazynComputeProjection_(byNumber[p.number], p.number, stany, rowsByStationDate, monthlyPlan, targets, todayIso);
     if (!proj) return; // brak inwentaryzacji tej czesci — nie da sie nic policzyc
     if (proj.coverageDays !== null && proj.coverageDays <= MAGAZYN_WIDOCZNOSC_DNI) {
-      var covTxt = proj.coverageDays <= 0 ? 'BRAKUJE JUZ DZIS' : ('starczy na ~' + proj.coverageDays + ' dni');
+      var covTxt = proj.coverageDays <= 0 ? 'BRAKUJE JUZ DZIS' : ('starczy ~' + proj.coverageDays + ' dni');
       var paletaQty = 0;
       (byNumber[p.number] || []).some(function (bl) { if (bl.paletaQty > 0) { paletaQty = Number(bl.paletaQty); return true; } return false; });
       var needed = magazynNeededForDays_(byNumber[p.number], todayIso, orderDays, rowsByStationDate, monthlyPlan, targets);
       var orderQty = magazynSuggestedOrderQty_(proj.balanceToday, needed, paletaQty);
       var paletaCount = paletaQty > 0 ? Math.round(orderQty / paletaQty) : 0;
-      var orderTxt = orderQty > 0 ? ', zamow na ' + orderDays + ' dn.: ' + Math.round(orderQty) + ' szt.' + (paletaQty > 0 ? ' (' + paletaCount + ' ' + plPalety_(paletaCount) + ')' : '') : '';
-      lines.push('  ' + p.number + (p.desc ? ' (' + p.desc + ')' : '') + ': ' + Math.round(proj.balanceToday) + ' szt. (' + covTxt + orderTxt + ') [auto, niepotwierdzone]');
+      // Krotki, skanowalny blok per czesc — numer+opis w naglowku, Stan i
+      // (jesli trzeba) Zamow na WLASNYCH liniach, zamiast upychac wszystko
+      // w jedna zdanie z nawiasami w nawiasach — to bylo nieczytelne przy
+      // wiecej niz 2-3 pozycjach.
+      lines.push('🟠 ' + p.number + (p.desc ? ' — ' + p.desc : '') +
+        '\nStan: ' + Math.round(proj.balanceToday) + ' szt. (' + covTxt + ')' +
+        (orderQty > 0 ? '\nZamów: ' + Math.round(orderQty) + ' szt.' + (paletaQty > 0 ? ' (' + paletaCount + ' ' + plPalety_(paletaCount) + ')' : '') : '') +
+        '\n[auto, niepotwierdzone]');
     }
   });
 
   if (!lines.length) return; // nic do zamowienia — nie spamujemy pusta wiadomoscia
   var dd = todayIso.split('-');
-  var text = '📦 MAGAZYN — DO ZAMÓWIENIA / 待订购 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + '\n\n' + lines.join('\n');
+  var text = '📦 MAGAZYN — DO ZAMÓWIENIA / 待订购 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + ' · zapotrzebowanie na ' + orderDays + ' dn.\n\n' + lines.join('\n\n');
   sendFeishuBotMessage_(text); // glowna grupa (szefowie)
   sendTelegramMessage_(text); // magazynier - zeby widzial efekt swoich wczorajszych OK/NOK
 }

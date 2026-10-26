@@ -543,7 +543,16 @@ function computeGoodsWalk(firstDate, endIso, todayISO, allowTodayOverride) {
     var ov = STATE.solderOverrides[d];
     var chainOverride = (ov && ov.zuzycie !== undefined) ? ov.zuzycie : undefined;
     var overrideAllowedToday = allowTodayOverride && d === todayISO;
-    var prod = prodByDate[d] !== undefined ? prodByDate[d] : ((isFuture || overrideAllowedToday) ? (chainOverride !== undefined ? chainOverride : planSumForDay('GP12', d)) : 0);
+    // Jesli Plan produkcji GP12 jeszcze nie jest wypelniony tak daleko w
+    // przyszlosc (planSumForDay zwraca 0), NIE zakladaj produkcji=0 — to
+    // tworzylo falszywy, katastroficzny spadek magazynu na dni gdzie po
+    // prostu nikt jeszcze nie wpisal Planu, mimo ze Wysylki sa juz
+    // zaplanowane dalej. Zamiast tego zakladaj produkcje = Wysylki tego
+    // dnia (ten sam "lancuch" Wysylki->GP12 co reszta strony) — neutralne
+    // zalozenie "produkcja nadazy za wysylkami", dopoki ktos nie wpisze
+    // realnego Planu albo nie nadpisze przez "co jesli".
+    var planFallback = planSumForDay('GP12', d) || shipPlanForDay(d);
+    var prod = prodByDate[d] !== undefined ? prodByDate[d] : ((isFuture || overrideAllowedToday) ? (chainOverride !== undefined ? chainOverride : planFallback) : 0);
     var ship = isFuture ? shipPlanForDay(d) : shippingActualFor(d);
     var countToday = STATE.inventoryCounts[d] !== undefined ? Number(STATE.inventoryCounts[d]) : null;
     var discrepancy = null;

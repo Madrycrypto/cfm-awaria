@@ -556,7 +556,18 @@ function computeGoodsWalk(firstDate, endIso, todayISO, allowTodayOverride) {
     // odejmowac wysylki, bez dodatkowej "optymalizacji" produkcji do zera.
     var planFallback = planSumForDay('GP12', d) || shipPlanForDay(d);
     var prod = prodByDate[d] !== undefined ? prodByDate[d] : ((isFuture || overrideAllowedToday) ? (chainOverride !== undefined ? chainOverride : planFallback) : 0);
-    var ship = isFuture ? shipPlanForDay(d) : shippingActualFor(d);
+    // Symetrycznie do produkcji powyzej: w kontekscie symulacji
+    // (allowTodayOverride, wywolanie z bufora chlodnic) dzisiejsza wysylka
+    // TEZ liczy sie z Planu, dopoki nie ma jeszcze zarejestrowanej
+    // faktycznej — inaczej produkcja dzisiejsza juz sie doliczala, a
+    // dzisiejsza (zaplanowana, ale jeszcze "nie faktyczna") wysylka nie
+    // byla odejmowana, co sztucznie zawyzalo caly tydzien (user: "to
+    // niemozliwe, zeby magazyn mial az tyle wiecej"). "Stan dzisiaj" w
+    // gornej tabeli (allowTodayOverride=false) zostaje bez zmian — zawsze
+    // tylko to co faktycznie juz wyslano.
+    var shipActualVal = shippingActualFor(d);
+    var useTodayPlanShip = overrideAllowedToday && !shipActualVal;
+    var ship = (isFuture || useTodayPlanShip) ? shipPlanForDay(d) : shipActualVal;
     var countToday = STATE.inventoryCounts[d] !== undefined ? Number(STATE.inventoryCounts[d]) : null;
     var discrepancy = null;
     if (idx > 0) running += prod - ship;

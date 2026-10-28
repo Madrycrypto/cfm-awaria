@@ -548,9 +548,12 @@ function computeGoodsWalk(firstDate, endIso, todayISO, allowTodayOverride) {
     // tworzylo falszywy, katastroficzny spadek magazynu na dni gdzie po
     // prostu nikt jeszcze nie wpisal Planu, mimo ze Wysylki sa juz
     // zaplanowane dalej. Zamiast tego zakladaj produkcje = Wysylki tego
-    // dnia (ten sam "lancuch" Wysylki->GP12 co reszta strony) — neutralne
-    // zalozenie "produkcja nadazy za wysylkami", dopoki ktos nie wpisze
-    // realnego Planu albo nie nadpisze przez "co jesli".
+    // dnia — neutralne zalozenie "produkcja nadazy za wysylkami", dopoki
+    // ktos nie wpisze realnego Planu albo nie nadpisze przez "co jesli".
+    // CELOWO prosty model (produkcja wpisana lub z Planu, nie reaktywna
+    // kalkulacja "ile minimalnie trzeba") — user explicite tego chce:
+    // symulacja ma po prostu dodawac wpisana/planowana produkcje i
+    // odejmowac wysylki, bez dodatkowej "optymalizacji" produkcji do zera.
     var planFallback = planSumForDay('GP12', d) || shipPlanForDay(d);
     var prod = prodByDate[d] !== undefined ? prodByDate[d] : ((isFuture || overrideAllowedToday) ? (chainOverride !== undefined ? chainOverride : planFallback) : 0);
     var ship = isFuture ? shipPlanForDay(d) : shippingActualFor(d);

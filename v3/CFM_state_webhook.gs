@@ -1246,13 +1246,13 @@ function ustawTriggerEscalations() {
 // Do zamowienia trafia: (a) kazda czesc z DZISIEJSZYM potwierdzeniem NOK
 // od magazyniera (jego liczba jest autorytatywna — mogl zauwazyc cos,
 // czego automat nie wie, np. zlom/uszkodzenie), (b) kazda czesc BEZ
-// dzisiejszego potwierdzenia, ktorej auto-projekcja pokazuje pokrycie
-// <= MAGAZYN_WIDOCZNOSC_DNI, oznaczona jako "niepotwierdzona" — zeby brak
-// wspolpracy magazyniera nigdy nie zablokowal tej wiadomosci do szefa.
-// Czesci z dzisiejszym potwierdzeniem OK sa pomijane (magazynier juz
-// zapewnil ze starczy).
+// dzisiejszego potwierdzenia, ktorej auto-projekcja pokazuje realna
+// potrzebe zamowienia (orderQty > 0, ten sam filtr co w projectionListHtml
+// w CFM_magazyn.html) — NIE kazda czesc z krotkim "starczy na ~N dni" bez
+// realnej potrzeby, bo to tylko szum bez zadnej akcji do podjecia. Czesci
+// z dzisiejszym potwierdzeniem OK sa pomijane (magazynier juz zapewnil ze
+// starczy).
 var MAGAZYN_HORYZONT_DNI = 30;
-var MAGAZYN_WIDOCZNOSC_DNI = 7;
 
 function planSumForDayWithFallback_(monthlyPlan, targets, station, dateIso) {
   station = String(station || '').trim();
@@ -1437,20 +1437,24 @@ function wyslijPodsumowanieMagazynu() {
     if (confirm && confirm.status === 'OK') return;
     var proj = magazynComputeProjection_(byNumber[p.number], p.number, stany, rowsByStationDate, monthlyPlan, targets, todayIso);
     if (!proj) return; // brak inwentaryzacji tej czesci — nie da sie nic policzyc
-    if (proj.coverageDays !== null && proj.coverageDays <= MAGAZYN_WIDOCZNOSC_DNI) {
+    var paletaQty = 0;
+    (byNumber[p.number] || []).some(function (bl) { if (bl.paletaQty > 0) { paletaQty = Number(bl.paletaQty); return true; } return false; });
+    var needed = magazynNeededForDays_(byNumber[p.number], todayIso, orderDays, rowsByStationDate, monthlyPlan, targets);
+    var orderQty = magazynSuggestedOrderQty_(proj.balanceToday, needed, paletaQty);
+    // Pokazuj TYLKO czesci, ktorym faktycznie czegos brakuje (orderQty > 0)
+    // — ten sam filtr co w CFM_magazyn.html (projectionListHtml). Samo
+    // "starczy na ~N dni" bez realnej potrzeby zamowienia to szum, nie
+    // akcja — user: "mialem dostawac tylko to co brakuje".
+    if (orderQty > 0) {
       var covTxt = proj.coverageDays <= 0 ? 'BRAKUJE JUZ DZIS' : ('starczy ~' + proj.coverageDays + ' dni');
-      var paletaQty = 0;
-      (byNumber[p.number] || []).some(function (bl) { if (bl.paletaQty > 0) { paletaQty = Number(bl.paletaQty); return true; } return false; });
-      var needed = magazynNeededForDays_(byNumber[p.number], todayIso, orderDays, rowsByStationDate, monthlyPlan, targets);
-      var orderQty = magazynSuggestedOrderQty_(proj.balanceToday, needed, paletaQty);
       var paletaCount = paletaQty > 0 ? Math.round(orderQty / paletaQty) : 0;
       // Krotki, skanowalny blok per czesc — numer+opis w naglowku, Stan i
-      // (jesli trzeba) Zamow na WLASNYCH liniach, zamiast upychac wszystko
-      // w jedna zdanie z nawiasami w nawiasach — to bylo nieczytelne przy
-      // wiecej niz 2-3 pozycjach.
+      // Zamow na WLASNYCH liniach, zamiast upychac wszystko w jedna zdanie
+      // z nawiasami w nawiasach — to bylo nieczytelne przy wiecej niz 2-3
+      // pozycjach.
       lines.push('🟠 ' + p.number + (p.desc ? ' — ' + p.desc : '') +
         '\nStan: ' + Math.round(proj.balanceToday) + ' szt. (' + covTxt + ')' +
-        (orderQty > 0 ? '\nZamów: ' + Math.round(orderQty) + ' szt.' + (paletaQty > 0 ? ' (' + paletaCount + ' ' + plPalety_(paletaCount) + ')' : '') : '') +
+        '\nZamów: ' + Math.round(orderQty) + ' szt.' + (paletaQty > 0 ? ' (' + paletaCount + ' ' + plPalety_(paletaCount) + ')' : '') +
         '\n[auto, niepotwierdzone]');
     }
   });

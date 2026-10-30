@@ -12,7 +12,1559 @@
  * co wymaga ODCZYTU (nie tylko zapisu) — sprawdzanie otwartych awarii,
  * historia (dzienna/godzinna/awarii/reworku) pobierana na zywo przez
  * kazde urzadzenie, bufor reworku per strefa i per przyczyna, oraz
+ * synchronizacja Ustawien miedzy telefonami. Trwaly zapis danych/**
+ * CFM State Webhook — Google Apps Script
+ *
+ * Feishu Base (自动化 webhook) potrafi tylko ZAPISYWAC rekordy — nie ma
+ * sposobu, zeby odpowiedziec na pytanie w rodzaju "czy jest otwarta
+ * awaria na tym stanowisku?" bez tworzenia "custom app" wymagajacego
+ * uprawnien administratora Feishu. Google Apps Script nie ma tego
+ * ograniczenia: kazdy uzytkownik moze sam wdrozyc go jako Web App z
+ * poziomu Rozszerzenia -> Apps Script, bez zadnej zgody admina.
+ *
+ * Rola tego arkusza: dziala jako pelnoprawny backend dla wszystkiego,
+ * co wymaga ODCZYTU (nie tylko zapisu) — sprawdzanie otwartych awarii,
+ * historia (dzienna/godzinna/awarii/reworku) pobierana na zywo przez
+ * kazde urzadzenie, bufor reworku per strefa i per przyczyna, oraz
  * synchronizacja Ustawien miedzy telefonami. Trwaly zapis danych
+ * produkcyjnych i tak idzie rownolegle do Feishu Base (aplikacja wysyla
+ * do obu na raz, gdy oba sa skonfigurowane) — ten arkusz nie jest
+ * zamiennikiem Feishu, tylko dodatkowa pamiecia operacyjna.
+ *
+ * Wdrozenie:
+ *   1. Utworz nowy arkusz Google Sheets (dowolna nazwa, np. "CFM Stan")
+ *   2. Rozszerzenia -> Apps Script
+ *   3. Wklej cala zawartosc tego pliku, zastepujac domyslny Code.gs
+ *   4. Wdroz -> Nowe wdrozenie -> Typ: Aplikacja internetowa
+ *      - Wykonaj jako: Ja
+ *      - Kto ma dostep: Wszyscy
+ *      (Jesli wdrozenie juz istnieje: Wdroz -> Zarzadzaj wdrozeniami ->
+ *      edytuj istniejace -> Nowa wersja -> Wdroz, zeby URL zostal ten sam)
+ *   5. Skopiuj adres URL wdrozenia (konczy sie na /exec)
+ *   6. W aplikacji CFM: Panel Admina -> Połączenie -> wklej w "Webhook URL"
+ *
+ * Zakladki tworza sie automatycznie przy pierwszym zapisie — nie trzeba
+ * nic przygotowywac recznie w arkuszu. Nowe kolumny dopisywane pozniej
+ * (patrz ensureColumns_) trafiaja zawsze NA KONIEC istniejacych, zeby nie
+ * przesunac juz zapisanych danych w starszych wierszach.
+ */
+
+var REWORK_ZONES = {
+  'OP33A_B': ['OP33A', 'OP33B'],
+  'OP60_61': ['OP60/61'],
+  'GP12': ['GP12'],
+  'OP40': ['OP40 IN', 'OP40 OUT'],
+  'OP51_52': ['OP51/52'],
+};
+
+// ── FEISHU BOT (powiadomienia na grupe) ────────────────────────────────
+// Osobne od integracji z Feishu Base (arkusz danych) — to "custom bot"
+// webhook do WYSYLANIA WIADOMOSCI na konkretna grupe czatu Feishu. Wysylane
+// z backendu (UrlFetchApp), NIE z przegladarki — webhooki bota Feishu nie
+// pozwalaja na wywolania z poziomu przegladarki (CORS), a tutaj i tak
+// potrzebujemy tego wylacznie przy zdarzeniach juz obslugiwanych po
+// stronie serwera (start/koniec awarii, codzienne podsumowanie).
+var FEISHU_BOT_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/4c3cb956-3022-4e95-adbd-eaead7efedaa'; // glowna grupa (m.in. szefowie) - awaria start/koniec, podsumowanie dnia, eskalacja 1h+
+// Adres publicznej aplikacji (GitHub Pages) - do budowania linkow w
+// wiadomosciach Feishu (np. link do Panelu Technika przy ALERT START).
+var APP_BASE_URL = 'https://madrycrypto.github.io/cfm-awaria/v3/';
+// Link do konkretnej awarii w Panelu Technika, wklejany w wiadomosci ALERT
+// START na Feishu — zawiera token w URL (ten sam mechanizm "wejdz na
+// ?token=XXX, zapisze sie raz na stale" co juz uzywany w Dashboardzie),
+// zeby technik klikajac z telefonu NIE musial nic recznie konfigurowac.
+// station+start identyfikuja KONKRETNA awarie (jak w handleAwariaEnd —
+// Awarie nie maja osobnego ID, wiec to para kluczy, ktora juz i tak uzywana
+// jest wszedzie indziej do dopasowania otwartego wiersza).
+function panelTechnikaLink_(station, startTimestamp) {
+  var token = PropertiesService.getScriptProperties().getProperty('API_TOKEN') || '';
+  var url = APP_BASE_URL + 'CFM_technik.html?station=' + encodeURIComponent(station || '') +
+    '&start=' + encodeURIComponent(startTimestamp || '') +
+    (token ? '&token=' + encodeURIComponent(token) : '');
+  return 'Otworz w Panelu Technika / 在技术员面板中打开:\n' + url;
+}
+var FEISHU_BOT_WEBHOOK_TECHNICY = ''; // TODO: wklej webhook bota z grupy technikow - uzywany przez eskalacje 15 min (patrz checkAwariaEscalations)
+function round1_(n) { return Math.round(n * 10) / 10; }
+// Typ/opis awarii to DOWOLNY wolny tekst po polsku wpisywany przez
+// operatora (np. "Awaria maszyny: Brak zasilania - inspekcja niemozliwa
+// na stanowisku op74") - zadna sztywna lista slownikowa go nie obejmie,
+// wiec tlumaczymy automatycznie wbudowanym LanguageApp (dostepny w Apps
+// Script bez wlaczania Advanced Services). Przy bledzie tlumaczenia
+// (limit, brak sieci) zostaje oryginalny tekst - lepsze to niz pusta
+// wiadomosc.
+// Tlumaczy RAZ na oba jezyki (zamiast osobnych wywolan dla wiadomosci
+// Feishu i dla kolumny type_cn w arkuszu) - jedno wywolanie LanguageApp na
+// jezyk, wynik uzywany w obu miejscach ponizej.
+function translateType_(text) {
+  text = text || 'Alert';
+  var en = text, cn = text;
+  try { en = LanguageApp.translate(text, 'pl', 'en'); } catch (e) {}
+  try { cn = LanguageApp.translate(text, 'pl', 'zh-CN'); } catch (e) {}
+  return { en: en, cn: cn };
+}
+// webhookUrl opcjonalny - domyslnie glowna grupa (FEISHU_BOT_WEBHOOK), ale
+// eskalacja 15-min wysyla jawnie na FEISHU_BOT_WEBHOOK_TECHNICY (patrz
+// checkAwariaEscalations).
+function sendFeishuBotMessage_(text, webhookUrl) {
+  var url = webhookUrl || FEISHU_BOT_WEBHOOK;
+  if (!url) return;
+  try {
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ msg_type: 'text', content: { text: text } }),
+      muteHttpExceptions: true
+    });
+  } catch (e) {
+    // Nie przerywamy glownej operacji (start/koniec awarii) tylko dlatego
+    // ze powiadomienie na czat sie nie udalo.
+  }
+}
+
+// ── TELEGRAM BOT (push do magazyniera na zablokowany telefon) ─────────
+// Feishu (wyzej) trafia na chat, ale na ZABLOKOWANYM telefonie nie budzi
+// go dzwiekiem/wibracja jesli magazynier nie ma tam konta/appki. Telegram
+// jako pelnoprawny komunikator POKAZUJE prawdziwe powiadomienie systemowe
+// (dzwiek+wibracja) nawet na zablokowanym ekranie - dlatego TYLKO alerty
+// "Brak materialu" (wymagajace natychmiastowej reakcji magazyniera) ida
+// dodatkowo i tutaj, patrz koniec handleAwariaStart ponizej.
+//
+// Jednorazowa konfiguracja (u Ciebie, nie u magazyniera):
+//   1. W Telegramie wyszukaj @BotFather, wyslij /newbot, podaj nazwe bota
+//      - dostaniesz TOKEN (cos jak "123456789:ABCdef...").
+//   2. Zaloz grupe (np. "CFM Magazyn"), dodaj do niej magazyniera i tego
+//      bota, wyslij w niej dowolna wiadomosc (bot musi "zobaczyc" grupe).
+//   3. Wejdz w przegladarce na
+//      https://api.telegram.org/bot<TWOJ_TOKEN>/getUpdates
+//      i znajdz w odpowiedzi "chat":{"id": -100..., ...} - to CHAT_ID.
+//   4. Wklej oba ponizej i zapisz w edytorze Apps Script.
+var TELEGRAM_BOT_TOKEN = '8685869577:AAEXqWNXgGRQD9akz193C6pmOoKMW_3BZsk';
+var TELEGRAM_CHAT_ID = '-5140411164'; // grupa "CFM Magazyn"
+function sendTelegramMessage_(text) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+  try {
+    UrlFetchApp.fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: text }),
+      muteHttpExceptions: true
+    });
+  } catch (e) {}
+}
+
+function doGet(e) {
+  var p = (e && e.parameter) || {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var authErr = checkApiToken_(p);
+  if (authErr) return authErr;
+
+  try {
+    switch (p.event_type) {
+      case 'RAPORT_DZIENNY': return handleReport(ss, p);
+      case 'HISTORIA_DZIENNA': return handleHistoriaDzienna(ss, p);
+      case 'STATYSTYKI': return handleStatystyki(ss, p);
+      case 'START': return handleAwariaStart(ss, p);
+      case 'KONIEC': return handleAwariaEnd(ss, p);
+      case 'SPRAWDZ': return handleAwariaCheck(ss, p);
+      case 'AWARIA_HISTORIA': return handleAwariaHistoria(ss, p);
+      case 'AWARIE_OTWARTE': return handleAwarieOtwarte(ss, p);
+      case 'EDIT_AWARIA_DURATION': return handleEditAwariaDuration(ss, p);
+      case 'DELETE_AWARIA': return handleDeleteAwaria(ss, p);
+      case 'REWORK_PROCESSING': return handleReworkProcessing(ss, p);
+      case 'REWORK_BUFFER': return handleReworkBuffer(ss, p);
+      case 'REWORK_HISTORY': return handleReworkHistory(ss, p);
+      case 'DELETE_REWORK_PROCESSING': return handleDeleteReworkProcessing(ss, p);
+      case 'RAPORT_GODZINNY': return handleRaportGodzinny(ss, p);
+      case 'HISTORIA_GODZINNA': return handleHistoriaGodzinna(ss, p);
+      case 'DELETE_RAPORT_DZIENNY': return handleDeleteRaportDzienny(ss, p);
+      case 'DELETE_RAPORT_GODZINNY': return handleDeleteRaportGodzinny(ss, p);
+      case 'GET_USTAWIENIA': return handleGetUstawienia(ss, p);
+      case 'PREMIA': return handlePremia(ss, p);
+      case 'ZGLOS_WYPADEK': return handleZglosWypadek(ss, p);
+      case 'WYPADKI_HISTORIA': return handleWypadkiHistoria(ss, p);
+      case 'TEST': return jsonResponse({ status: 'ok', msg: 'polaczenie dziala' });
+      default: return jsonResponse({ status: 'error', msg: 'nieznany event_type: ' + p.event_type });
+    }
+  } catch (err) {
+    return jsonResponse({ status: 'error', msg: String(err) });
+  }
+}
+
+function doPost(e) {
+  var raw = (e && e.postData && e.postData.contents) || '{}';
+  var p = {};
+  try { p = JSON.parse(raw); } catch (err) { /* zostaw pusty obiekt */ }
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var authErr = checkApiToken_(p);
+  if (authErr) return authErr;
+
+  try {
+    switch (p.event_type) {
+      case 'ZAPISZ_USTAWIENIE': return handleSetUstawienie(ss, p);
+      default: return jsonResponse({ status: 'error', msg: 'nieznany event_type: ' + p.event_type });
+    }
+  } catch (err) {
+    return jsonResponse({ status: 'error', msg: String(err) });
+  }
+}
+
+// Prosta ochrona przed obcymi wywolaniami: jesli w Script Properties
+// ustawiono API_TOKEN, KAZDE zadanie (poza TEST - diagnostyka polaczenia,
+// celowo dostepna bez tokenu) musi podac dokladnie taki sam token, inaczej
+// jest odrzucane. Dopoki API_TOKEN nie jest ustawiony w Script Properties,
+// ta funkcja nic nie robi (zachowanie identyczne jak przed dodaniem
+// tokenow) - wlacz to DOPIERO gdy kazde urzadzenie/przegladarka uzywajace
+// aplikacji ma juz skonfigurowany ten sam token w Panelu Admina, inaczej
+// wszystkie zadania z tamtych urzadzen zaczna byc po cichu odrzucane.
+function checkApiToken_(p) {
+  if (p.event_type === 'TEST') return null;
+  var expected = PropertiesService.getScriptProperties().getProperty('API_TOKEN') || '';
+  if (!expected) return null;
+  if (p.token === expected) return null;
+  return jsonResponse({ status: 'error', msg: 'unauthorized' });
+}
+
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function getOrCreateSheet(ss, name, headers) {
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    sheet = ss.insertSheet(name);
+    sheet.appendRow(headers);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+// Dopisuje na koncu istniejacych kolumn te naglowki z `headers`, ktorych
+// jeszcze nie ma w arkuszu — zeby stare arkusze (utworzone przed dodaniem
+// nowego pola w kodzie) dostaly brakujace kolumny bez przesuwania juz
+// zapisanych danych w innych kolumnach.
+function ensureColumns_(sheet, headers) {
+  var lastCol = sheet.getLastColumn();
+  var existing = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  headers.forEach(function (h) {
+    if (existing.indexOf(h) === -1) {
+      sheet.getRange(1, existing.length + 1).setValue(h);
+      existing.push(h);
+    }
+  });
+}
+
+// Dodaje/odejmuje qty z JSON-owej listy [{reason, qty}, ...] do mapy per przyczyna.
+function addReasonQty_(map, reasonsJson, sign) {
+  if (!reasonsJson) return;
+  var entries;
+  try { entries = JSON.parse(reasonsJson); } catch (e) { return; }
+  if (!entries || typeof entries.forEach !== 'function') return;
+  entries.forEach(function (en) {
+    if (!en || !en.reason) return;
+    var q = Number(en.qty) || 0;
+    map[en.reason] = (map[en.reason] || 0) + sign * q;
+  });
+}
+
+// RaportDzienny trzyma reasons_json jako obiekt {scrap:[...], rework:[...]} —
+// tu interesuje nas tylko galaz "rework" (to ona zasila bufor reworku).
+function addReworkReasonsFromReport_(map, reasonsJson) {
+  if (!reasonsJson) return;
+  var obj;
+  try { obj = JSON.parse(reasonsJson); } catch (e) { return; }
+  var entries = (obj && obj.rework) || [];
+  entries.forEach(function (en) {
+    if (!en || !en.reason) return;
+    var q = Number(en.qty) || 0;
+    map[en.reason] = (map[en.reason] || 0) + q;
+  });
+}
+
+// Komorka kolumny "date" bywa albo stringiem "yyyy-MM-dd" (tak jak go
+// wysylamy), albo obiektem Date — Arkusze Google SAME konwertuja string
+// wygladajacy jak data na typ Date przy zapisie, wiec przy odczycie trzeba
+// sprowadzic obie postacie do tego samego formatu, inaczej porownanie
+// stringa z Date zawsze zawodzi mimo identycznego wygladu w arkuszu.
+function normalizeDate_(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+  }
+  return String(val || '');
+}
+// Jak normalizeDate_ ale do godziny HH:mm — ten sam dwuscieszkowy wzorzec
+// (Sheets czasem zwraca prawdziwy obiekt Date, czasem surowy string ISO,
+// zaleznie od tego jak komorka zostala zapisana).
+function formatTime_(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone() || 'Europe/Warsaw', 'HH:mm');
+  }
+  var m = String(val || '').match(/T(\d{2}:\d{2})/);
+  return m ? m[1] : '';
+}
+
+// ── RAPORT ZMIANY ────────────────────────────────────────────────────
+// timestamp | date | shift | station | operator | qty | scrap | rework | recovered | ok_count | pass_rate | notes | reasons_json | plan
+// (plan dopisany NA KONCU, zeby nie przesunac kolumn juz zapisanych wierszy)
+var RAPORT_DZIENNY_HEADERS = ['timestamp', 'date', 'shift', 'station', 'operator', 'qty', 'scrap', 'rework', 'recovered', 'ok_count', 'pass_rate', 'notes', 'reasons_json', 'plan'];
+function handleReport(ss, p) {
+  var sheet = getOrCreateSheet(ss, 'RaportDzienny', RAPORT_DZIENNY_HEADERS);
+  ensureColumns_(sheet, RAPORT_DZIENNY_HEADERS);
+  var row = [
+    p.timestamp || '', p.date || '', p.shift || '', p.station || '', p.operator || '',
+    Number(p.qty) || 0, Number(p.scrap) || 0, Number(p.rework) || 0, Number(p.recovered) || 0,
+    Number(p.ok_count) || 0, p.pass_rate || '', p.notes || '', p.reasons_json || '', Number(p.plan) || 0,
+  ];
+  // Jedno stanowisko + jedna zmiana + jeden dzien = jeden raport, kto
+  // kolwiek go akurat wypelnia — jesli juz istnieje wiersz dla tej daty/
+  // zmiany/stanowiska, podmien go zamiast dopisywac duplikat (operator NIE
+  // jest czescia klucza, to tylko informacja kto ostatnio wyslal/poprawil).
+  var lastRow = sheet.getLastRow();
+  var tail = getTailRows_(sheet, 5000);
+  for (var i = tail.length - 1; i >= 0; i--) {
+    var r = tail[i];
+    if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station) {
+      var sheetRow = (lastRow - tail.length) + i + 1;
+      sheet.getRange(sheetRow, 1, 1, row.length).setValues([row]);
+      return jsonResponse({ status: 'ok', updated: true });
+    }
+  }
+  sheet.appendRow(row);
+  return jsonResponse({ status: 'ok', updated: false });
+}
+
+function handleDeleteRaportDzienny(ss, p) {
+  var sheet = ss.getSheetByName('RaportDzienny');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var lastRow = sheet.getLastRow();
+  var tail = getTailRows_(sheet, 5000);
+  for (var i = tail.length - 1; i >= 0; i--) {
+    var r = tail[i];
+    if (normalizeDate_(r[1]) === p.date && r[2] === p.shift && r[3] === p.station) {
+      var sheetRow = (lastRow - tail.length) + i + 1;
+      sheet.deleteRow(sheetRow);
+      return jsonResponse({ status: 'ok', deleted: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', deleted: false });
+}
+
+function handleHistoriaDzienna(ss, p) {
+  var sheet = ss.getSheetByName('RaportDzienny');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var data = getTailRows_(sheet, 5000);
+  // Data z apki — pozwala przegladac/uzupelniac historie dowolnego
+  // wczesniejszego dnia, nie tylko dzisiejszego (patrz Zmien dzien w
+  // Raporcie zmiany). Fallback na dzisiaj dla starszych wersji apki bez
+  // pola date.
+  var targetDate = p.date || Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+  var historia = [], suma = 0, scrap = 0, rework = 0, recovered = 0;
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    if (normalizeDate_(r[1]) !== targetDate) continue;
+    if (p.stanowisko && r[3] !== p.stanowisko) continue;
+    if (p.operator && r[4] !== p.operator) continue;
+    var entry = {
+      timestamp: r[0], date: normalizeDate_(r[1]), shift: r[2], station: r[3], operator: r[4],
+      qty: Number(r[5]) || 0, scrap: Number(r[6]) || 0, rework: Number(r[7]) || 0, recovered: Number(r[8]) || 0,
+      ok_count: Number(r[9]) || 0, pass_rate: r[10], notes: r[11], reasons_json: r[12] || '', plan: Number(r[13]) || 0,
+    };
+    historia.push(entry);
+    suma += entry.qty; scrap += entry.scrap; rework += entry.rework; recovered += entry.recovered;
+  }
+  return jsonResponse({ status: 'ok', historia: historia, suma: suma, scrap: scrap, rework: rework, recovered: recovered });
+}
+
+// Zwraca surowe wiersze RaportDzienny z zadanego zakresu dat (wlacznie) —
+// bez agregacji po stronie serwera, zeby strona statystyk mogla sama
+// grupowac/pivotowac wg stanowiska/zmiany/tygodnia bez wielu zapytan.
+function handleStatystyki(ss, p) {
+  var sheet = ss.getSheetByName('RaportDzienny');
+  if (!sheet) return jsonResponse({ status: 'ok', historia: [] });
+  var data = sheet.getDataRange().getValues();
+  var historia = [];
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    var d = normalizeDate_(r[1]);
+    if (p.start && d < p.start) continue;
+    if (p.end && d > p.end) continue;
+    historia.push({
+      date: d, shift: r[2], station: r[3], operator: r[4],
+      qty: Number(r[5]) || 0, scrap: Number(r[6]) || 0, rework: Number(r[7]) || 0,
+      ok_count: Number(r[9]) || 0, plan: Number(r[13]) || 0, reasons_json: r[12] || '',
+    });
+  }
+  historia.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+
+  // Rowniez ReworkProcessing z tego samego zakresu dat — zeby strona
+  // statystyk mogla pokazac, ile z tego co trafilo do reworku faktycznie
+  // wrocilo jako dobre sztuki, a ile ostatecznie poszlo na zlom (bilans
+  // per strefa, NIEZALEZNY od pass rate pojedynczego raportu — patrz
+  // komentarz w handleReworkProcessing o addytywnym charakterze bufora).
+  var reworkHistoria = [];
+  var reworkSheet = ss.getSheetByName('ReworkProcessing');
+  if (reworkSheet) {
+    var rdata = reworkSheet.getDataRange().getValues();
+    for (var j = 1; j < rdata.length; j++) {
+      var rr = rdata[j];
+      var rd = normalizeDate_(rr[1]);
+      if (p.start && rd < p.start) continue;
+      if (p.end && rd > p.end) continue;
+      reworkHistoria.push({
+        date: rd, zone: rr[2], zone_label: rr[9] || rr[2],
+        processed: Number(rr[3]) || 0, recovered: Number(rr[4]) || 0, final_scrap: Number(rr[5]) || 0,
+      });
+    }
+  }
+  // Rowniez Awarie z tego samego zakresu dat — zeby strona statystyk mogla
+  // pokazac ile bylo przestoju (i ile razy) per stanowisko/zmiana w
+  // ogladanym okresie, nie tylko posrednio przez wplyw na Premie. Tylko
+  // ZAMKNIETE awarie (otwarta = jeszcze trwa, nieznany finalny czas);
+  // starsze wpisy sprzed dodania kolumny "shift" po prostu maja ja puste.
+  var awarieHistoria = [];
+  var awSheet = ss.getSheetByName('Awarie');
+  if (awSheet) {
+    var awMap = awarieHeaderMap_(awSheet);
+    var adata = awSheet.getDataRange().getValues();
+    for (var k = 1; k < adata.length; k++) {
+      var ar = awarieRowToObj_(adata[k], awMap);
+      if (ar.status !== 'ZAMKNIETA') continue;
+      var ad = normalizeDate_(ar.start_timestamp).slice(0, 10);
+      if (p.start && ad < p.start) continue;
+      if (p.end && ad > p.end) continue;
+      // start_time/end_time TYLKO dla awarii zglaszanych na biezaco — wpisy
+      // wsteczne (backfilled) maja syntetyczny timestamp (data w poludnie +
+      // dlugosc trwania), nie prawdziwa godzine, wiec pokazywanie ich jako
+      // zakresu godzin byloby myloce (wygladaloby na realny czas, a to
+      // zmyslone "12:00-12:35").
+      awarieHistoria.push({
+        date: ad, station: ar.station, type: ar.type, shift: ar.shift || '', czas_min: Number(ar.czas_min) || 0, type_cn: ar.type_cn || '',
+        start_time: ar.backfilled ? '' : formatTime_(ar.start_timestamp),
+        end_time: ar.backfilled ? '' : formatTime_(ar.koniec_timestamp),
+      });
+    }
+  }
+  return jsonResponse({ status: 'ok', historia: historia, rework_historia: reworkHistoria, awarie_historia: awarieHistoria });
+}
+
+// ── PREMIE ───────────────────────────────────────────────────────────
+// Surowe sumy dla wyliczenia premii (CFM_premie.html robi juz samo
+// wyliczenie wg progow — tu tylko agregujemy dane zrodlowe):
+//   - RaportDzienny: suma qty/ok_count i liczba wpisow, per stanowisko+zmiana,
+//     w podanym zakresie dat. Plan liczony z ZYWEGO cfm_monthly_plan (patrz
+//     planForDate_), NIE z kolumny 'plan' zapisanej w wierszu — ta jest
+//     tylko migawka z momentu wyslania raportu i moze byc juz nieaktualna
+//     (np. plan poprawiony pozniej w CFM_plan.html), co dawalo sprzeczne
+//     liczby miedzy Premiami a Statystykami dla tego samego stanowiska/
+//     zmiany/okresu (ten sam blad juz raz naprawiony w handleStatystyki).
+//   - Awarie: laczny czas przestoju (min) per stanowisko+ZMIANA (kolumna
+//     'shift', zapisywana przy START) w tym samym zakresie dat.
+function planForDate_(monthlyPlan, targets, station, shift, dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var e = monthlyPlan[mk] && monthlyPlan[mk][station] && monthlyPlan[mk][station][shift] && monthlyPlan[mk][station][shift][dateIso];
+  if (e) return Number(e) || 0;
+  return Number(targets[station]) || 0;
+}
+function planEntryFor_(monthlyPlan, station, shift, dateIso) {
+  var mk = dateIso.slice(0, 7);
+  var e = monthlyPlan[mk] && monthlyPlan[mk][station] && monthlyPlan[mk][station][shift] && monthlyPlan[mk][station][shift][dateIso];
+  return e ? Number(e) : null;
+}
+function enumerateDays_(startIso, endIso) {
+  var days = [];
+  var sp = startIso.split('-'), ep = endIso.split('-');
+  var cursor = new Date(Number(sp[0]), Number(sp[1]) - 1, Number(sp[2]));
+  var end = new Date(Number(ep[0]), Number(ep[1]) - 1, Number(ep[2]));
+  while (cursor <= end) {
+    days.push(Utilities.formatDate(cursor, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd'));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+// Pelny zaplanowany wolumen CALEGO okresu (start..end) dla stanowiska+
+// zmiany — TA SAMA logika co getPeriodPlan w CFM_statystyki.html: per
+// dzien, jawny wpis w Planie jesli istnieje, inaczej Cel stanowiska TYLKO
+// jesli tego dnia faktycznie zlozono raport (byDate[d]) - realna praca
+// bez wpisanego z gory planu (np. niezaplanowana wczesniej sobota) liczy
+// sie wzgledem Celu zamiast znikac/wygladac jak porazka; dzien bez wpisu
+// I bez raportu (stacja normalnie tu nie pracuje) nie dolicza sie wcale.
+function getPeriodPlan_(monthlyPlan, targets, station, shift, startIso, endIso, byDate) {
+  var days = enumerateDays_(startIso, endIso);
+  return days.reduce(function(sum, d) {
+    var explicit = planEntryFor_(monthlyPlan, station, shift, d);
+    if (explicit !== null) return sum + explicit;
+    if (byDate && byDate[d]) return sum + (Number(targets[station]) || 0);
+    return sum;
+  }, 0);
+}
+function handlePremia(ss, p) {
+  var monthlyPlan = {}, stationTargets = {};
+  var ustSheet = ss.getSheetByName('Ustawienia');
+  if (ustSheet) {
+    var udata = ustSheet.getDataRange().getValues();
+    for (var u = 1; u < udata.length; u++) {
+      if (udata[u][0] === 'cfm_monthly_plan') { try { monthlyPlan = JSON.parse(udata[u][1] || '{}'); } catch (e) {} }
+      if (udata[u][0] === 'cfm_station_targets') { try { stationTargets = JSON.parse(udata[u][1] || '{}'); } catch (e) {} }
+    }
+  }
+
+  var byKey = {};
+  var sheet = ss.getSheetByName('RaportDzienny');
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i];
+      var d = normalizeDate_(r[1]);
+      if (p.start && d < p.start) continue;
+      if (p.end && d > p.end) continue;
+      var key = r[3] + '||' + r[2];
+      if (!byKey[key]) byKey[key] = { station: r[3], shift: r[2], sumQty: 0, sumOk: 0, sumPlan: 0, count: 0, byDate: {} };
+      byKey[key].sumQty += Number(r[5]) || 0;
+      byKey[key].sumOk += Number(r[9]) || 0;
+      byKey[key].count += 1;
+      byKey[key].byDate[d] = true;
+    }
+  }
+  // Plan CALEGO okresu (start..end), nie tylko dni z juz zlozonym
+  // raportem — patrz komentarz przy getPeriodPlan_. Liczony raz na
+  // stanowisko+zmiane (nie w petli po wierszach), zeby niezaraportowany
+  // dzien roboczy poprawnie obnizal % zamiast znikac z mianownika.
+  if (p.start && p.end) {
+    Object.keys(byKey).forEach(function(key) {
+      var g = byKey[key];
+      g.sumPlan = getPeriodPlan_(monthlyPlan, stationTargets, g.station, g.shift, p.start, p.end, g.byDate);
+    });
+  }
+
+  // Przestoj przypisany do KONKRETNEJ zmiany (kolumna 'shift', zapisywana
+  // przy START od tej wersji) — starsze wpisy Awarii sprzed tej zmiany nie
+  // maja tej kolumny wypelnionej i trafiaja pod klucz "stanowisko||"
+  // (pusta zmiana), wiec po prostu nie zostana przypisane do zadnej
+  // konkretnej grupy w wyliczeniu premii, zamiast fallszywie zawyzac
+  // ktoras z nich.
+  var downtimeByKey = {};
+  var awSheet = ss.getSheetByName('Awarie');
+  if (awSheet) {
+    var awMap = awarieHeaderMap_(awSheet);
+    var adata = awSheet.getDataRange().getValues();
+    for (var j = 1; j < adata.length; j++) {
+      var ar = awarieRowToObj_(adata[j], awMap);
+      if (ar.status !== 'ZAMKNIETA') continue;
+      var ad = normalizeDate_(ar.start_timestamp).slice(0, 10);
+      if (p.start && ad < p.start) continue;
+      if (p.end && ad > p.end) continue;
+      var dtKey = ar.station + '||' + (ar.shift || '');
+      downtimeByKey[dtKey] = (downtimeByKey[dtKey] || 0) + (Number(ar.czas_min) || 0);
+    }
+  }
+
+  return jsonResponse({
+    status: 'ok',
+    shifts: Object.keys(byKey).map(function (k) { return byKey[k]; }),
+    downtime: downtimeByKey,
+  });
+}
+
+// ── RAPORT GODZINNY ──────────────────────────────────────────────────
+// Osobna zakladka od RaportDzienny — to tylko ROBOCZA lista w ciagu zmiany,
+// nie zasila bufora reworku ani Feishu bezposrednio. Suma godzinnych
+// wpisow (qty + rework per przyczyna) sluzy do WSTEPNEGO WYPELNIENIA
+// Raportu Zmiany na koncu zmiany — dopiero wyslanie Raportu Zmiany
+// faktycznie zapisuje dane i zasila bufor, zeby nic nie liczylo sie podwojnie.
+// timestamp | date | shift | hour | station | operator | qty | rework | rework_reasons_json | rework_other_desc | delay
+// Czyta tylko OSTATNIE maxRows wierszy arkusza (bez naglowka) zamiast
+// calej historii od poczatku — Godzinny/Dzienny dotycza prawie zawsze
+// niedawnych dni (nawet wpisy "wsteczne" trafiaja fizycznie na KONIEC
+// arkusza, tylko z wczesniejsza data w kolumnie), a pelne
+// getDataRange().getValues() na duzym, rosnacym z czasem arkuszu jest
+// glownym powodem powolnego wczytywania. Jesli kiedys trzeba by wrocic
+// dalej niz maxRows wierszy wstecz (raczej nie w tym zastosowaniu), ta
+// funkcja tego nie znajdzie — zwieksz maxRows w razie potrzeby.
+function getTailRows_(sheet, maxRows) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow <= 1) return [];
+  var startRow = Math.max(2, lastRow - maxRows + 1);
+  return sheet.getRange(startRow, 1, lastRow - startRow + 1, lastCol).getValues();
+}
+
+function handleRaportGodzinny(ss, p) {
+  var sheet = getOrCreateSheet(ss, 'RaportGodzinny', ['timestamp', 'date', 'shift', 'hour', 'station', 'operator', 'qty', 'rework', 'rework_reasons_json', 'rework_other_desc', 'delay']);
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  // Data z apki (uzytkownik moze wybrac dowolny wczesniejszy dzien, zeby
+  // uzupelnic/poprawic zapomniany raport) — z fallbackiem na dzisiaj dla
+  // starszych wersji apki, ktore jeszcze nie wysylaja pola date.
+  var dateStr = p.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var row = [
+    p.timestamp || '', dateStr, p.shift || '', p.hour || '', p.station || '', p.operator || '',
+    Number(p.qty) || 0, Number(p.rework) || 0, p.rework_reasons_json || '', p.rework_other_desc || '', p.delay || '',
+  ];
+  // Poprawka wpisu godzinowego (patrz editGodzEntry w apce) — podmien
+  // istniejacy wiersz dla tej samej daty/zmiany/stanowiska/godziny zamiast
+  // dopisywac duplikat (operator NIE jest czescia klucza — tylko informacja
+  // kto wpisal). Dopasowanie idzie po orig_hour (godzina wiersza W MOMENCIE
+  // otwarcia edycji), nie po hour (nowa/docelowa wartosc) — inaczej zmiana
+  // samej godziny w edycji nie trafialaby w oryginalny wiersz i zamiast go
+  // "przemianowac" tworzylaby nowy, zostawiajac stary bez zmian.
+  var origHour = p.orig_hour || p.hour;
+  var lastRow = sheet.getLastRow();
+  var tail = getTailRows_(sheet, 5000);
+  for (var i = tail.length - 1; i >= 0; i--) {
+    var r = tail[i];
+    if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === origHour && r[4] === p.station) {
+      var sheetRow = (lastRow - tail.length) + i + 1;
+      sheet.getRange(sheetRow, 1, 1, row.length).setValues([row]);
+      return jsonResponse({ status: 'ok', updated: true });
+    }
+  }
+  sheet.appendRow(row);
+  return jsonResponse({ status: 'ok', updated: false });
+}
+
+function handleDeleteRaportGodzinny(ss, p) {
+  var sheet = ss.getSheetByName('RaportGodzinny');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  var dateStr = p.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var lastRow = sheet.getLastRow();
+  var tail = getTailRows_(sheet, 5000);
+  for (var i = tail.length - 1; i >= 0; i--) {
+    var r = tail[i];
+    if (normalizeDate_(r[1]) === dateStr && r[2] === p.shift && r[3] === p.hour && r[4] === p.station) {
+      var sheetRow = (lastRow - tail.length) + i + 1;
+      sheet.deleteRow(sheetRow);
+      return jsonResponse({ status: 'ok', deleted: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', deleted: false });
+}
+
+function handleHistoriaGodzinna(ss, p) {
+  var sheet = ss.getSheetByName('RaportGodzinny');
+  if (!sheet) return jsonResponse({ status: 'ok', historia: [], suma: 0, rework: 0 });
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  // Data z apki — pozwala przegladac/uzupelniac historie dowolnego
+  // wczesniejszego dnia, nie tylko dzisiejszego. Fallback na dzisiaj dla
+  // starszych wersji apki bez pola date.
+  var targetDate = p.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var data = getTailRows_(sheet, 5000);
+  var historia = [], suma = 0, rework = 0;
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    if (normalizeDate_(r[1]) !== targetDate) continue;
+    if (p.stanowisko && r[4] !== p.stanowisko) continue;
+    if (p.operator && r[5] !== p.operator) continue;
+    if (p.shift && r[2] !== p.shift) continue;
+    var qty = Number(r[6]) || 0, reworkVal = Number(r[7]) || 0;
+    historia.push({ timestamp: r[0], date: normalizeDate_(r[1]), shift: r[2], godzina: r[3], station: r[4], operator: r[5], qty: qty, rework: reworkVal, rework_reasons_json: r[8] || '', rework_other_desc: r[9] || '', delay: r[10] });
+    suma += qty; rework += reworkVal;
+  }
+  return jsonResponse({ status: 'ok', historia: historia, suma: suma, rework: rework });
+}
+
+// ── AWARIE ──────────────────────────────────────────────────────────
+// start_timestamp | station | type | koniec_timestamp | czas_min | status | operator | shift | type_cn
+// (shift i type_cn dopisane NA KONCU listy ponizej, ale UWAGA: to NIE
+// znaczy, ze sa na koncu w samym arkuszu! Zywy arkusz ma miedzy "operator"
+// a "shift" jeszcze dwie kolumny alert_15min_sent/alert_1h_sent, dodane
+// przez funkcje checkAwariaEscalations spoza tego pliku (trigger czasowy,
+// patrz nizej) - ensureColumns_ dopisuje kazdy NOWY naglowek na sam koniec
+// istniejacych kolumn W MOMENCIE jego pierwszego dodania, wiec kolejnosc w
+// arkuszu odzwierciedla KIEDY dana funkcja pierwszy raz zostala wdrozona,
+// nie kolejnosc w tej liscie. appendRow() z gotowa tablica wartosci pisze
+// pozycyjnie od kolumny A, wiec przy takim rozjezdzie kolejnosci nadpisywal
+// cudze kolumny (shift trafial w alert_15min_sent, type_cn w alert_1h_sent)
+// - stad WSZYSTKIE funkcje ponizej czytaja/pisza po NAZWIE naglowka
+// (awarieHeaderMap_/awarieRowToObj_/awarieAppendRow_/awarieSetField_), nie
+// po sztywnej pozycji - bezpieczne niezaleznie od tego, jakie jeszcze inne
+// kolumny ktos kiedys dopisze z zewnatrz.
+var AWARIE_HEADERS = ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator', 'shift', 'type_cn', 'backfilled', 'resolution'];
+function awarieHeaderMap_(sheet) {
+  var lastCol = sheet.getLastColumn();
+  var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  var map = {};
+  headers.forEach(function (h, i) { map[h] = i; });
+  return map;
+}
+function awarieRowToObj_(row, map) {
+  function g(name) { return map.hasOwnProperty(name) ? row[map[name]] : ''; }
+  return {
+    start_timestamp: g('start_timestamp'), station: g('station'), type: g('type'),
+    koniec_timestamp: g('koniec_timestamp'), czas_min: g('czas_min'), status: g('status'),
+    operator: g('operator'), shift: g('shift'), type_cn: g('type_cn'),
+    alert_15min_sent: g('alert_15min_sent'), alert_1h_sent: g('alert_1h_sent'),
+    backfilled: g('backfilled'), resolution: g('resolution'),
+  };
+}
+// Dopisuje nowy wiersz jako obiekt {naglowek: wartosc} zamiast tablicy
+// pozycyjnej - kazde pole trafia do kolumny o tej nazwie niezaleznie od
+// jej faktycznej pozycji w arkuszu; nazwy nieobecne w arkuszu sa pomijane.
+function awarieAppendRow_(sheet, map, fields) {
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var row = new Array(lastCol).fill('');
+  Object.keys(fields).forEach(function (k) {
+    if (map.hasOwnProperty(k)) row[map[k]] = fields[k];
+  });
+  sheet.appendRow(row);
+}
+function awarieSetField_(sheet, map, rowIndex1based, fieldName, value) {
+  if (!map.hasOwnProperty(fieldName)) return;
+  sheet.getRange(rowIndex1based, map[fieldName] + 1).setValue(value);
+}
+function handleAwariaStart(ss, p) {
+  var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
+  ensureColumns_(sheet, AWARIE_HEADERS);
+  var map = awarieHeaderMap_(sheet);
+  // Zabezpieczenie przed duplikatami: jesli dla tego stanowiska JUZ jest
+  // otwarta (OTWARTA) awaria, nie dokladaj drugiej. Front ma wlasne
+  // sprawdzenie przed startem (event_type=SPRAWDZ), ale jesli ono zawiedzie
+  // (np. slabe WiFi na hali), po cichu i tak wysyla START — bez tego
+  // zabezpieczenia kazda taka nieudana proba dokladalaby kolejny,
+  // identyczny otwarty wiersz dla tej samej awarii.
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var existing = awarieRowToObj_(data[i], map);
+    if (existing.station === (p.stanowisko || '') && existing.status === 'OTWARTA') {
+      return jsonResponse({ status: 'ok', duplicate: true });
+    }
+  }
+  var tr = translateType_(p.typ || 'Alert');
+  awarieAppendRow_(sheet, map, {
+    start_timestamp: p.timestamp || '', station: p.stanowisko || '', type: p.typ || '',
+    status: 'OTWARTA', operator: p.operator || '', shift: p.shift || '', type_cn: tr.cn,
+  });
+  sendFeishuBotMessage_('🔧 ALERT START / 警报开始\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : '') + '\n\n' + panelTechnikaLink_(p.stanowisko, p.timestamp));
+  if (String(p.typ || '').indexOf('Brak materiału') === 0) {
+    sendTelegramMessage_('🚨 BRAK MATERIAŁU\n' + (p.stanowisko || '?') + ' — ' + (p.typ || '') + (p.operator ? '\nZgłosił: ' + p.operator : ''));
+  }
+  return jsonResponse({ status: 'ok' });
+}
+
+function handleAwariaEnd(ss, p) {
+  var sheet = getOrCreateSheet(ss, 'Awarie', AWARIE_HEADERS);
+  ensureColumns_(sheet, AWARIE_HEADERS);
+  var map = awarieHeaderMap_(sheet);
+  var data = sheet.getDataRange().getValues();
+  // Zaokraglone do pelnych minut PRZY ZAPISIE (nie tylko przy wyswietlaniu)
+  // - awaria trwajaca np. 61 min 20 s liczona jako roznica timestampow
+  // dawala 61.333... min, co pokazywalo sie jako "61.3 min" wszedzie
+  // (podsumowanie dnia, Statystyki, Excel). Zaokraglenie w jednym miejscu
+  // (tu, przy zapisie) usuwa ulamki wszedzie na raz.
+  var czasMin = Math.round(Number(p.czas_min) || 0);
+  for (var i = data.length - 1; i >= 1; i--) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.start_timestamp === p.start_timestamp && obj.station === p.stanowisko && obj.status === 'OTWARTA') {
+      var tr = translateType_(p.typ || obj.type);
+      var rowIdx = i + 1;
+      awarieSetField_(sheet, map, rowIdx, 'type', p.typ || obj.type);
+      awarieSetField_(sheet, map, rowIdx, 'koniec_timestamp', p.koniec_timestamp || '');
+      awarieSetField_(sheet, map, rowIdx, 'czas_min', czasMin);
+      awarieSetField_(sheet, map, rowIdx, 'status', 'ZAMKNIETA');
+      awarieSetField_(sheet, map, rowIdx, 'type_cn', tr.cn);
+      if (p.resolution) awarieSetField_(sheet, map, rowIdx, 'resolution', p.resolution);
+      sendFeishuBotMessage_('✅ ALERT END / 警报结束\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + ((p.shift || obj.shift) ? ' · Shift / 班次 ' + (p.shift || obj.shift) : '') + '\nDuration / 时长: ' + czasMin + ' min' + ((p.operator || obj.operator) ? '\nReported by / 报告人: ' + (p.operator || obj.operator) : ''));
+      return jsonResponse({ status: 'ok' });
+    }
+  }
+  // Nie znaleziono otwartego wiersza (np. reset stanu w aplikacji, albo
+  // wpis wsteczny — ten w ogole nigdy nie przechodzi przez OTWARTA). Ta
+  // sciezka NIE ma zadnej ochrony przed duplikatem analogicznej do tej w
+  // handleAwariaStart (bo nie ma tu "otwartego" wiersza do sprawdzenia) —
+  // kilka szybkich klikniec "Zapisz" (typowe na ekranie dotykowym) albo
+  // ponowiona proba po timeout sieci tworzylo kilka identycznych wierszy.
+  // Sprawdz wiec explicite, czy TAKI SAM wpis (ta sama stacja/typ/start/
+  // koniec/czas) juz istnieje — jesli tak, to duplikat tego samego
+  // zgloszenia, nie nowe zdarzenie, wiec po cichu pomijamy zapis.
+  for (var j = data.length - 1; j >= 1; j--) {
+    var dup = awarieRowToObj_(data[j], map);
+    if (dup.station === (p.stanowisko || '') && dup.type === (p.typ || '') &&
+        dup.start_timestamp === (p.start_timestamp || '') && dup.koniec_timestamp === (p.koniec_timestamp || '') &&
+        Number(dup.czas_min) === czasMin) {
+      return jsonResponse({ status: 'ok', duplicate: true });
+    }
+  }
+  var tr2 = translateType_(p.typ || 'Alert');
+  awarieAppendRow_(sheet, map, {
+    start_timestamp: p.start_timestamp || '', station: p.stanowisko || '', type: p.typ || '',
+    koniec_timestamp: p.koniec_timestamp || '', czas_min: czasMin, status: 'ZAMKNIETA',
+    operator: p.operator || '', shift: p.shift || '', type_cn: tr2.cn,
+    backfilled: p.backfilled ? '1' : '', resolution: p.resolution || '',
+  });
+  sendFeishuBotMessage_('✅ ALERT END / 警报结束\n' + (p.stanowisko || '?') + ' · ' + tr2.en + ' / ' + tr2.cn + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + '\nDuration / 时长: ' + czasMin + ' min' + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
+  return jsonResponse({ status: 'ok' });
+}
+
+function handleAwariaCheck(ss, p) {
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return jsonResponse({ open: false });
+  var map = awarieHeaderMap_(sheet);
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.station === p.stanowisko && obj.status === 'OTWARTA') {
+      var startIso = obj.start_timestamp;
+      var diffMin = Math.round((new Date() - new Date(startIso)) / 60000);
+      return jsonResponse({ open: true, awaria: { typ: obj.type, start: startIso, startIso: startIso, diffMin: diffMin, operator: obj.operator } });
+    }
+  }
+  return jsonResponse({ open: false });
+}
+
+// Wszystkie AKTUALNIE otwarte awarie naraz (nie jedno stanowisko jak
+// handleAwariaCheck) — do zywego panelu na Dashboardzie (duzy zegar per
+// otwarta awaria, tykajacy w przegladarce bez dopytywania serwera co
+// sekunde — tutaj tylko poczatkowy stan + station/typ/kto/zmiana).
+function handleAwarieOtwarte(ss, p) {
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return jsonResponse({ status: 'ok', otwarte: [] });
+  var map = awarieHeaderMap_(sheet);
+  var data = sheet.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < data.length; i++) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.status !== 'OTWARTA') continue;
+    out.push({ station: obj.station, type: obj.type, type_cn: obj.type_cn || '', start_timestamp: obj.start_timestamp, operator: obj.operator || '', shift: obj.shift || '' });
+  }
+  return jsonResponse({ status: 'ok', otwarte: out });
+}
+
+// Historia Awarii pobierana na zywo (nie z pamieci telefonu) — kazdy
+// operator na kazdym urzadzeniu widzi to samo. Tylko zamkniete awarie,
+// opcjonalnie filtrowane po stanowisku, najnowsze pierwsze.
+function handleAwariaHistoria(ss, p) {
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return jsonResponse({ status: 'ok', historia: [] });
+  var map = awarieHeaderMap_(sheet);
+  var data = sheet.getDataRange().getValues();
+  // Tylko ostatni pelny tydzien (7 dni wstecz od teraz) — user: lista
+  // potrafila sprawiac wrazenie "duplikatow" gdy wiele roznych wpisow
+  // wstecznych z tego samego dnia (ten sam syntetyczny placeholder
+  // "12:00") sumowalo sie z dluga historia z wielu tygodni naraz.
+  var weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.status !== 'ZAMKNIETA') continue;
+    if (p.stanowisko && obj.station !== p.stanowisko) continue;
+    if (new Date(obj.koniec_timestamp) < weekAgo) continue;
+    rows.push({ station: obj.station, type: obj.type, start_timestamp: obj.start_timestamp, koniec_timestamp: obj.koniec_timestamp, czas_min: Number(obj.czas_min) || 0, operator: obj.operator || '' });
+  }
+  rows.sort(function (a, b) { return new Date(b.koniec_timestamp) - new Date(a.koniec_timestamp); });
+  return jsonResponse({ status: 'ok', historia: rows });
+}
+
+// Poprawka czasu trwania zamknietej awarii (np. zapomniano kliknac KONIEC
+// na czas i wynik jest zawyzony) — identyfikacja po stanowisku/typie/
+// czasie startu, tak samo jak przy zamykaniu.
+function handleEditAwariaDuration(ss, p) {
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var map = awarieHeaderMap_(sheet);
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.start_timestamp === p.start_timestamp && obj.station === p.stanowisko && obj.type === p.typ && obj.status === 'ZAMKNIETA') {
+      awarieSetField_(sheet, map, i + 1, 'czas_min', Math.round(Number(p.czas_min) || 0));
+      return jsonResponse({ status: 'ok', updated: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', updated: false });
+}
+
+function handleDeleteAwaria(ss, p) {
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var map = awarieHeaderMap_(sheet);
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.start_timestamp === p.start_timestamp && obj.station === p.stanowisko && obj.type === p.typ) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ status: 'ok', deleted: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', deleted: false });
+}
+
+// Uruchom RECZNIE JEDEN RAZ (z listy funkcji w edytorze), zeby dopisac
+// chinskie tlumaczenie (type_cn) do WSZYSTKICH juz istniejacych awarii,
+// ktore powstaly PRZED wdrozeniem automatycznego tlumaczenia - inaczej
+// stare wpisy (tooltip nad &#9888;, chipsy, eksport Excel) na zawsze
+// zostalyby bez chinskiego tekstu, bo translateType_ liczy sie tylko przy
+// START/KONIEC nowej awarii. Bezpiecznie uruchomic wielokrotnie - pomija
+// wiersze, ktore juz maja wypelnione type_cn.
+// Uruchom RECZNIE JEDEN RAZ, PRZED backfillTypeCn - naprawia skutki
+// wczesniejszej kolizji kolumn. Zanim istnienie alert_15min_sent/
+// alert_1h_sent bylo mi znane, appendRow()/getRange() z ta funkcja
+// pisaly POZYCYJNIE, wiec wartosc "shift" ladowala sie fizycznie w
+// kolumnie podpisanej "alert_15min_sent", a "type_cn" w
+// "alert_1h_sent" - dla WSZYSTKICH awarii zapisanych PRZED naprawa tej
+// kolizji (patrz awarieHeaderMap_ wyzej). Teraz kod czyta "shift"/
+// "type_cn" po nazwie z ich prawdziwych (pustych dla tych starych
+// wierszy) kolumn, wiec te awarie znikaly z filtrow po zmianie
+// (np. wykrzyknik w Statystykach przestawal sie pokazywac).
+// Heurystyka: prawdziwa flaga alertu to zawsze puste albo `true` - jesli
+// w alert_15min_sent/alert_1h_sent siedzi COKOLWIEK INNEGO (litera zmiany,
+// tekst po chinsku), to na 99% ta zagubiona wartosc - przenosimy ja do
+// wlasciwej kolumny i czyscimy zrodlowa.
+function migrateAwarieColumns() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return;
+  var map = awarieHeaderMap_(sheet);
+  if (!map.hasOwnProperty('shift') || !map.hasOwnProperty('alert_15min_sent')) return;
+  function looksLikeStrayValue(v) {
+    if (!v && v !== 0) return false;
+    if (v === true || String(v).toUpperCase() === 'TRUE') return false;
+    return true;
+  }
+  var data = sheet.getDataRange().getValues();
+  var migratedShift = 0, migratedCn = 0;
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var rowIdx = i + 1;
+    var curShift = row[map['shift']];
+    var alert15 = row[map['alert_15min_sent']];
+    if (!curShift && looksLikeStrayValue(alert15)) {
+      awarieSetField_(sheet, map, rowIdx, 'shift', alert15);
+      awarieSetField_(sheet, map, rowIdx, 'alert_15min_sent', '');
+      migratedShift++;
+    }
+    if (map.hasOwnProperty('type_cn') && map.hasOwnProperty('alert_1h_sent')) {
+      var curCn = row[map['type_cn']];
+      var alert1h = row[map['alert_1h_sent']];
+      if (!curCn && looksLikeStrayValue(alert1h)) {
+        awarieSetField_(sheet, map, rowIdx, 'type_cn', alert1h);
+        awarieSetField_(sheet, map, rowIdx, 'alert_1h_sent', '');
+        migratedCn++;
+      }
+    }
+  }
+  Logger.log('migrateAwarieColumns: shift=' + migratedShift + ', type_cn=' + migratedCn);
+}
+
+function backfillTypeCn() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return;
+  ensureColumns_(sheet, AWARIE_HEADERS);
+  var map = awarieHeaderMap_(sheet);
+  var data = sheet.getDataRange().getValues();
+  var updated = 0;
+  for (var i = 1; i < data.length; i++) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (!obj.type || obj.type_cn) continue;
+    awarieSetField_(sheet, map, i + 1, 'type_cn', translateType_(obj.type).cn);
+    updated++;
+  }
+  Logger.log('backfillTypeCn: zaktualizowano ' + updated + ' wierszy');
+}
+
+// Uruchom RECZNIE JEDEN RAZ - zaokragla juz istniejace czas_min z ulamkami
+// (np. 61.333 min) do pelnych minut. Nowe awarie od teraz zapisuja sie juz
+// zaokraglone (patrz handleAwariaEnd/handleEditAwariaDuration), ale stare
+// wpisy w arkuszu nadal maja ulamki, dopoki nie uruchomi sie tej migracji.
+function roundCzasMin() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return;
+  var map = awarieHeaderMap_(sheet);
+  if (!map.hasOwnProperty('czas_min')) return;
+  var data = sheet.getDataRange().getValues();
+  var updated = 0;
+  for (var i = 1; i < data.length; i++) {
+    var raw = data[i][map['czas_min']];
+    var n = Number(raw);
+    if (raw === '' || isNaN(n)) continue;
+    var rounded = Math.round(n);
+    if (rounded === n) continue;
+    awarieSetField_(sheet, map, i + 1, 'czas_min', rounded);
+    updated++;
+  }
+  Logger.log('roundCzasMin: zaokraglono ' + updated + ' wierszy');
+}
+
+// Uruchom RECZNIE JEDEN RAZ - zmienia nazwe stanowiska "OP40 OUT" na
+// "OP40 IN" w juz zapisanej konfiguracji Premii (cfm_premia_config,
+// cfm_premia_wydajnosc). OP40 OUT nigdy nie ma wlasnych raportow
+// produkcji (patrz CFM_plan.html - jego cel zawsze kopiuje OP40 IN, "co
+// wejdzie do pieca, tyle musi z niego wyjsc"), wiec grupa premiowa
+// wskazujaca na OP40 OUT nigdy nie widzi zadnej prawdziwej produkcji -
+// powinna wskazywac na OP40 IN, tak samo jak Statystyki.
+function migratePremiaOp40Name() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Ustawienia');
+  if (!sheet) return;
+  var data = sheet.getDataRange().getValues();
+  var updated = 0;
+  for (var i = 1; i < data.length; i++) {
+    var klucz = data[i][0];
+    if (klucz !== 'cfm_premia_config' && klucz !== 'cfm_premia_wydajnosc') continue;
+    var wartosc = String(data[i][1] || '');
+    if (wartosc.indexOf('OP40 OUT') === -1) continue;
+    sheet.getRange(i + 1, 2).setValue(wartosc.split('OP40 OUT').join('OP40 IN'));
+    updated++;
+  }
+  Logger.log('migratePremiaOp40Name: zaktualizowano ' + updated + ' wierszy Ustawien');
+}
+
+// ── REWORK PROCESSING (bufor per strefa) ────────────────────────────
+// timestamp | date | zone | processed | recovered | final_scrap | note | notes | reasons_json | zone_label | operator | recovered_reasons_json
+// (zone_label/operator/recovered_reasons_json dopisane NA KONCU, zeby nie
+// przesunac kolumn juz zapisanych wczesniej wierszy)
+var REWORK_PROCESSING_HEADERS = ['timestamp', 'date', 'zone', 'processed', 'recovered', 'final_scrap', 'note', 'notes', 'reasons_json', 'zone_label', 'operator', 'recovered_reasons_json'];
+
+function handleReworkProcessing(ss, p) {
+  var sheet = getOrCreateSheet(ss, 'ReworkProcessing', REWORK_PROCESSING_HEADERS);
+  ensureColumns_(sheet, REWORK_PROCESSING_HEADERS);
+  var row = [
+    p.timestamp || '', p.date || '', p.zone || '', Number(p.processed) || 0,
+    Number(p.recovered) || 0, Number(p.final_scrap) || 0, p.note || '', p.notes || '', p.reasons_json || '',
+    p.zone_label || '', p.operator || '', p.recovered_reasons_json || '',
+  ];
+  // Edycja istniejacego przetworzenia (patrz editReworkEntry w apce) —
+  // podmien wiersz o oryginalnym timestampie zamiast dopisywac nowy. Zwykle
+  // (nie-edycyjne) wyslania NIE ustawiaja orig_timestamp, wiec zawsze
+  // dopisuja nowy wiersz — przetwarzanie bufora jest z natury addytywne
+  // (kilka sesji dziennie na te sama strefe to normalka), w odroznieniu od
+  // Raportu Godzinnego/Dziennego gdzie kazdy klucz jest unikalny z definicji.
+  if (p.orig_timestamp) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (data[i][0] === p.orig_timestamp) {
+        sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
+        return jsonResponse({ status: 'ok', updated: true });
+      }
+    }
+  }
+  sheet.appendRow(row);
+  return jsonResponse({ status: 'ok', updated: false });
+}
+
+function handleDeleteReworkProcessing(ss, p) {
+  var sheet = ss.getSheetByName('ReworkProcessing');
+  if (!sheet) return jsonResponse({ status: 'error', msg: 'brak danych' });
+  var data = sheet.getDataRange().getValues();
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (data[i][0] === p.timestamp) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ status: 'ok', deleted: true });
+    }
+  }
+  return jsonResponse({ status: 'ok', deleted: false });
+}
+
+function handleReworkBuffer(ss, p) {
+  var zoneKey = p.zone;
+  var stations = REWORK_ZONES[zoneKey] || [];
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  // Biezacy miesiac kalendarzowy (wg daty WPISU, nie timestampu wysylki —
+  // backdatowane przetworzenie zaleglosci z poprzedniego miesiaca ma sie
+  // liczyc do TAMTEGO miesiaca, nie do dzisiejszego). To osobne, dodatkowe
+  // podsumowanie OBOK wiecznego licznika bufora ponizej — bufor fizyczny
+  // (ile sztuk realnie czeka) nie zna miesiecy, ale user chce tez widziec
+  // "jak poszedl ten miesiac" bez liczenia tego recznie.
+  var monthKey = Utilities.formatDate(new Date(), tz, 'yyyy-MM');
+
+  var reworkTotal = 0, monthReworkTotal = 0;
+  var byReason = {};
+  var reportSheet = ss.getSheetByName('RaportDzienny');
+  if (reportSheet) {
+    var data = reportSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (stations.indexOf(data[i][3]) < 0) continue;
+      var reworkQty = Number(data[i][7]) || 0;
+      reworkTotal += reworkQty;
+      if (normalizeDate_(data[i][1]).indexOf(monthKey) === 0) monthReworkTotal += reworkQty;
+      addReworkReasonsFromReport_(byReason, data[i][12]);
+    }
+  }
+
+  var recoveredTotal = 0, finalScrapTotal = 0, monthRecoveredTotal = 0, monthFinalScrapTotal = 0;
+  var reworkSheet = ss.getSheetByName('ReworkProcessing');
+  if (reworkSheet) {
+    var rdata = reworkSheet.getDataRange().getValues();
+    for (var j = 1; j < rdata.length; j++) {
+      if (rdata[j][2] !== zoneKey) continue;
+      var rec = Number(rdata[j][4]) || 0, scrap = Number(rdata[j][5]) || 0;
+      recoveredTotal += rec;
+      finalScrapTotal += scrap;
+      if (normalizeDate_(rdata[j][1]).indexOf(monthKey) === 0) { monthRecoveredTotal += rec; monthFinalScrapTotal += scrap; }
+      addReasonQty_(byReason, rdata[j][8], -1);  // reasons_json = przyczyny "Do złomowania"
+      addReasonQty_(byReason, rdata[j][11], -1); // recovered_reasons_json = przyczyny "Odzyskane"
+    }
+  }
+  Object.keys(byReason).forEach(function (r) { byReason[r] = Math.max(0, byReason[r]); });
+
+  var buffer = Math.max(0, reworkTotal - recoveredTotal - finalScrapTotal);
+  return jsonResponse({
+    status: 'ok', rework_total: reworkTotal, recovered_total: recoveredTotal, final_scrap_total: finalScrapTotal, buffer: buffer, by_reason: byReason,
+    month_key: monthKey, month_rework_total: monthReworkTotal, month_recovered_total: monthRecoveredTotal, month_final_scrap_total: monthFinalScrapTotal
+  });
+}
+
+function handleReworkHistory(ss, p) {
+  var sheet = ss.getSheetByName('ReworkProcessing');
+  var historia = [];
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      if (p.zone && row[2] !== p.zone) continue;
+      historia.push({
+        timestamp: row[0], date: normalizeDate_(row[1]), zone: row[2], processed: Number(row[3]) || 0,
+        recovered: Number(row[4]) || 0, final_scrap: Number(row[5]) || 0, note: row[6], notes: row[7],
+        reasons_json: row[8] || '', zone_label: row[9] || '', operator: row[10] || '', recovered_reasons_json: row[11] || '',
+      });
+    }
+  }
+  historia.sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
+  return jsonResponse({ status: 'ok', historia: historia.slice(0, 20) });
+}
+
+// ── USTAWIENIA (synchronizacja miedzy telefonami) ───────────────────
+// klucz | wartosc | updated_at
+function handleSetUstawienie(ss, p) {
+  var sheet = getOrCreateSheet(ss, 'Ustawienia', ['klucz', 'wartosc', 'updated_at']);
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === p.klucz) {
+      sheet.getRange(i + 1, 2, 1, 2).setValues([[p.wartosc || '', new Date()]]);
+      return jsonResponse({ status: 'ok' });
+    }
+  }
+  sheet.appendRow([p.klucz, p.wartosc || '', new Date()]);
+  return jsonResponse({ status: 'ok' });
+}
+
+function handleGetUstawienia(ss, p) {
+  var sheet = ss.getSheetByName('Ustawienia');
+  if (!sheet) return jsonResponse({ status: 'ok', ustawienia: {} });
+  var data = sheet.getDataRange().getValues();
+  var ustawienia = {};
+  for (var i = 1; i < data.length; i++) {
+    ustawienia[data[i][0]] = data[i][1];
+  }
+  return jsonResponse({ status: 'ok', ustawienia: ustawienia });
+}
+
+// ── PODSUMOWANIE DNIA (Feishu, co rano) ──────────────────────────────
+// Odpalane przez trigger czasowy (patrz ustawTriggerPodsumowania ponizej,
+// uruchom RECZNIE JEDEN RAZ z edytora Apps Script, zeby zainstalowac
+// codzienne wywolanie) — podsumowuje WCZORAJSZY dzien: wykonanie planu +
+// pass rate na GP12 (ta sama metoda co Statystyki/Premie — plan z ZYWEGO
+// cfm_monthly_plan, nie z migawki w wierszu) oraz Awarie (ile, ile minut,
+// z podzialem na stanowisko).
+function wyslijPodsumowanieDnia() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var wczoraj = new Date();
+  wczoraj.setDate(wczoraj.getDate() - 1);
+  var dateIso = Utilities.formatDate(wczoraj, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+
+  var monthlyPlan = {}, stationTargets = {};
+  var ustSheet = ss.getSheetByName('Ustawienia');
+  if (ustSheet) {
+    var udata = ustSheet.getDataRange().getValues();
+    for (var u = 1; u < udata.length; u++) {
+      if (udata[u][0] === 'cfm_monthly_plan') { try { monthlyPlan = JSON.parse(udata[u][1] || '{}'); } catch (e) {} }
+      if (udata[u][0] === 'cfm_station_targets') { try { stationTargets = JSON.parse(udata[u][1] || '{}'); } catch (e) {} }
+    }
+  }
+
+  // Per-stanowisko (nie tylko GP12) - kazde stanowisko, ktore mialo
+  // JAKIKOLWIEK raport tego dnia, dostaje wlasna linijke wykonania planu +
+  // pass rate. Agregacja PRZEZ WSZYSTKIE zmiany stanowiska naraz (tak jak
+  // wczesniej dla samego GP12), nie osobno per zmiana - inaczej wiadomosc
+  // zrobilaby sie za dluga przy kilku zmianach na stanowisko.
+  var byStationPlan = {};
+  var stationOrder = [];
+  var sheet = ss.getSheetByName('RaportDzienny');
+  if (sheet) {
+    var data = sheet.getDataRange().getValues();
+    var seenShifts = {};
+    for (var i = 1; i < data.length; i++) {
+      var r = data[i];
+      if (normalizeDate_(r[1]) !== dateIso) continue;
+      var st = r[3];
+      if (!byStationPlan[st]) { byStationPlan[st] = { actual: 0, ok: 0, plan: 0, ngCount: 0 }; stationOrder.push(st); }
+      var sObj = byStationPlan[st];
+      sObj.actual += Number(r[5]) || 0;
+      sObj.ok += Number(r[9]) || 0;
+      sObj.ngCount += (Number(r[6]) || 0) + (Number(r[7]) || 0);
+      var key = st + '||' + r[2];
+      if (!seenShifts[key]) { seenShifts[key] = true; sObj.plan += planForDate_(monthlyPlan, stationTargets, st, r[2], dateIso); }
+    }
+  }
+  stationOrder.sort();
+  var stationLines = stationOrder.map(function (st) {
+    var s = byStationPlan[st];
+    var completion = s.plan > 0 ? Math.round((s.actual / s.plan) * 100) : null;
+    var passRate = s.actual > 0 ? ((s.ok / s.actual) * 100).toFixed(1) : null;
+    return '  ' + st + ': ' + (completion === null ? '—' : completion + '%') + ' (' + s.actual + '/' + s.plan + ' pcs / 件), pass ' + (passRate === null ? '—' : passRate + '%');
+  }).join('\n');
+
+  var awSheet = ss.getSheetByName('Awarie');
+  var awarieCount = 0, awarieMin = 0, byStation = {};
+  if (awSheet) {
+    var adata = awSheet.getDataRange().getValues();
+    for (var j = 1; j < adata.length; j++) {
+      var ar = adata[j];
+      if (ar[5] !== 'ZAMKNIETA' || normalizeDate_(ar[0]).slice(0, 10) !== dateIso) continue;
+      awarieCount++;
+      var min = Number(ar[4]) || 0;
+      awarieMin += min;
+      byStation[ar[1]] = (byStation[ar[1]] || 0) + min;
+    }
+  }
+  // round1_ obcina blad zmiennoprzecinkowy przy sumowaniu ulamkowych minut
+  // (bez tego np. 226.90000000000003 min trafialoby wprost na Feishu).
+  var awarieLines = Object.keys(byStation).sort(function(a, b) { return byStation[b] - byStation[a]; })
+    .map(function(st) { return '  ' + st + ': ' + round1_(byStation[st]) + ' min'; }).join('\n');
+
+  var dd = dateIso.split('-');
+  var text = '☀️ DAILY SUMMARY / 日总结 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + '\n\n' +
+    'Plan completion & pass rate / 计划完成率与合格率:\n' + (stationLines || '  —') + '\n\n' +
+    'Alerts / 警报: ' + awarieCount + ' (total / 总计 ' + round1_(awarieMin) + ' min)' + (awarieLines ? '\n' + awarieLines : '');
+  sendFeishuBotMessage_(text);
+}
+
+// Uruchom TĘ funkcję RĘCZNIE JEDEN RAZ z edytora Apps Script (wybierz z
+// listy funkcji u góry, kliknij Uruchom), żeby zainstalować codzienny
+// trigger o 6:00 wysyłający podsumowanie na Feishu. Bezpieczne uruchomić
+// wielokrotnie — najpierw usuwa stare triggery tej samej funkcji, żeby
+// nie zdublować wysyłki.
+// NIE 6:00 — zmiana C konczy sie dopiero o 7:00, wiec trigger o 6:00
+// strzelal zanim jej raport w ogole mogl zostac zlozony (stad
+// brakujace/puste podsumowania). Poprawne: 7:30.
+function ustawTriggerPodsumowania() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'wyslijPodsumowanieDnia') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('wyslijPodsumowanieDnia').timeBased().atHour(7).nearMinute(30).everyDays(1).create();
+}
+
+// ── ESKALACJA DLUGO OTWARTYCH AWARII (trigger co 5 min) ─────────────
+// ODTWORZONE od podstaw (best-effort) — oryginalna funkcja o tej samej
+// nazwie zostala przypadkowo skasowana przy nadpisaniu tego pliku (trigger
+// zostal, ale wywolywal juz nieistniejaca funkcje - "Script function not
+// found"), a jej oryginalnego kodu nie dalo sie odzyskac z historii wersji
+// Apps Script. Kolumny alert_15min_sent/alert_1h_sent w arkuszu Awarie
+// (dodane przez ORYGINALNA wersje tej funkcji) zostaly zachowane i sa tu
+// uzyte zgodnie z ich nazwa: flaga ustawiana PO wyslaniu danego alertu,
+// zeby nie wyslac go ponownie przy kolejnym uruchomieniu triggera.
+// Progi (15 min / 1h) i tresc wiadomosci to najlepsze przyblizenie na
+// podstawie nazw kolumn - popraw, jesli oryginal robil to inaczej.
+function checkAwariaEscalations() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('Awarie');
+  if (!sheet) return;
+  var map = awarieHeaderMap_(sheet);
+  if (!map.hasOwnProperty('alert_15min_sent') || !map.hasOwnProperty('alert_1h_sent')) return;
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  var data = sheet.getDataRange().getValues();
+  var now = new Date();
+  for (var i = 1; i < data.length; i++) {
+    var obj = awarieRowToObj_(data[i], map);
+    if (obj.status !== 'OTWARTA' || !obj.start_timestamp) continue;
+    var start = new Date(obj.start_timestamp);
+    var elapsedMin = (now - start) / 60000;
+    var rowIdx = i + 1;
+    var startTxt = Utilities.formatDate(start, tz, 'HH:mm');
+    if (elapsedMin >= 60 && !obj.alert_1h_sent) {
+      // Powyzej 1h -> glowna grupa (szefowie) - powazniejsza eskalacja.
+      sendFeishuBotMessage_('⏱️ ALERT OPEN 1H+ / 警报持续超过1小时\n' + obj.station + ' · ' + (obj.type || 'Alert') + (obj.operator ? '\nReported by / 报告人: ' + obj.operator : '') + '\nOpen since / 开始于: ' + startTxt, FEISHU_BOT_WEBHOOK);
+      awarieSetField_(sheet, map, rowIdx, 'alert_1h_sent', true);
+    } else if (elapsedMin >= 15 && !obj.alert_15min_sent) {
+      // 15 min -> grupa technikow, zeby ktos poszedl to naprawic zanim
+      // eskaluje dalej. Dopoki FEISHU_BOT_WEBHOOK_TECHNICY nie jest
+      // uzupelniony, NIE wysylamy tego wcale (celowo nie wpada na glowna
+      // grupe jako fallback - to bylby spam nie dla tych odbiorcow).
+      if (FEISHU_BOT_WEBHOOK_TECHNICY) {
+        sendFeishuBotMessage_('⏱️ ALERT OPEN 15MIN+ / 警报持续超过15分钟\n' + obj.station + ' · ' + (obj.type || 'Alert') + (obj.operator ? '\nReported by / 报告人: ' + obj.operator : '') + '\nOpen since / 开始于: ' + startTxt, FEISHU_BOT_WEBHOOK_TECHNICY);
+      }
+      awarieSetField_(sheet, map, rowIdx, 'alert_15min_sent', true);
+    }
+  }
+}
+
+// Uruchom RECZNIE JEDEN RAZ, zeby zainstalowac trigger co 5 minut (ten sam
+// odstep co widoczny w historii wykonan sprzed znikniecia funkcji).
+function ustawTriggerEscalations() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'checkAwariaEscalations') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('checkAwariaEscalations').timeBased().everyMinutes(5).create();
+}
+
+// ── MAGAZYN CZESCI: DZIENNE PODSUMOWANIE DO ZAMOWIENIA (Feishu+Telegram, przed 7:00) ──
+// Ta sama logika projekcji co CFM_magazyn.html (client, patrz tam obszerny
+// komentarz o modelu deplecyjnym z wbudowanym "efektem tego samego dnia").
+// Do zamowienia trafia: (a) kazda czesc z DZISIEJSZYM potwierdzeniem NOK
+// od magazyniera (jego liczba jest autorytatywna — mogl zauwazyc cos,
+// czego automat nie wie, np. zlom/uszkodzenie), (b) kazda czesc BEZ
+// dzisiejszego potwierdzenia, ktorej auto-projekcja pokazuje realna
+// potrzebe zamowienia (orderQty > 0, ten sam filtr co w projectionListHtml
+// w CFM_magazyn.html) — NIE kazda czesc z krotkim "starczy na ~N dni" bez
+// realnej potrzeby, bo to tylko szum bez zadnej akcji do podjecia. Czesci
+// z dzisiejszym potwierdzeniem OK sa pomijane (magazynier juz zapewnil ze
+// starczy).
+var MAGAZYN_HORYZONT_DNI = 30;
+
+function planSumForDayWithFallback_(monthlyPlan, targets, station, dateIso) {
+  station = String(station || '').trim();
+  var mk = dateIso.slice(0, 7);
+  var stPlan = monthlyPlan[mk] && monthlyPlan[mk][station];
+  var sum = 0, any = false;
+  if (stPlan) {
+    Object.keys(stPlan).forEach(function (shift) {
+      var v = stPlan[shift] && stPlan[shift][dateIso];
+      if (v !== undefined) { sum += Number(v) || 0; any = true; }
+    });
+  }
+  if (any) return sum;
+  return Number(targets[station]) || 0;
+}
+function magazynAddDays_(dateIso, n) {
+  var p = dateIso.split('-');
+  var d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  d.setDate(d.getDate() + n);
+  return Utilities.formatDate(d, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+}
+function magazynEnumerateDays_(startIso, endIso) {
+  var days = [];
+  var sp = startIso.split('-'), ep = endIso.split('-');
+  var cursor = new Date(Number(sp[0]), Number(sp[1]) - 1, Number(sp[2]));
+  var end = new Date(Number(ep[0]), Number(ep[1]) - 1, Number(ep[2]));
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  while (cursor <= end) {
+    days.push(Utilities.formatDate(cursor, tz, 'yyyy-MM-dd'));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+// Ta sama fizyczna czesc moze wystapic w katalogu kilka razy (grupy
+// CFM-1/CFM-2, rozna ilosc/stacja per produkt) - to NIE duplikat, tylko
+// niezalezne linie BOM zuzywajace TEN SAM fizyczny zapas. Zuzycie musi
+// sumowac WSZYSTKIE wiersze naraz (patrz identyczny komentarz w
+// CFM_magazyn.html), inaczej dwie osobne projekcje zjadalyby ten sam zapas
+// dwa razy.
+function magazynGroupPartsByNumber_(parts) {
+  var map = {};
+  parts.forEach(function (p) {
+    if (!map[p.number]) map[p.number] = [];
+    map[p.number].push(p);
+  });
+  return map;
+}
+function magazynPartConsumption_(bomLines, dateIso, rowsByStationDate, monthlyPlan, targets, todayIso) {
+  var isFuture = dateIso > todayIso;
+  var total = 0;
+  bomLines.forEach(function (line) {
+    var stations = String(line.station || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var units = 0;
+    stations.forEach(function (st) {
+      var key = st + '||' + dateIso;
+      var a = (!isFuture && rowsByStationDate.hasOwnProperty(key)) ? rowsByStationDate[key] : null;
+      units += a !== null ? a : planSumForDayWithFallback_(monthlyPlan, targets, st, dateIso);
+    });
+    total += units * (Number(line.qty) || 1);
+  });
+  return total;
+}
+function magazynComputeProjection_(bomLines, partNumber, stany, rowsByStationDate, monthlyPlan, targets, todayIso) {
+  var partStany = stany[partNumber] || {};
+  var pastCountDates = Object.keys(partStany).filter(function (d) { return d <= todayIso; }).sort();
+  if (!pastCountDates.length) return null;
+  var lastCountDate = pastCountDates[pastCountDates.length - 1];
+  var horizonEnd = new Date(Number(todayIso.slice(0, 4)), Number(todayIso.slice(5, 7)) - 1, Number(todayIso.slice(8, 10)));
+  horizonEnd.setDate(horizonEnd.getDate() + MAGAZYN_HORYZONT_DNI);
+  var horizonEndIso = Utilities.formatDate(horizonEnd, Session.getScriptTimeZone() || 'Europe/Warsaw', 'yyyy-MM-dd');
+  var days = magazynEnumerateDays_(lastCountDate, horizonEndIso);
+  var running = Number(partStany[lastCountDate]) || 0;
+  var balanceToday = running;
+  var runOutDate = null;
+  var minRunning = running;
+  // Prawdziwy fizyczny bilans, bez zadnych marginesow — tylko do informacji
+  // (coverageDays/"BRAKUJE JUZ DZIS"). Ile faktycznie zamowic liczy osobno
+  // magazynNeededForDays_ ponizej, patrz komentarz tam.
+  // WAZNE: kazda wpisana inwentaryzacja to stan NA KONIEC danego dnia (po
+  // tegodziennej produkcji) — patrz identyczny komentarz przy
+  // computePartProjection w CFM_magazyn.html (klient).
+  days.forEach(function (d, idx) {
+    var countToday = partStany[d] !== undefined ? Number(partStany[d]) : null;
+    if (idx > 0) {
+      if (countToday !== null) running = countToday;
+      else running -= magazynPartConsumption_(bomLines, d, rowsByStationDate, monthlyPlan, targets, todayIso);
+    }
+    if (d <= todayIso) balanceToday = running;
+    if (runOutDate === null && running < 0) runOutDate = d;
+    if (running < minRunning) minRunning = running;
+  });
+  var coverageDays = runOutDate ? magazynEnumerateDays_(todayIso, runOutDate).length - 1 : null;
+  return { balanceToday: balanceToday, coverageDays: coverageDays, minRunning: minRunning };
+}
+// Jak neededForNextDays w CFM_magazyn.html (klient) — ta sama logika,
+// zduplikowana celowo (Apps Script nie dzieli kodu z klientem).
+function magazynNeededForDays_(bomLines, todayIso, days, rowsByStationDate, monthlyPlan, targets) {
+  if (days <= 0) return 0;
+  var total = 0;
+  for (var k = 1; k <= days; k++) {
+    total += magazynPartConsumption_(bomLines, magazynAddDays_(todayIso, k), rowsByStationDate, monthlyPlan, targets, todayIso);
+  }
+  return total;
+}
+// Jak suggestedOrderQty w CFM_magazyn.html (klient) — ta sama logika,
+// zduplikowana celowo (Apps Script nie dzieli kodu z klientem), zeby
+// Telegram pokazywal TA SAMA sugerowana ilosc co magazynier widzi w apce.
+function magazynSuggestedOrderQty_(balanceToday, needed, paletaQty) {
+  var shortfall = needed - balanceToday;
+  if (shortfall <= 0) return 0;
+  if (paletaQty > 0) return Math.ceil(shortfall / paletaQty) * paletaQty;
+  return shortfall;
+}
+// Polska odmiana: 1 paleta, 2-4 palety (ale NIE 12-14), 5+/0 palet.
+function plPalety_(n) {
+  if (n === 1) return 'paleta';
+  var mod10 = n % 10, mod100 = n % 100;
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) return 'palety';
+  return 'palet';
+}
+
+function wyslijPodsumowanieMagazynu() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  var todayIso = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+
+  var parts = [], stany = {}, potwierdzenia = {}, monthlyPlan = {}, targets = {}, orderDays = 1;
+  var ustSheet = ss.getSheetByName('Ustawienia');
+  if (ustSheet) {
+    var udata = ustSheet.getDataRange().getValues();
+    for (var u = 1; u < udata.length; u++) {
+      var klucz = udata[u][0], wartosc = udata[u][1];
+      if (klucz === 'cfm_magazyn_parts') { try { parts = JSON.parse(wartosc || '[]'); } catch (e) {} }
+      if (klucz === 'cfm_magazyn_stany') { try { stany = JSON.parse(wartosc || '{}'); } catch (e) {} }
+      if (klucz === 'cfm_magazyn_potwierdzenia') { try { potwierdzenia = JSON.parse(wartosc || '{}'); } catch (e) {} }
+      if (klucz === 'cfm_monthly_plan') { try { monthlyPlan = JSON.parse(wartosc || '{}'); } catch (e) {} }
+      if (klucz === 'cfm_station_targets') { try { targets = JSON.parse(wartosc || '{}'); } catch (e) {} }
+      if (klucz === 'cfm_magazyn_order_days') { orderDays = Number(wartosc) || 0; }
+    }
+  }
+  if (!parts.length) return; // katalog czesci jeszcze nie skonfigurowany w Panelu Admina
+
+  // Najwczesniejsza inwentaryzacja spomiedzy wszystkich czesci — wyznacza
+  // zakres potrzebny do pobrania "actual" z RaportDzienny.
+  var earliestCount = null;
+  Object.keys(stany).forEach(function (num) {
+    Object.keys(stany[num]).forEach(function (d) {
+      if (earliestCount === null || d < earliestCount) earliestCount = d;
+    });
+  });
+  var rowsByStationDate = {};
+  if (earliestCount) {
+    var repSheet = ss.getSheetByName('RaportDzienny');
+    if (repSheet) {
+      var rdata = repSheet.getDataRange().getValues();
+      for (var i = 1; i < rdata.length; i++) {
+        var r = rdata[i];
+        var d = normalizeDate_(r[1]);
+        if (d < earliestCount || d > todayIso) continue;
+        var key = String(r[3] || '').trim() + '||' + d;
+        rowsByStationDate[key] = (rowsByStationDate.hasOwnProperty(key) ? rowsByStationDate[key] : 0) + (Number(r[5]) || 0);
+      }
+    }
+  }
+
+  var todaysConfirm = potwierdzenia[todayIso] || {};
+  var byNumber = magazynGroupPartsByNumber_(parts);
+  var seenNumbers = {};
+  var lines = [];
+  parts.forEach(function (p) {
+    if (seenNumbers[p.number]) return; // ta sama fizyczna czesc juz policzona (patrz magazynGroupPartsByNumber_)
+    seenNumbers[p.number] = true;
+    var confirm = todaysConfirm[p.number];
+    if (confirm && confirm.status === 'NOK') {
+      // confirm.ordered, NIE confirm.qty — klient (CFM_magazyn.html) zapisuje
+      // pole "ordered", "qty" tu nigdy nie istnialo (martwe odwolanie dajace
+      // NaN w wiadomosci).
+      lines.push('🔴 ' + p.number + (p.desc ? ' — ' + p.desc : '') +
+        '\nBrakuje: ' + Math.round(confirm.ordered) + ' szt. [potwierdzone przez magazyniera]');
+      return;
+    }
+    if (confirm && confirm.status === 'OK') return;
+    var proj = magazynComputeProjection_(byNumber[p.number], p.number, stany, rowsByStationDate, monthlyPlan, targets, todayIso);
+    if (!proj) return; // brak inwentaryzacji tej czesci — nie da sie nic policzyc
+    var paletaQty = 0;
+    (byNumber[p.number] || []).some(function (bl) { if (bl.paletaQty > 0) { paletaQty = Number(bl.paletaQty); return true; } return false; });
+    var needed = magazynNeededForDays_(byNumber[p.number], todayIso, orderDays, rowsByStationDate, monthlyPlan, targets);
+    var orderQty = magazynSuggestedOrderQty_(proj.balanceToday, needed, paletaQty);
+    // Pokazuj TYLKO czesci, ktorym faktycznie czegos brakuje (orderQty > 0)
+    // — ten sam filtr co w CFM_magazyn.html (projectionListHtml). Samo
+    // "starczy na ~N dni" bez realnej potrzeby zamowienia to szum, nie
+    // akcja — user: "mialem dostawac tylko to co brakuje".
+    if (orderQty > 0) {
+      var covTxt = proj.coverageDays <= 0 ? 'BRAKUJE JUZ DZIS' : ('starczy ~' + proj.coverageDays + ' dni');
+      var paletaCount = paletaQty > 0 ? Math.round(orderQty / paletaQty) : 0;
+      // Krotki, skanowalny blok per czesc — numer+opis w naglowku, Stan i
+      // Zamow na WLASNYCH liniach, zamiast upychac wszystko w jedna zdanie
+      // z nawiasami w nawiasach — to bylo nieczytelne przy wiecej niz 2-3
+      // pozycjach.
+      lines.push('🟠 ' + p.number + (p.desc ? ' — ' + p.desc : '') +
+        '\nStan: ' + Math.round(proj.balanceToday) + ' szt. (' + covTxt + ')' +
+        '\nZamów: ' + Math.round(orderQty) + ' szt.' + (paletaQty > 0 ? ' (' + paletaCount + ' ' + plPalety_(paletaCount) + ')' : '') +
+        '\n[auto, niepotwierdzone]');
+    }
+  });
+
+  if (!lines.length) return; // nic do zamowienia — nie spamujemy pusta wiadomoscia
+  var dd = todayIso.split('-');
+  var text = '📦 MAGAZYN — DO ZAMÓWIENIA / 待订购 ' + dd[2] + '/' + dd[1] + '/' + dd[0] + ' · zapotrzebowanie na ' + orderDays + ' dn.\n\n' + lines.join('\n\n');
+  sendFeishuBotMessage_(text); // glowna grupa (szefowie)
+  sendTelegramMessage_(text); // magazynier - zeby widzial efekt swoich wczorajszych OK/NOK
+}
+
+// Uruchom RECZNIE JEDEN RAZ z edytora Apps Script, zeby zainstalowac
+// codzienny trigger o 7:00 z podsumowaniem czesci do zamowienia. Bezpieczne
+// uruchomic wielokrotnie — najpierw usuwa stare triggery tej samej funkcji.
+function ustawTriggerMagazynu() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'wyslijPodsumowanieMagazynu') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('wyslijPodsumowanieMagazynu').timeBased().atHour(7).everyDays(1).create();
+}
+
+// ── WYPADKI (BHP) ────────────────────────────────────────────────────
+// timestamp | date | station | severity | description | operator
+// Osobny, prosty arkusz - w odroznieniu od Awarii nie ma stanu
+// OTWARTA/ZAMKNIETA (wypadek zglasza sie raz, po fakcie), wiec tylko
+// zapis + odczyt, bez logiki start/koniec.
+var WYPADKI_HEADERS = ['timestamp', 'date', 'station', 'severity', 'description', 'operator'];
+function handleZglosWypadek(ss, p) {
+  var sheet = getOrCreateSheet(ss, 'Wypadki', WYPADKI_HEADERS);
+  ensureColumns_(sheet, WYPADKI_HEADERS);
+  var tz = Session.getScriptTimeZone() || 'Europe/Warsaw';
+  var dateStr = p.date || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  sheet.appendRow([p.timestamp || new Date().toISOString(), dateStr, p.stanowisko || '', p.severity || '', p.description || '', p.operator || '']);
+  // Wypadek jest pilniejszy niz zwykla awaria maszyny - zawsze na glowna
+  // grupe (ta sama co alert eskalacji 1h+), niezaleznie od powagi.
+  sendFeishuBotMessage_('🚨 WORKPLACE INCIDENT / 工伤事故\n' + (p.stanowisko || '?') + ' · ' + (p.severity || '?') + (p.description ? '\n' + p.description : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
+  return jsonResponse({ status: 'ok' });
+}
+
+// Cala historia (nie tylko zakres dat) - wypadki sa rzadkie, wiec prosciej
+// zwrocic wszystko i pozwolic frontendowi (np. licznik "dni bez wypadku"
+// na Dashboardzie) samemu przefiltrowac/policzyc, niz dodawac kolejny
+// parametr zakresu tylko dla tego jednego, malego zrodla danych.
+function handleWypadkiHistoria(ss, p) {
+  var sheet = ss.getSheetByName('Wypadki');
+  if (!sheet) return jsonResponse({ status: 'ok', historia: [] });
+  var data = sheet.getDataRange().getValues();
+  var rows = [];
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    rows.push({ timestamp: r[0], date: normalizeDate_(r[1]), station: r[2], severity: r[3], description: r[4], operator: r[5] || '' });
+  }
+  rows.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return jsonResponse({ status: 'ok', historia: rows });
+}
+
  * produkcyjnych i tak idzie rownolegle do Feishu Base (aplikacja wysyla
  * do obu na raz, gdy oba sa skonfigurowane) — ten arkusz nie jest
  * zamiennikiem Feishu, tylko dodatkowa pamiecia operacyjna.

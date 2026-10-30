@@ -1060,7 +1060,7 @@ function renderGodzinnyCard() {
       var clickable = entries.length > 0;
       return '<div class="hbar-row"' + (clickable ? ' onclick="toggleGodzHourDetail(\'' + hourKey + '\')"' : '') + '>' +
           '<div class="hbar-lbl">' + hLabel + warnBadge + '</div>' +
-          '<div class="hbar-track"><div class="hbar-fill" style="background:' + (belowTarget ? 'var(--red)' : 'var(--blue)') + ';width:' + Math.max(pct, 4) + '%"></div></div>' +
+          '<div class="hbar-track"><div class="hbar-fill" style="background:var(--blue);width:' + Math.max(pct, 4) + '%"></div></div>' +
           '<div class="hbar-val">' + fmt(qty) + ' szt. ' + targetTxt + '</div>' +
         '</div>' +
         (clickable ? '<div class="hbar-detail" id="godzHourDetail-' + hourKey + '">' + downtimeDetailChipsHtml(entries, false) + '</div>' : '');

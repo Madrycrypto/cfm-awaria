@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0d0d0d">
+<title>CFM &#183; Panel Technika</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230d0d0d'/%3E%3Cg fill='%231A6ED8'%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(0 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(120 50 50)'/%3E%3Cellipse cx='50' cy='30' rx='9' ry='18' transform='rotate(240 50 50)'/%3E%3C/g%3E%3Ccircle cx='50' cy='50' r='9' fill='%230d0d0d' stroke='%231A6ED8' stroke-width='3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  color-scheme:dark;
+  --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
+  --text:#f2f2f2;--muted:#9a9a9a;--faint:#5c5c5c;
+  --blue:#1A6ED8;--blue-soft:#2f7fe0;--green:#1A9E50;--red:#D92B2B;--orange:#D97706;
+  --fh:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;--fc:'PingFang SC','Microsoft YaHei',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fb);font-size:15px;-webkit-font-smoothing:antialiased}
+body{padding-bottom:40px}
+.wrap{max-width:760px;margin:0 auto;padding:0 20px}
+.cn{font-family:var(--fc);color:var(--faint);font-weight:400}
+body.hide-pl .pl{display:none}
+body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub{display:none}
+::selection{background:var(--blue);color:#fff}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar-inner{max-width:760px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo{font-family:var(--fh);font-weight:900;font-size:21px;letter-spacing:0.4px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.logo .dot{width:8px;height:8px;border-radius:50%;background:var(--red)}
+.navmenu-wrap{position:relative}
+.navmenu-btn{background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:16px;padding:3px 9px;cursor:pointer;line-height:1.6}
+.navmenu-btn:hover{color:var(--text)}
+.navmenu-dropdown{display:none;position:absolute;top:calc(100% + 6px);left:0;background:#161616;border:1px solid var(--border);border-radius:10px;padding:6px;min-width:180px;flex-direction:column;gap:2px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.navmenu-dropdown.open{display:flex}
+.navmenu-dropdown a{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:0.02em;color:var(--muted);text-decoration:none;padding:9px 10px;border-radius:7px;white-space:nowrap}
+.navmenu-dropdown a:hover{color:var(--text);background:var(--surface-2)}
+.navmenu-dropdown a.on{color:#fff;background:var(--blue)}
+.langtoggle{display:flex;gap:6px;margin-left:auto}
+.langflag{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:15px;line-height:1;cursor:pointer;transition:opacity .15s,filter .15s}
+.langflag:hover{border-color:var(--muted)}
+.langflag.off{opacity:.3;filter:grayscale(1)}
+.counter{font-family:var(--fh);font-weight:700;font-size:13px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);
+  border-radius:20px;padding:5px 12px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.counter b{color:var(--red);font-size:15px}
+.live{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--faint)}
+.live-pulse{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+.wrap{padding-top:18px}
+.lead{color:var(--muted);font-size:13px;margin-bottom:18px;line-height:1.5}
+
+.queue{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:10px;padding:14px 16px;transition:border-color .15s,box-shadow .2s}
+.card.resolving{border-left-color:var(--blue)}
+.card.highlight{box-shadow:0 0 0 2px var(--blue-soft)}
+
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.station{font-family:var(--fh);font-weight:800;font-size:22px;letter-spacing:0.2px;line-height:1.1}
+.meta{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:5px;font-size:12.5px;color:var(--muted)}
+.meta .type{color:var(--text);font-weight:600}
+.meta .sep{color:var(--faint)}
+
+.timer{font-family:var(--fh);font-variant-numeric:tabular-nums;font-weight:800;font-size:26px;color:var(--red);line-height:1;white-space:nowrap;text-align:right}
+.timer small{display:block;font-family:var(--fb);font-weight:600;font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+
+.card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap}
+.reporter{font-size:12px;color:var(--faint)}
+.shift-pill{width:18px;height:18px;border-radius:50%;background:var(--blue-soft);color:#fff;font-size:10px;font-weight:800;
+  display:inline-flex;align-items:center;justify-content:center;font-family:var(--fh);vertical-align:middle;margin-right:5px}
+
+.btn-close{background:var(--blue);color:#fff;border:none;border-radius:7px;padding:9px 16px;font-family:var(--fh);font-weight:700;
+  font-size:14px;letter-spacing:.02em;cursor:pointer}
+.btn-close:hover{background:var(--blue-soft)}
+.btn-close.active{background:var(--surface-2);color:var(--muted);border:1px solid var(--border)}
+
+.resolve{max-height:0;overflow:hidden;transition:max-height .22s ease}
+.resolve.open{max-height:220px;margin-top:12px}
+.resolve-inner{border-top:1px solid var(--border-soft);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.field label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+textarea{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;color:var(--text);
+  font-family:var(--fb);font-size:14px;padding:9px 10px;resize:vertical;min-height:64px}
+textarea:focus,.btn-close:focus-visible{outline:2px solid var(--blue-soft);outline-offset:1px}
+.resolve-actions{display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.resolve-err{font-size:12px;color:var(--red);margin-right:auto;display:none}
+.btn-cancel{background:none;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:9px 14px;font-family:var(--fb);font-size:13px;cursor:pointer}
+.btn-confirm{background:var(--green);color:#fff;border:none;border-radius:7px;padding:9px 16px;font-family:var(--fh);font-weight:700;font-size:14px;cursor:pointer}
+.btn-confirm:disabled{opacity:.5;cursor:not-allowed}
+
+.empty,.loading,.err-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:34px 16px;text-align:center;color:var(--muted);font-size:14px}
+.empty b{color:var(--green);display:block;font-family:var(--fh);font-size:17px;margin-bottom:4px}
+.err-box{color:var(--red)}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text);padding:11px 18px;border-radius:9px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:300;max-width:90vw}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.ok{border-color:var(--green)}
+.toast.err{border-color:var(--red)}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="topbar-inner">
+  <div class="logo"><span class="dot"></span>Panel Technika<span class="cn">技术员面板</span></div>
+  <div class="navmenu-wrap">
+    <button type="button" class="navmenu-btn" id="navmenuBtn" onclick="toggleNavMenu()">&#9776;</button>
+    <div class="navmenu-dropdown" id="navmenuDropdown">
+      <a href="CFM_dashboard.html">&#128202; Dashboard <span class="cn">&#183; 仪表盘</span></a>
+      <a href="CFM_R_DZIENNY_V3.html">&#128221; Raport dzienny <span class="cn">&#183; 日报</span></a>
+      <a href="CFM_statystyki.html">&#128200; Statystyki <span class="cn">&#183; 统计</span></a>
+      <a href="CFM_oee.html">&#9881;&#65039; OEE <span class="cn">&#183; 效率</span></a>
+      <a href="CFM_premie.html">&#128176; Premie <span class="cn">&#183; 奖金</span></a>
+      <a href="CFM_plan.html">&#128197; Plan <span class="cn">&#183; 计划</span></a>
+      <a href="CFM_obsada.html">&#128101; Obsada <span class="cn">&#183; 排班</span></a>
+      <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">&#183; 库存</span></a>
+      <a href="CFM_magazyn.html">&#128712; Magazyn <span class="cn">&#183; 仓库</span></a>
+      <a href="CFM_technik.html" class="on">&#128295; Technik <span class="cn">&#183; 技术员</span></a>
+    </div>
+  </div>
+  <div class="counter"><b id="openCount">&#8212;</b>&nbsp;otwarte <span class="cn">&#183; 开启中</span></div>
+  <div class="live" id="liveStatus"><span class="live-pulse"></span>&#322;&#261;czenie&#8230; <span class="cn">连接中&#8230;</span></div>
+  <div class="langtoggle">
+    <button type="button" class="langflag" data-lang="pl" title="Polski">&#127477;&#127473;</button>
+    <button type="button" class="langflag" data-lang="cn" title="&#20013;&#25991;">&#127464;&#127475;</button>
+  </div>
+</div></div>
+
+<div class="wrap">
+  <p class="lead">Wszystkie otwarte awarie na linii CFM, aktualizowane na &#380;ywo. Napraw, opisz przyczyn&#281; i zamknij — bez wchodzenia na stanowisko w aplikacji operatora.
+    <br><span class="cn">CFM生产线上所有未解决的故障，实时更新。维修后填写原因并关闭 — 无需进入操作员工位应用。</span></p>
+  <div class="queue" id="queue"><div class="loading">&#321;adowanie&#8230; <span class="cn">加载中&#8230;</span></div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbw1WjHbfYGIoX6Ik4MLqZpfS8gp1FzHyRLPciOdkSu8vGdJewFtEyC2aKobpLO9m6S7JA/exec';
+function getWH() { return localStorage.getItem('cfm_raport_webhook') || DEFAULT_WEBHOOK; }
+function getApiToken() { return localStorage.getItem('cfm_api_token') || ''; }
+// Wejscie z linku w Feishu (?token=XXX&station=Y&start=Z) zapisuje token na
+// stale i zapamietuje ktora awarie od razu podswietlic/rozwinac, po czym
+// czysci adres (zeby token nie zostal goly w historii przegladarki).
+var DEEPLINK = { station: null, start: null };
+(function() {
+  var params = new URLSearchParams(location.search);
+  var t = params.get('token');
+  if (t !== null) { try { localStorage.setItem('cfm_api_token', t); } catch (e) {} }
+  DEEPLINK.station = params.get('station');
+  DEEPLINK.start = params.get('start');
+  if (t !== null || DEEPLINK.station || DEEPLINK.start) {
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+  }
+})();
+
+var LANG_STATE = (function() {
+  try { return Object.assign({ pl: true, cn: true }, JSON.parse(localStorage.getItem('cfm_lang_visibility') || '{}')); }
+  catch (e) { return { pl: true, cn: true }; }
+})();
+function wrapPlTextNodes(root) {
+  root.querySelectorAll('.cn').forEach(function(cnEl) {
+    var prev = cnEl.previousSibling;
+    while (prev) {
+      if (prev.nodeType === 3) {
+        if (prev.nodeValue.trim()) {
+          var span = document.createElement('span');
+          span.className = 'pl';
+          prev.parentNode.insertBefore(span, prev);
+          span.appendChild(prev);
+          break;
+        }
+        prev = prev.previousSibling;
+        continue;
+      }
+      if (prev.nodeType === 1) break;
+      prev = prev.previousSibling;
+    }
+  });
+}
+function applyLangVisibility() {
+  document.body.classList.toggle('hide-pl', !LANG_STATE.pl);
+  document.body.classList.toggle('hide-cn', !LANG_STATE.cn);
+  document.querySelectorAll('.langflag').forEach(function(b) { b.classList.toggle('off', !LANG_STATE[b.dataset.lang]); });
+}
+function toggleLang(lang) {
+  LANG_STATE[lang] = !LANG_STATE[lang];
+  if (!LANG_STATE.pl && !LANG_STATE.cn) LANG_STATE[lang] = true;
+  try { localStorage.setItem('cfm_lang_visibility', JSON.stringify(LANG_STATE)); } catch (e) {}
+  applyLangVisibility();
+}
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest && e.target.closest('.langflag');
+  if (btn) toggleLang(btn.dataset.lang);
+});
+function toggleNavMenu() { document.getElementById('navmenuDropdown').classList.toggle('open'); }
+document.addEventListener('click', function(e) {
+  var wrap = document.querySelector('.navmenu-wrap');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('navmenuDropdown').classList.remove('open');
+});
+
+function showToast(msg, type) {
+  var t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.className = 'toast show ' + (type || '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(function() { t.className = 'toast ' + (type || ''); }, 2600);
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function localIsoString(d) {
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+var STATE = { open: [], timerHandle: null, refreshHandle: null };
+
+function loadOpen(silent) {
+  var wh = getWH();
+  return fetch(wh + '?token=' + encodeURIComponent(getApiToken()) + '&event_type=AWARIE_OTWARTE')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var liveEl = document.getElementById('liveStatus');
+      if (data.status !== 'ok') { liveEl.className = 'live'; liveEl.innerHTML = '<span class="live-pulse" style="background:var(--red)"></span>b&#322;&#261;d po&#322;&#261;czenia <span class="cn">连接错误</span>'; return; }
+      liveEl.innerHTML = '<span class="live-pulse"></span>na &#380;ywo <span class="cn">实时</span>';
+      STATE.open = data.otwarte || [];
+      render();
+    })
+    .catch(function() {
+      if (silent) return;
+      var liveEl = document.getElementById('liveStatus');
+      liveEl.className = 'live'; liveEl.innerHTML = '<span class="live-pulse" style="background:var(--red)"></span>b&#322;&#261;d po&#322;&#261;czenia <span class="cn">连接错误</span>';
+    });
+}
+
+// Awarie nie maja osobnego ID (patrz komentarz w CFM_state_webhook.gs przy
+// panelTechnikaLink_) - station+start_timestamp jednoznacznie identyfikuje
+// KONKRETNA awarie, dokladnie tak jak handleAwariaEnd juz dopasowuje
+// otwarty wiersz do zamkniecia.
+function rowKey(r) { return r.station + '||' + r.start_timestamp; }
+
+function render() {
+  var queue = document.getElementById('queue');
+  document.getElementById('openCount').textContent = STATE.open.length;
+  if (!STATE.open.length) {
+    queue.innerHTML = '<div class="empty"><b>Brak otwartych awarii <span class="cn">&#183; 无未解决故障</span></b>Linia pracuje bez przestoj&#243;w. <span class="cn">生产线运行正常，无停机。</span></div>';
+    wrapPlTextNodes(queue); applyLangVisibility();
+    return;
+  }
+  // Najdluzej otwarte na gorze - to one najbardziej "pala".
+  var rows = STATE.open.slice().sort(function(a, b) { return new Date(a.start_timestamp) - new Date(b.start_timestamp); });
+  queue.innerHTML = rows.map(function(r) {
+    var key = rowKey(r);
+    var isDeeplinked = DEEPLINK.station && DEEPLINK.start && r.station === DEEPLINK.station && r.start_timestamp === DEEPLINK.start;
+    return '<div class="card' + (isDeeplinked ? ' highlight' : '') + '" data-key="' + key.replace(/"/g,'&quot;') + '">' +
+      '<div class="card-top">' +
+        '<div><div class="station">' + (r.station || '?') + '</div>' +
+          '<div class="meta"><span class="type">' + (r.type || 'Alert') + '</span>' + (r.type_cn ? '<span class="cn">' + r.type_cn + '</span>' : '') +
+          (r.operator ? '<span class="sep">&#183;</span><span>zg&#322;osi&#322; ' + r.operator + '</span>' : '') + '</div></div>' +
+        '<div class="timer" data-start="' + (r.start_timestamp || '') + '">&#8212;<small>TRWA</small></div>' +
+      '</div>' +
+      '<div class="card-foot">' +
+        '<div class="reporter">' + (r.shift ? '<span class="shift-pill">' + r.shift + '</span>' : '') + 'Od ' + fmtStart(r.start_timestamp) + '</div>' +
+        '<button type="button" class="btn-close" onclick="toggleResolve(this)">Zamknij &#183; 关闭</button>' +
+      '</div>' +
+      '<div class="resolve"><div class="resolve-inner">' +
+        '<div class="field"><label>Przyczyna / opis naprawy <span class="cn">&#183; 原因/维修说明</span></label>' +
+          '<textarea placeholder="Co dok&#322;adnie zrobiono, jaka cz&#281;&#347;&#263; wymieniona&#8230;" oninput="validateResolve(this)"></textarea></div>' +
+        '<div class="resolve-actions"><span class="resolve-err">Opisz przyczyn&#281; przed zamkni&#281;ciem</span>' +
+          '<button type="button" class="btn-cancel" onclick="toggleResolve(this)">Anuluj</button>' +
+          '<button type="button" class="btn-confirm" disabled onclick="confirmClose(this, ' + JSON.stringify(r).replace(/"/g, '&quot;') + ')">Zatwierd&#378; zamkni&#281;cie</button>' +
+        '</div>' +
+      '</div></div>' +
+    '</div>';
+  }).join('');
+  if (isDeeplinkPresent()) {
+    var hl = queue.querySelector('.card.highlight');
+    if (hl) {
+      hl.querySelector('.btn-close').click();
+      hl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+  wrapPlTextNodes(queue);
+  applyLangVisibility();
+  tick();
+}
+function isDeeplinkPresent() { return !!(DEEPLINK.station && DEEPLINK.start); }
+
+function fmtStart(iso) {
+  if (!iso) return '&#8212;';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function toggleResolve(btn) {
+  var card = btn.closest('.card');
+  var panel = card.querySelector('.resolve');
+  var open = panel.classList.toggle('open');
+  card.classList.toggle('resolving', open);
+  var closeBtn = card.querySelector('.card-foot .btn-close');
+  closeBtn.classList.toggle('active', open);
+  closeBtn.innerHTML = open ? 'Zwi&#324;' : 'Zamknij &#183; 关闭';
+  if (open) { var ta = panel.querySelector('textarea'); setTimeout(function() { ta.focus(); }, 200); }
+}
+function validateResolve(ta) {
+  var card = ta.closest('.card');
+  card.querySelector('.btn-confirm').disabled = !ta.value.trim();
+  card.querySelector('.resolve-err').style.display = 'none';
+}
+function confirmClose(btn, row) {
+  var card = btn.closest('.card');
+  var ta = card.querySelector('textarea');
+  var resolution = ta.value.trim();
+  if (!resolution) {
+    card.querySelector('.resolve-err').style.display = 'inline';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Zapisywanie&#8230;';
+  var now = new Date();
+  var startD = new Date(row.start_timestamp);
+  var dm = Math.max(0, Math.round((now - startD) / 60000));
+  var payload = {
+    token: getApiToken(), event_type: 'KONIEC', stanowisko: row.station, operator: row.operator || '',
+    typ: row.type || '', start_timestamp: row.start_timestamp, koniec_timestamp: localIsoString(now),
+    czas_min: dm, shift: row.shift || '', resolution: resolution,
+  };
+  var qsStr = Object.keys(payload).map(function(k) { return encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] || ''); }).join('&');
+  var wh = getWH();
+  fetch(wh + '?' + qsStr)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status !== 'ok') { throw new Error(data.msg || 'nieznany b&#322;&#261;d'); }
+      showToast('Awaria zamkni&#281;ta! <span class="cn">&#183; 故障已关闭</span>', 'ok');
+      STATE.open = STATE.open.filter(function(r) { return rowKey(r) !== rowKey(row); });
+      render();
+    })
+    .catch(function(err) {
+      showToast('B&#322;&#261;d zapisu: ' + err.message + ' <span class="cn">&#183; 保存失败</span>', 'err');
+      btn.disabled = false;
+      btn.textContent = 'Zatwierd&#378; zamkni&#281;cie';
+    });
+}
+
+function tick() {
+  document.querySelectorAll('.timer').forEach(function(el) {
+    var startIso = el.dataset.start;
+    if (!startIso) return;
+    var start = new Date(startIso);
+    if (isNaN(start.getTime())) return;
+    var totalSec = Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
+    var h = Math.floor(totalSec / 3600), m = Math.floor((totalSec % 3600) / 60), s = totalSec % 60;
+    var txt = (h > 0 ? pad(h) + ':' : '') + pad(m) + ':' + pad(s);
+    el.firstChild.textContent = txt;
+  });
+}
+
+function init() {
+  wrapPlTextNodes(document.body);
+  applyLangVisibility();
+  loadOpen();
+  STATE.timerHandle = setInterval(tick, 1000);
+  // Odswiezenie listy co 20s - kolejka technikow bywa otwarta caly dzien na
+  // jednym telefonie, wiec inni (inny technik, operator) musza sie
+  // pojawiac/znikac bez recznego F5.
+  STATE.refreshHandle = setInterval(function() { loadOpen(true); }, 20000);
+}
+init();
+</script>
+</body>
+</html>

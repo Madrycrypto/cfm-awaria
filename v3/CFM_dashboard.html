@@ -1065,7 +1065,8 @@ function renderGodzinnyCard() {
         '</div>' +
         (clickable ? '<div class="hbar-detail" id="godzHourDetail-' + hourKey + '">' + downtimeDetailChipsHtml(entries, false) + '</div>' : '');
     }).join('');
-    return '<div class="godz-window"><div class="godz-window-lbl">' + win.label + '</div>' + rowsHtml + '</div>';
+    var winSum = present.reduce(function(s, h) { return s + byHour[h]; }, 0);
+    return '<div class="godz-window"><div class="godz-window-lbl">' + win.label + ' <span style="color:var(--text);font-weight:800">&#183; ' + fmt(winSum) + ' szt.</span></div>' + rowsHtml + '</div>';
   }).join('');
 
   bars.innerHTML = summaryHtml + windowsHtml;

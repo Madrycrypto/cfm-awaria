@@ -51,6 +51,23 @@ var REWORK_ZONES = {
 // potrzebujemy tego wylacznie przy zdarzeniach juz obslugiwanych po
 // stronie serwera (start/koniec awarii, codzienne podsumowanie).
 var FEISHU_BOT_WEBHOOK = 'https://open.feishu.cn/open-apis/bot/v2/hook/4c3cb956-3022-4e95-adbd-eaead7efedaa'; // glowna grupa (m.in. szefowie) - awaria start/koniec, podsumowanie dnia, eskalacja 1h+
+// Adres publicznej aplikacji (GitHub Pages) - do budowania linkow w
+// wiadomosciach Feishu (np. link do Panelu Technika przy ALERT START).
+var APP_BASE_URL = 'https://madrycrypto.github.io/cfm-awaria/v3/';
+// Link do konkretnej awarii w Panelu Technika, wklejany w wiadomosci ALERT
+// START na Feishu — zawiera token w URL (ten sam mechanizm "wejdz na
+// ?token=XXX, zapisze sie raz na stale" co juz uzywany w Dashboardzie),
+// zeby technik klikajac z telefonu NIE musial nic recznie konfigurowac.
+// station+start identyfikuja KONKRETNA awarie (jak w handleAwariaEnd —
+// Awarie nie maja osobnego ID, wiec to para kluczy, ktora juz i tak uzywana
+// jest wszedzie indziej do dopasowania otwartego wiersza).
+function panelTechnikaLink_(station, startTimestamp) {
+  var token = PropertiesService.getScriptProperties().getProperty('API_TOKEN') || '';
+  var url = APP_BASE_URL + 'CFM_technik.html?station=' + encodeURIComponent(station || '') +
+    '&start=' + encodeURIComponent(startTimestamp || '') +
+    (token ? '&token=' + encodeURIComponent(token) : '');
+  return 'Otworz w Panelu Technika / 在技术员面板中打开:\n' + url;
+}
 var FEISHU_BOT_WEBHOOK_TECHNICY = ''; // TODO: wklej webhook bota z grupy technikow - uzywany przez eskalacje 15 min (patrz checkAwariaEscalations)
 function round1_(n) { return Math.round(n * 10) / 10; }
 // Typ/opis awarii to DOWOLNY wolny tekst po polsku wpisywany przez
@@ -645,7 +662,7 @@ function handleHistoriaGodzinna(ss, p) {
 // (awarieHeaderMap_/awarieRowToObj_/awarieAppendRow_/awarieSetField_), nie
 // po sztywnej pozycji - bezpieczne niezaleznie od tego, jakie jeszcze inne
 // kolumny ktos kiedys dopisze z zewnatrz.
-var AWARIE_HEADERS = ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator', 'shift', 'type_cn', 'backfilled'];
+var AWARIE_HEADERS = ['start_timestamp', 'station', 'type', 'koniec_timestamp', 'czas_min', 'status', 'operator', 'shift', 'type_cn', 'backfilled', 'resolution'];
 function awarieHeaderMap_(sheet) {
   var lastCol = sheet.getLastColumn();
   var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
@@ -660,7 +677,7 @@ function awarieRowToObj_(row, map) {
     koniec_timestamp: g('koniec_timestamp'), czas_min: g('czas_min'), status: g('status'),
     operator: g('operator'), shift: g('shift'), type_cn: g('type_cn'),
     alert_15min_sent: g('alert_15min_sent'), alert_1h_sent: g('alert_1h_sent'),
-    backfilled: g('backfilled'),
+    backfilled: g('backfilled'), resolution: g('resolution'),
   };
 }
 // Dopisuje nowy wiersz jako obiekt {naglowek: wartosc} zamiast tablicy
@@ -700,7 +717,7 @@ function handleAwariaStart(ss, p) {
     start_timestamp: p.timestamp || '', station: p.stanowisko || '', type: p.typ || '',
     status: 'OTWARTA', operator: p.operator || '', shift: p.shift || '', type_cn: tr.cn,
   });
-  sendFeishuBotMessage_('🔧 ALERT START / 警报开始\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
+  sendFeishuBotMessage_('🔧 ALERT START / 警报开始\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + (p.shift ? ' · Shift / 班次 ' + p.shift : '') + (p.operator ? '\nReported by / 报告人: ' + p.operator : '') + '\n\n' + panelTechnikaLink_(p.stanowisko, p.timestamp));
   if (String(p.typ || '').indexOf('Brak materiału') === 0) {
     sendTelegramMessage_('🚨 BRAK MATERIAŁU\n' + (p.stanowisko || '?') + ' — ' + (p.typ || '') + (p.operator ? '\nZgłosił: ' + p.operator : ''));
   }
@@ -728,19 +745,36 @@ function handleAwariaEnd(ss, p) {
       awarieSetField_(sheet, map, rowIdx, 'czas_min', czasMin);
       awarieSetField_(sheet, map, rowIdx, 'status', 'ZAMKNIETA');
       awarieSetField_(sheet, map, rowIdx, 'type_cn', tr.cn);
-      sendFeishuBotMessage_('✅ ALERT END / 警报结束\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + '\nDuration / 时长: ' + czasMin + ' min');
+      if (p.resolution) awarieSetField_(sheet, map, rowIdx, 'resolution', p.resolution);
+      sendFeishuBotMessage_('✅ ALERT END / 警报结束\n' + (p.stanowisko || '?') + ' · ' + tr.en + ' / ' + tr.cn + '\nDuration / 时长: ' + czasMin + ' min' + ((p.operator || obj.operator) ? '\nReported by / 报告人: ' + (p.operator || obj.operator) : ''));
       return jsonResponse({ status: 'ok' });
     }
   }
-  // Nie znaleziono otwartego wiersza (np. reset stanu w aplikacji) — dopisz kompletny wiersz.
+  // Nie znaleziono otwartego wiersza (np. reset stanu w aplikacji, albo
+  // wpis wsteczny — ten w ogole nigdy nie przechodzi przez OTWARTA). Ta
+  // sciezka NIE ma zadnej ochrony przed duplikatem analogicznej do tej w
+  // handleAwariaStart (bo nie ma tu "otwartego" wiersza do sprawdzenia) —
+  // kilka szybkich klikniec "Zapisz" (typowe na ekranie dotykowym) albo
+  // ponowiona proba po timeout sieci tworzylo kilka identycznych wierszy.
+  // Sprawdz wiec explicite, czy TAKI SAM wpis (ta sama stacja/typ/start/
+  // koniec/czas) juz istnieje — jesli tak, to duplikat tego samego
+  // zgloszenia, nie nowe zdarzenie, wiec po cichu pomijamy zapis.
+  for (var j = data.length - 1; j >= 1; j--) {
+    var dup = awarieRowToObj_(data[j], map);
+    if (dup.station === (p.stanowisko || '') && dup.type === (p.typ || '') &&
+        dup.start_timestamp === (p.start_timestamp || '') && dup.koniec_timestamp === (p.koniec_timestamp || '') &&
+        Number(dup.czas_min) === czasMin) {
+      return jsonResponse({ status: 'ok', duplicate: true });
+    }
+  }
   var tr2 = translateType_(p.typ || 'Alert');
   awarieAppendRow_(sheet, map, {
     start_timestamp: p.start_timestamp || '', station: p.stanowisko || '', type: p.typ || '',
     koniec_timestamp: p.koniec_timestamp || '', czas_min: czasMin, status: 'ZAMKNIETA',
     operator: p.operator || '', shift: p.shift || '', type_cn: tr2.cn,
-    backfilled: p.backfilled ? '1' : '',
+    backfilled: p.backfilled ? '1' : '', resolution: p.resolution || '',
   });
-  sendFeishuBotMessage_('✅ ALERT END / 警报结束\n' + (p.stanowisko || '?') + ' · ' + tr2.en + ' / ' + tr2.cn + '\nDuration / 时长: ' + czasMin + ' min');
+  sendFeishuBotMessage_('✅ ALERT END / 警报结束\n' + (p.stanowisko || '?') + ' · ' + tr2.en + ' / ' + tr2.cn + '\nDuration / 时长: ' + czasMin + ' min' + (p.operator ? '\nReported by / 报告人: ' + p.operator : ''));
   return jsonResponse({ status: 'ok' });
 }
 
@@ -773,7 +807,7 @@ function handleAwarieOtwarte(ss, p) {
   for (var i = 1; i < data.length; i++) {
     var obj = awarieRowToObj_(data[i], map);
     if (obj.status !== 'OTWARTA') continue;
-    out.push({ station: obj.station, type: obj.type, start_timestamp: obj.start_timestamp, operator: obj.operator || '', shift: obj.shift || '' });
+    out.push({ station: obj.station, type: obj.type, type_cn: obj.type_cn || '', start_timestamp: obj.start_timestamp, operator: obj.operator || '', shift: obj.shift || '' });
   }
   return jsonResponse({ status: 'ok', otwarte: out });
 }
@@ -786,15 +820,21 @@ function handleAwariaHistoria(ss, p) {
   if (!sheet) return jsonResponse({ status: 'ok', historia: [] });
   var map = awarieHeaderMap_(sheet);
   var data = sheet.getDataRange().getValues();
+  // Tylko ostatni pelny tydzien (7 dni wstecz od teraz) — user: lista
+  // potrafila sprawiac wrazenie "duplikatow" gdy wiele roznych wpisow
+  // wstecznych z tego samego dnia (ten sam syntetyczny placeholder
+  // "12:00") sumowalo sie z dluga historia z wielu tygodni naraz.
+  var weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
   var rows = [];
   for (var i = 1; i < data.length; i++) {
     var obj = awarieRowToObj_(data[i], map);
     if (obj.status !== 'ZAMKNIETA') continue;
     if (p.stanowisko && obj.station !== p.stanowisko) continue;
+    if (new Date(obj.koniec_timestamp) < weekAgo) continue;
     rows.push({ station: obj.station, type: obj.type, start_timestamp: obj.start_timestamp, koniec_timestamp: obj.koniec_timestamp, czas_min: Number(obj.czas_min) || 0, operator: obj.operator || '' });
   }
   rows.sort(function (a, b) { return new Date(b.koniec_timestamp) - new Date(a.koniec_timestamp); });
-  return jsonResponse({ status: 'ok', historia: rows.slice(0, 20) });
+  return jsonResponse({ status: 'ok', historia: rows });
 }
 
 // Poprawka czasu trwania zamknietej awarii (np. zapomniano kliknac KONIEC

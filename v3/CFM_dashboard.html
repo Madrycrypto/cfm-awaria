@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 :root{
   color-scheme:dark;
   --bg:#0d0d0d;--surface:#161616;--surface-2:#1c1c1c;--border:#262626;--border-soft:#1e1e1e;
@@ -160,6 +161,7 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .hbar-row:hover{background:var(--surface-2)}
 .hbar-row:last-child{margin-bottom:0}
 .hbar-lbl{font-family:var(--fh);font-weight:700;font-size:13px}
+.hbar-warn{color:var(--orange);font-weight:700;margin-left:5px;font-size:11px;white-space:nowrap}
 .hbar-track{height:14px;border-radius:4px;background:var(--border-soft);overflow:hidden}
 .hbar-fill{height:100%;border-radius:4px;background:var(--red)}
 .hbar-val{font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
@@ -1022,6 +1024,26 @@ function renderGodzinnyCard() {
   var summaryHtml = '<div class="godz-summary"><div>Suma dziś <span class="cn">今日合计</span><b>' + fmt(sumQty) + '</b> szt.</div>' +
     '<div>Rework <span class="cn">返修</span><b' + (sumRework > 0 ? ' style="color:var(--orange)"' : '') + '>' + fmt(sumRework) + '</b></div></div>';
 
+  // Cel na GODZINE — nie mamy osobnego "celu godzinowego" w konfiguracji,
+  // wiec rozkladamy cel zmianowy (stationTargets, ten sam co wszedzie
+  // indziej w apce) rownomiernie na dlugosc zmiany — przyblizenie, ale
+  // wystarczajace zeby zasygnalizowac "ta godzina wyraznie odstaje", co
+  // user chcial ("wykrzyknik jak w statystykach, gdy wynik nizszy od celu").
+  var shiftTargetQty = Number(STATE.stationTargets[STATE.godzStation]) || 0;
+  var shiftHours = getFullShiftMinutes(STATE.godzStation) / 60;
+  var hourlyTarget = shiftHours > 0 ? Math.round(shiftTargetQty / shiftHours) : 0;
+  var todayISO = toISO(new Date());
+  // Awarie TEJ stacji, DZIS, ktore wystartowaly w danej godzinie — po
+  // start_time (tylko zywo zgloszone awarie go maja, patrz komentarz przy
+  // handleStatystyki w CFM_state_webhook.gs; wpisy wsteczne nie maja
+  // prawdziwej godziny, wiec nigdy nie trafia do zadnej konkretnej godziny
+  // — to poprawne, nie da sie ich wiarygodnie przypisac).
+  function awarieForHour(h) {
+    return STATE.awarieRows.filter(function(a) {
+      return a.station === STATE.godzStation && a.date === todayISO && a.start_time && parseInt(a.start_time, 10) === h;
+    });
+  }
+
   var windowsHtml = TIME_WINDOWS.map(function(win) {
     var present = win.hours.filter(function(h) { return byHour[h] !== undefined; });
     if (!present.length) return '';
@@ -1029,12 +1051,28 @@ function renderGodzinnyCard() {
       var qty = byHour[h];
       var pct = maxQty > 0 ? Math.round((qty / maxQty) * 100) : 0;
       var hLabel = pad(h) + ':00-' + pad((h + 1) % 24) + ':00';
-      return '<div class="hbar-row"><div class="hbar-lbl">' + hLabel + '</div><div class="hbar-track"><div class="hbar-fill" style="background:var(--blue);width:' + Math.max(pct, 4) + '%"></div></div><div class="hbar-val">' + fmt(qty) + ' szt.</div></div>';
+      var entries = awarieForHour(h);
+      var belowTarget = hourlyTarget > 0 && qty < hourlyTarget;
+      var lostMin = entries.reduce(function(s, a) { return s + (Number(a.czas_min) || 0); }, 0);
+      var warnBadge = belowTarget ? '<span class="hbar-warn">&#9888;' + (lostMin > 0 ? ' ' + lostMin + '&#39;' : '') + '</span>' : '';
+      var targetTxt = hourlyTarget > 0 ? '<span style="color:var(--faint)">/' + hourlyTarget + '</span>' : '';
+      var hourKey = STATE.godzStation.replace(/[^a-zA-Z0-9]/g, '_') + '_' + h;
+      var clickable = entries.length > 0;
+      return '<div class="hbar-row"' + (clickable ? ' onclick="toggleGodzHourDetail(\'' + hourKey + '\')"' : '') + '>' +
+          '<div class="hbar-lbl">' + hLabel + warnBadge + '</div>' +
+          '<div class="hbar-track"><div class="hbar-fill" style="background:' + (belowTarget ? 'var(--red)' : 'var(--blue)') + ';width:' + Math.max(pct, 4) + '%"></div></div>' +
+          '<div class="hbar-val">' + fmt(qty) + ' szt. ' + targetTxt + '</div>' +
+        '</div>' +
+        (clickable ? '<div class="hbar-detail" id="godzHourDetail-' + hourKey + '">' + downtimeDetailChipsHtml(entries, false) + '</div>' : '');
     }).join('');
     return '<div class="godz-window"><div class="godz-window-lbl">' + win.label + '</div>' + rowsHtml + '</div>';
   }).join('');
 
   bars.innerHTML = summaryHtml + windowsHtml;
+}
+function toggleGodzHourDetail(key) {
+  var el = document.getElementById('godzHourDetail-' + key);
+  if (el) el.classList.toggle('open');
 }
 
 // Rework "dzisiaj" — CELOWO osobny, jednodniowy fetch (nie STATE.reworkRows

@@ -346,6 +346,7 @@ body.hide-cn .cn,body.hide-cn .cn-line,body.hide-cn .cn-sub,body.hide-cn .awaria
         <a href="CFM_obsada.html">&#128101; Obsada <span class="cn">· 排班</span></a>
         <a href="CFM_inwentarz.html">&#128230; Inwentarz <span class="cn">· 库存</span></a>
       <a href="CFM_magazyn.html">&#128712; Magazyn <span class="cn">· 仓库</span></a>
+      <a href="CFM_technik.html">&#128295; Technik <span class="cn">&#183; 技术员</span></a>
       </div>
     </div>
   </div>
@@ -3003,7 +3004,15 @@ function awariaBackfillUpdateDescBox() {
   var o = AWARIA_OPISY[awariaBackfillType] || { label: 'Opis przyczyny *', ph: 'Opisz szczegóły...' };
   lbl.textContent = o.label; wrap.innerHTML = descInputHtml(awariaBackfillType, 'awariaBackfillDesc'); box.classList.add('vis');
 }
+var awariaBackfillSubmitting = false;
 function awariaSubmitBackfill() {
+  // Blokada podwojnego wyslania — kilka szybkich klikniec "Zapisz" (typowe
+  // na ekranie dotykowym) albo wolna siec tworzylo kilka identycznych
+  // wpisow w historii (ten sam stanowisko/typ/czas), bo ta sciezka (wpis
+  // wsteczny) nigdy nie przechodzi przez stan OTWARTA wiec backend nie mial
+  // czego porownac. Odblokowuje sie w callbacku sendToBackend (sukces i
+  // blad), zeby nie zablokowac uzytkownika na stale przy bledzie sieci.
+  if (awariaBackfillSubmitting) return;
   var station = document.getElementById('stationSel').value;
   if (!station) { showToast('Wybierz stanowisko! <span class="cn">· 请选择工位</span>!', 'err'); return; }
   var dateVal = document.getElementById('awariaBackfillDate').value;
@@ -3030,10 +3039,13 @@ function awariaSubmitBackfill() {
       koniec_timestamp: localIsoString(endD), czas_min: minVal, shift: awariaBackfillShift,
       backfilled: '1',
     });
+    awariaBackfillSubmitting = true;
     sendToBackend(qs, function() {
+      awariaBackfillSubmitting = false;
       showToast('Przestój z ' + formatDatePl(dateVal) + ' zapisany: ' + minVal + ' min <span class="cn">&#183; 停机已录入</span>', 'ok');
       awariaRenderHistory();
     }, function(msg) {
+      awariaBackfillSubmitting = false;
       showToast(msg + ' — przestój NIE zapisany! <span class="cn">&#183; 停机未保存！</span>', 'err');
     });
   }

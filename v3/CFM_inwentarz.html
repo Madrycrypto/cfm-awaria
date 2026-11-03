@@ -162,6 +162,9 @@ tbody tr.warn td{background:rgba(240,192,48,0.1)}
 .autoadjust-panel .btn-save{margin-top:12px;margin-right:8px}
 .monthnav .mlabel{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:capitalize;min-width:140px;text-align:center}
 .monthnav .mlabel .cn{font-size:11px;text-transform:none;margin-left:4px}
+.btn-export{font-family:var(--fh);font-weight:700;font-size:11px;letter-spacing:0.02em;text-transform:uppercase;color:#3fd17a;background:rgba(63,209,122,0.1);border:1px solid rgba(63,209,122,0.35);border-radius:8px;padding:8px 14px;cursor:pointer;line-height:1.3;margin-left:auto}
+.btn-export:hover{background:rgba(63,209,122,0.18)}
+.btn-export small{font-size:9px;display:block;color:#3fd17a;opacity:0.8}
 .monthdd{font-family:var(--fh);font-weight:700;font-size:14px;letter-spacing:0.3px;text-transform:capitalize;color:var(--text);background:var(--surface);border:1px solid var(--border);padding:8px 12px;border-radius:9px;cursor:pointer;outline:none;min-width:150px;text-align:center;text-align-last:center}
 .monthdd:focus{border-color:var(--blue)}
 
@@ -258,6 +261,7 @@ tbody tr.warn td{background:rgba(240,192,48,0.1)}
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── PRZELACZNIK JEZYKA (PL/CN) ────────────────────────────────────────
 // Kazda flaga NIEZALEZNIE chowa/pokazuje SWOJ jezyk (to nie jest wybor
@@ -1128,7 +1132,9 @@ function renderSolderSectionImpl_(firstDate) {
     '</div>' +
     (chain ? '<div class="simhint chainhint">W tym trybie ' + cfg.zuzycie + ' i ' + cfg.produkcja + ' NIE pokazują już własnego Planu — pokazują, ile trzeba wyprodukować, żeby nadążyć za Planem wysyłek (dopóki nie ma prawdziwego raportu). Plan tych stacji w Panelu Admina pozostaje bez zmian, dopóki nie klikniesz "Zapisz do Planu" poniżej.' +
       '<br><span class="cn">此模式下' + cfg.zuzycie + '和' + cfg.produkcja + '不再显示各自的计划，而是显示为跟上发运计划所需的产量（在收到真实报告之前）。除非点击下方"保存到计划"，否则管理面板中的计划不会改变。</span></div>' : '') +
-    '<div class="monthnav"><select class="monthdd" onchange="selectSolderMonth(this.value)">' + solderMonthOptionsHtml() + '</select></div>' +
+    '<div class="monthnav"><select class="monthdd" onchange="selectSolderMonth(this.value)">' + solderMonthOptionsHtml() + '</select>' +
+      '<button type="button" class="btn-export" onclick="exportSolderExcel()">&#128190; Eksportuj Excel<small>导出Excel</small></button>' +
+    '</div>' +
     '<div class="simhint">Kliknij liczbę w kolumnie ' + cfg.produkcja + ' / ' + cfg.zuzycie + ', żeby doraźnie sprawdzić "co jeśli" — to lokalna symulacja, nie zmienia Planu ani nic nie wysyła.' +
       (hasOverrides ? ' <button type="button" class="btn-clearsim" onclick="clearSolderOverrides()">Wyczyść symulację</button>' : '') +
     '<br><span class="cn">点击' + cfg.produkcja + ' / ' + cfg.zuzycie + '列中的数字，即可临时进行"假设"测算 — 这只是本地模拟，不会更改计划或发送任何数据。</span></div>' +
@@ -1201,6 +1207,71 @@ function renderSolderSectionImpl_(firstDate) {
     try { localStorage.setItem('cfm_solder_samedaymode', STATE.sameDayMode ? '1' : '0'); } catch (e) {}
     renderSolderSection(STATE.solderFirstDate);
   };
+}
+// Eksport tabeli "Bufor chlodnic zlutowanych" (przegladany miesiac,
+// dokladnie to co jest aktualnie na ekranie — wliczajac lokalna symulacje
+// "co jesli" wpisana w komorki) do pliku .xlsx. Liczymy od zera zamiast
+// zapamietywac "visible" z renderSolderSectionImpl_, zeby nie trzymac w
+// STATE kopii, ktora moglaby sie rozjechac z tym co faktycznie widac.
+function exportSolderExcel() {
+  if (typeof XLSX === 'undefined') { showToast('Biblioteka Excel się nie załadowała — sprawdź połączenie i odśwież <span class="cn">&#183; Excel库加载失败，请检查网络并刷新</span>', 'err'); return; }
+  var cfg = getSolderConfig();
+  var todayISO = toISO(new Date());
+  var mDays = monthDays(STATE.solderMonthDate);
+  var horizonEnd = new Date(); horizonEnd.setDate(horizonEnd.getDate() + 60);
+  var horizonEndIso = toISO(horizonEnd);
+  var walkEnd = mDays[mDays.length - 1] > horizonEndIso ? mDays[mDays.length - 1] : horizonEndIso;
+  var timeline = computeSolderWalk(STATE.solderFirstDate, walkEnd, cfg);
+  var byDate = {};
+  timeline.rows.forEach(function(r) { byDate[r.date] = r; });
+  var visible = mDays.map(function(d) { return byDate[d]; }).filter(Boolean);
+  var chain = STATE.chainMode;
+
+  if (!visible.length) { showToast('Brak danych do eksportu w tym miesiącu <span class="cn">&#183; 本月无数据可导出</span>', 'err'); return; }
+
+  var headers = ['Dzień'];
+  if (chain) headers.push('Wysyłki (plan)');
+  headers.push(cfg.zuzycie + (chain ? ' (potrzeba)' : ''));
+  headers.push(cfg.produkcja + (chain ? ' (potrzeba)' : ''));
+  headers.push('Bufor');
+  headers.push('Inwentaryzacja');
+  headers.push('Status dnia');
+  headers.push('Podsumowanie tygodnia (piątek)');
+
+  var aoa = [headers];
+  visible.forEach(function(r) {
+    var dd = r.date.split('-');
+    var wd = isoToDate(r.date).getDay();
+    var isFriday = (wd + 6) % 7 === 4;
+    var dayLabel = DAY_LABELS[(wd + 6) % 7] + ' ' + dd[2] + '/' + dd[1] + '/' + dd[0];
+    var statusTxt = r.isToday ? 'dziś' : (r.date === STATE.solderFirstDate ? '' : (r.isActual ? 'actual' : 'plan'));
+    var row = [dayLabel];
+    if (chain) row.push(r.shipPlan);
+    row.push(r.zuzycie);
+    row.push(r.produkcja);
+    row.push(r.balance);
+    var countedVal = STATE.solderInventoryCounts[r.date];
+    row.push(countedVal === undefined ? '' : Number(countedVal));
+    row.push(statusTxt);
+    var weekTxt = '';
+    if (chain && isFriday && STATE.goodsFirstDate) {
+      var goodsWalk = computeGoodsWalk(STATE.goodsFirstDate, r.date, todayISO, true);
+      var weekSumGoods = weekSummaryForGoods(goodsWalk.byDate, r.date);
+      if (weekSumGoods) {
+        var goodsRow = goodsWalk.byDate[r.date];
+        weekTxt = 'wysyłki ' + weekSumGoods.ship + ' · GP12 ' + weekSumGoods.gp12 + ' (magazyn: ' + goodsRow.balance + ')';
+      }
+    }
+    row.push(weekTxt);
+    aoa.push(row);
+  });
+
+  var ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = headers.map(function(h, i) { return { wch: i === 0 ? 18 : (i === headers.length - 1 ? 42 : 15) }; });
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Bufor chlodnic');
+  var monthTag = STATE.solderMonthDate.getFullYear() + '-' + String(STATE.solderMonthDate.getMonth() + 1).padStart(2, '0');
+  XLSX.writeFile(wb, 'CFM_bufor_chlodnic_' + monthTag + '.xlsx');
 }
 // "Auto-dopasuj Plan" — pokazuje PODGLAD roznic miedzy tym, co jest teraz
 // jawnie wpisane w Planie (dla przyszlych dni), a tym, co wychodzi z

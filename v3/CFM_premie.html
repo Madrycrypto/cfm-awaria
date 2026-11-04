@@ -81,6 +81,7 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .cfgtable .pctfield span{color:var(--faint);font-size:12px;flex-shrink:0}
 .cfgtable td.lbl{font-weight:600;font-size:13px;color:var(--text);text-align:left}
 .cfgtable td.stlist{font-size:11px;color:var(--faint)}
+.cfgtable td.rocell{text-align:center;font-family:var(--fh);font-weight:700;font-size:13px;color:var(--text)}
 .cfgactions{display:flex;gap:10px}
 .btn-cfg-save{font-family:var(--fh);font-weight:700;font-size:13px;color:#fff;background:var(--blue);border:none;padding:9px 16px;border-radius:8px;cursor:pointer}
 .btn-cfg-save.pulse{background:var(--orange);animation:savepulse 1.4s ease-in-out infinite}
@@ -300,41 +301,35 @@ var MONTH_NAMES = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipi
 var MONTH_NAMES_CN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 var APP_START_MONTH = { year: 2026, month: 7 }; // sierpien 2026 - pierwszy miesiac z danymi w aplikacji
 
-// Progi premii sa teraz w % WYKONANIA PLANU (nie w sztukach jak w
-// pierwszej wersji) i sa EDYTOWALNE PER MIESIAC — cfm_premia_config jest
-// obiektem kluczowanym miesiacem (tak jak cfm_monthly_plan). Miesiac bez
-// wlasnej zapisanej konfiguracji dziedziczy progi z ostatniego miesiaca,
-// ktory ja mial (patrz getConfigForMonth) — az do jawnego zapisania
-// wlasnych wartosci dla tego miesiaca.
+// Progi premii sa BEZWZGLEDNYMI ILOSCIAMI (sztuk/zmiane), 1:1 z dokumentu
+// polityki premii uznaniowej (Premia uznaniowa...2026.08.29.docx, p. 3.6.4
+// Linia CFM) — NIE procentami. User explicite tego chcial (2026-11-04):
+// "najlepiej jakby byly ilosci a nie procenty" — latwiej to zweryfikowac
+// przeciw dokumentowi niz procent, i znika ryzyko bledu zaokraglenia przy
+// liczbach, ktore nie dziela sie do rownego procentu (np. 430/400).
+//   linia_glowna (GP12/OP51/52): bottomSzt=630 (Realizacja) -> premiaNizsza; topSzt=700 (Przekroczenie oczekiwan) -> premiaWyzsza
+//   op60_61:                     bottomSzt=400 -> premiaNizsza; topSzt=430 -> premiaWyzsza
+//   op30_33:                     bottomSzt=350 -> premiaNizsza; topSzt=370 -> premiaWyzsza
+//   op40:                        bottomSzt=2300 -> premiaNizsza; topSzt=2500 -> premiaWyzsza
+// Ponizej bottomSzt dokument nie przewiduje zadnej premii. Premia w
+// computeRows() porownuje finalQty (suma sztuk w okresie, juz po odzysku z
+// Awarii) wprost z bottomSzt*liczbaDni i topSzt*liczbaDni — bez zadnej
+// posredniej matematyki procentowej, wiec zero ryzyka bledu zaokraglenia
+// (ktore wczesniej realnie zlapalismy testem przy wersji %-owej).
+// TYLKO DO PODGLADU w UI (patrz renderConfigPanel) — user explicite
+// poprosil 2026-11-04, zeby zmiana polityki wymagala zmiany tutaj w
+// kodzie, a nie klikniecia w panelu bez zadnego sladu/testu/review.
+// cfm_premia_config/configByMonth zostaje w kodzie tylko jako
+// kompatybilnosc wsteczna z ewentualnymi juz zapisanymi danymi
+// historycznymi — nic nowego sie tam juz nie zapisuje.
 // Wydajnosc godzinowa per stanowisko NIE jest miesieczna (moc maszyny sie
-// nie zmienia z miesiaca na miesiac) — osobny, trwaly klucz cfm_premia_wydajnosc.
-// Progi (progNizszy/progWyzszy) przeliczone z dokumentu polityki premii
-// uznaniowej (Premia uznaniowa...2026.08.29.docx, p. 3.6.4 Linia CFM):
-// kazda grupa ma TAM dwie bezwzgledne liczby sztuk/zmiane — "Realizacja"
-// (= 100%, odblokowuje premiaNizsza) i "Przekroczenie oczekiwan"
-// (odblokowuje premiaWyzsza) — NIE 95%/100% jak bylo tu wczesniej (ten
-// blad user zlapal: przy starych progach samo dojscie do Celu juz dawalo
-// WYZSZA premie, zamiast dopiero ja odblokowac przy realnym przekroczeniu):
-//   linia_glowna (GP12/OP51/52): Realizacja 630, Przekroczenie 700  -> 700/630=111.1111...%
-//   op60_61:                     Realizacja 400, Przekroczenie 430  -> 430/400=107.5%
-//   op30_33:                     Realizacja 350, Przekroczenie 370  -> 370/350=105.7142...%
-//   op40:                        Realizacja 2300, Przekroczenie 2500 -> 2500/2300=108.6956...%
-// progNizszy=100% dla wszystkich (samo osiagniecie Realizacji = premiaNizsza;
-// ponizej Realizacji dokument nie przewiduje zadnej premii). Procenty sa
-// liczone wzgledem sumPlan z handlePremia (.gs) — dla OP40 TA liczba jest
-// CELOWO oparta na normie z polityki (2300), nie na zywym Celu (2500 w
-// Panel Admina, ktory jest tam swiadomie wyzszy z innego powodu) — patrz
-// PREMIA_NORMA_OVERRIDE_ w .gs.
-// progWyzszy ZAWSZE zaokraglony W DOL (nie "do najblizszej"!) do 4 miejsc
-// po przecinku — zaokraglenie w gore (np. 108.70 zamiast 108.6956) dawaloby
-// prog WYZSZY niz prawdziwa wartosc z polityki, przez co realne osiagniecie
-// DOKLADNIE progu z dokumentu (np. rowno 2500 szt.) NIE odblokowywaloby
-// wyzszej premii — zlapane testem przy pierwszej probie tej poprawki.
+// nie zmienia z miesiaca na miesiac) — osobny, trwaly klucz cfm_premia_wydajnosc,
+// wciaz edytowalny w UI (to parametr techniczny, nie polityka bonusowa).
 var DEFAULT_GROUPS = [
-  { key: 'linia_glowna', label: 'Linia główna OP50~GP12', stations: ['GP12', 'OP51/52'], progWyzszy: 111.1111, premiaWyzsza: 600, progNizszy: 100, premiaNizsza: 400, passRate: 99 },
-  { key: 'op60_61', label: 'OP60/OP61', stations: ['OP60/61'], progWyzszy: 107.5, premiaWyzsza: 800, progNizszy: 100, premiaNizsza: 600, passRate: 99 },
-  { key: 'op30_33', label: 'OP30/OP33A/OP33B', stations: ['OP30', 'OP33A', 'OP33B'], progWyzszy: 105.7142, premiaWyzsza: 600, progNizszy: 100, premiaNizsza: 400, passRate: 99 },
-  { key: 'op40', label: 'OP40 – lutowanie', stations: ['OP40 IN'], progWyzszy: 108.6956, premiaWyzsza: 600, progNizszy: 100, premiaNizsza: 400, passRate: 99 },
+  { key: 'linia_glowna', label: 'Linia główna OP50~GP12', stations: ['GP12', 'OP51/52'], bottomSzt: 630, premiaNizsza: 400, topSzt: 700, premiaWyzsza: 600, passRate: 99 },
+  { key: 'op60_61', label: 'OP60/OP61', stations: ['OP60/61'], bottomSzt: 400, premiaNizsza: 600, topSzt: 430, premiaWyzsza: 800, passRate: 99 },
+  { key: 'op30_33', label: 'OP30/OP33A/OP33B', stations: ['OP30', 'OP33A', 'OP33B'], bottomSzt: 350, premiaNizsza: 400, topSzt: 370, premiaWyzsza: 600, passRate: 99 },
+  { key: 'op40', label: 'OP40 – lutowanie', stations: ['OP40 IN'], bottomSzt: 2300, premiaNizsza: 400, topSzt: 2500, premiaWyzsza: 600, passRate: 99 },
 ];
 var DEFAULT_WYDAJNOSC = { 'OP30': 9350, 'OP33A': 47, 'OP33B': 47, 'OP40 IN': 134, 'GP12': 78, 'OP51/52': 78, 'OP60/61': 50 };
 
@@ -456,8 +451,10 @@ function findGroup(station) {
 
 // Liczy wszystkie wskazniki dla kazdego stanowiska (nalezacego do jakiejs
 // grupy premiowej) x zmiana, wg ustalonych zasad:
-//   1) Wykonanie planu % = (Suma qty + odzysk z przestoju Awarii) / Suma
-//      planu * 100 — porownywane do progow WYRAZONYCH W % (nie w sztukach).
+//   1) Wykonanie normy % = (Suma qty + odzysk z przestoju Awarii) / Suma
+//      normy * 100 — porownywane do progow WYRAZONYCH W % (nie w sztukach).
+//      "Norma" = d.sumPlan z handlePremia (.gs), policzona wzgledem Celu
+//      stanowiska/polityki premiowej, NIE wzgledem biezacego Planu produkcji.
 //   2) Odzysk z przestoju Awarii = (auto z Awarii + reczna korekta w min)
 //      * wydajnosc/60 — liczy sie ZAWSZE, niezaleznie od tego czy wykonanie
 //      juz i tak przekracza prog.
@@ -468,7 +465,7 @@ function findGroup(station) {
 //      cichu odwracala kolejnosc miedzy zmianami (np. slabsza zmiana
 //      wskakujaca nad silniejsza tylko dlatego ze akurat wpadla pod prog).
 //   4) Premia = brak jesli: brak obsady NA TEJ zmianie. W przeciwnym razie
-//      premia wyzsza/nizsza/brak wg progow % wykonania planu PO korektach
+//      premia wyzsza/nizsza/brak wg progow % wykonania normy PO korektach
 //      z punktow 2-3. Pass rate jest tylko informacyjny (patrz nizej).
 // Przestoj z Awarii przypisany jest do KONKRETNEJ zmiany (kolumna 'shift'
 // w Awariach, zapisywana od pewnej aktualizacji) — starsze wpisy sprzed
@@ -516,11 +513,16 @@ function computeRows() {
       }
 
       // Pass rate jest wazny informacyjnie (widoczny w tabeli), ale NIE
-      // warunkuje premii — premia jest wylacznie za wykonanie planu.
+      // warunkuje premii — premia jest wylacznie za wykonanie normy.
+      // Prog = bottomSzt/topSzt (bezwzgledne sztuki/zmiane z polityki) razy
+      // liczba dni z raportem w okresie — bezposrednie porownanie liczb,
+      // bez procentow (patrz komentarz przy DEFAULT_GROUPS).
       var premia = null;
-      if (crewList.length > 0 && finalPct !== null) {
-        if (finalPct >= group.progWyzszy) premia = group.premiaWyzsza;
-        else if (finalPct >= group.progNizszy) premia = group.premiaNizsza;
+      if (crewList.length > 0 && d.count > 0) {
+        var progNizBezw = group.bottomSzt * d.count;
+        var progWyzBezw = group.topSzt * d.count;
+        if (finalQty >= progWyzBezw) premia = group.premiaWyzsza;
+        else if (finalQty >= progNizBezw) premia = group.premiaNizsza;
       }
       rows.push({
         station: station, shift: shift, group: group, crewList: crewList,
@@ -555,7 +557,7 @@ function render() {
   app.innerHTML =
     '<div class="pagehead"><div><h1>Premie <span class="cn">奖金</span></h1><div class="sub">Wyliczone automatycznie z planu produkcji, raportów i przestojów &#8212; miesiąc narastająco.<span class="cn"> 根据生产计划、报告和停机时间自动计算 &#8212; 月度累计。</span></div></div>' +
     '<div class="headactions">' + monthNavHtml() + '<button class="btn-mini cfg" id="btnCfgToggle">Konfiguracja ' + (STATE.configOpen ? '&#9652;' : '&#9662;') + '<span class="cn">配置</span></button><button class="btn-mini" id="btnExport">Eksportuj Excel <span class="cn">导出Excel</span></button></div></div>' +
-    '<div class="note"><div class="ic">i</div><div><b>Wykonanie planu ≥ próg niższy = premia.</b> <span class="cn">计划完成率≥下限门槛 = 奖金。</span><br>Pass rate jest pokazywany informacyjnie, ale NIE warunkuje wypłaty premii — liczy się wyłącznie wykonanie planu. Przestój z Awarii dolicza się zawsze (automatycznie + Twoja ręczna korekta). Rezerwa 60 min/dzień na prace techniczne NIE dolicza się już automatycznie — kliknij przycisk "+60min" przy danej zmianie, żeby ją włączyć/wyłączyć ręcznie, wg własnej oceny sytuacji.<br><span class="cn">合格率仅作参考显示，不作为发放奖金的条件 —— 只看计划完成率。故障停机始终计入（自动+手动修正）。每天60分钟的技术维护余量不再自动计入 —— 点击该班次旁的"+60分钟"按钮手动开启/关闭。</span></div></div>' +
+    '<div class="note"><div class="ic">i</div><div><b>Wykonanie normy (polityka premiowa) ≥ próg niższy = premia.</b> <span class="cn">定额完成率（奖金政策）≥下限门槛 = 奖金。</span><br>Norma to NIE bieżący Plan produkcji (ten bywa podbity pod nadgodziny) — to stały Cel stanowiska z polityki premiowej. Pass rate jest pokazywany informacyjnie, ale NIE warunkuje wypłaty premii — liczy się wyłącznie wykonanie normy. Przestój z Awarii dolicza się zawsze (automatycznie + Twoja ręczna korekta). Rezerwa 60 min/dzień na prace techniczne NIE dolicza się już automatycznie — kliknij przycisk "+60min" przy danej zmianie, żeby ją włączyć/wyłączyć ręcznie, wg własnej oceny sytuacji.<br><span class="cn">定额并非当前生产计划（后者可能因加班而上调）——而是奖金政策中固定的工位目标。合格率仅作参考显示，不作为发放奖金的条件 —— 只看定额完成率。故障停机始终计入（自动+手动修正）。每天60分钟的技术维护余量不再自动计入 —— 点击该班次旁的"+60分钟"按钮手动开启/关闭。</span></div></div>' +
     '<div id="cfgpanel"></div>' +
     '<div class="tablewrap"><div class="tablescroll"><table class="results" id="resultsTable"></table></div></div>';
 
@@ -573,16 +575,23 @@ function render() {
 
 function renderConfigPanel() {
   var el = document.getElementById('cfgpanel');
-  var mk = monthKey(STATE.monthDate);
-  var inherited = !STATE.configByMonth[mk];
-  var groupRows = STATE.activeGroups.map(function(g, i) {
-    return '<tr data-gi="' + i + '">' +
+  // Progi/premie/pass rate sa TYLKO DO PODGLADU (nie input!) — to sa
+  // liczby wprost z dokumentu polityki premii uznaniowej (patrz komentarz
+  // przy DEFAULT_GROUPS). Celowo NIE da sie ich tu edytowac ani zapisac:
+  // user explicite o to poprosil (2026-11-04) po tym jak zlapalismy, jak
+  // latwo tu przypadkiem (albo bez zrozumienia polityki) wprowadzic bledna
+  // wartosc i cicho zmienic realne wyplaty bez zadnego sladu/testu/review
+  // — jedna z tych liczb mialam nawet SAMA zle zaokraglona przy pierwszej
+  // probie tej poprawki, zlapane dopiero testem. Zmiana polityki = zmiana
+  // tutaj w kodzie (DEFAULT_GROUPS), nie w tym panelu.
+  var groupRows = STATE.activeGroups.map(function(g) {
+    return '<tr>' +
       '<td class="lbl">' + g.label + '<div class="stlist">' + g.stations.join(', ') + '</div></td>' +
-      '<td><div class="pctfield"><input type="number" class="gf" data-f="progWyzszy" value="' + g.progWyzszy + '"><span>%</span></div></td>' +
-      '<td><input type="number" class="gf" data-f="premiaWyzsza" value="' + g.premiaWyzsza + '"></td>' +
-      '<td><div class="pctfield"><input type="number" class="gf" data-f="progNizszy" value="' + g.progNizszy + '"><span>%</span></div></td>' +
-      '<td><input type="number" class="gf" data-f="premiaNizsza" value="' + g.premiaNizsza + '"></td>' +
-      '<td><input type="number" class="gf" data-f="passRate" value="' + g.passRate + '"></td>' +
+      '<td class="rocell">' + fmt(g.topSzt) + '</td>' +
+      '<td class="rocell">' + g.premiaWyzsza + '</td>' +
+      '<td class="rocell">' + fmt(g.bottomSzt) + '</td>' +
+      '<td class="rocell">' + g.premiaNizsza + '</td>' +
+      '<td class="rocell">' + g.passRate + '</td>' +
     '</tr>';
   }).join('');
 
@@ -600,12 +609,12 @@ function renderConfigPanel() {
 
   el.innerHTML =
     '<div class="cfgpanel">' +
-      '<h3>Progi premii wg grupy stanowisk — ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + (inherited ? ' <span style="color:var(--faint);font-weight:500;font-size:11px">(odziedziczone z poprzedniego miesiąca — zapisz, żeby ustawić własne na ten miesiąc)</span>' : '') + ' <span class="cn">按工位组划分的奖金门槛 —— ' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></h3>' +
-      '<table class="cfgtable"><thead><tr><th>Grupa<span class="cn">组</span></th><th>Próg wyższy (% planu)<span class="cn">较高门槛（计划%）</span></th><th>Premia wyższa (PLN)<span class="cn">较高奖金（PLN）</span></th><th>Próg niższy (% planu)<span class="cn">较低门槛（计划%）</span></th><th>Premia niższa (PLN)<span class="cn">较低奖金（PLN）</span></th><th>Wymagany pass rate (%)<span class="cn">要求合格率（%）</span></th></tr></thead><tbody id="groupCfgBody">' + groupRows + '</tbody></table>' +
+      '<h3>Progi premii wg grupy stanowisk <span style="color:var(--faint);font-weight:500;font-size:11px">(z polityki premiowej — zmiana wymaga aktualizacji kodu, nie edytowalne tutaj)</span> <span class="cn">按工位组划分的奖金门槛 <span style="font-weight:500">（来自奖金政策 — 如需变更须更新代码，此处不可编辑）</span></span></h3>' +
+      '<table class="cfgtable"><thead><tr><th>Grupa<span class="cn">组</span></th><th>Próg wyższy (szt./zmianę)<span class="cn">较高门槛（件/班次）</span></th><th>Premia wyższa (PLN)<span class="cn">较高奖金（PLN）</span></th><th>Próg niższy (szt./zmianę)<span class="cn">较低门槛（件/班次）</span></th><th>Premia niższa (PLN)<span class="cn">较低奖金（PLN）</span></th><th>Wymagany pass rate (%)<span class="cn">要求合格率（%）</span></th></tr></thead><tbody id="groupCfgBody">' + groupRows + '</tbody></table>' +
       '<h3>Wydajność godzinowa per stanowisko (szt./h) <span class="cn">每小时产能（非按月，长期设置）</span></h3>' +
       '<div class="bulksub">Cel dzienny pobiera się z normy polityki premiowej (ten sam Cel co w progach premii powyżej — dla OP40 IN to 2300, NIE bieżący Plan, który bywa podbity pod nadgodziny). Wpisz czas pracy (np. 450 min = 8h minus 30 min przerwy) — wydajność wyliczy się sama. Możesz ją też nadpisać ręcznie.<br><span class="cn">每日目标来自奖金政策基准（与上方奖金门槛相同的目标 — OP40 IN为2300，而非可能因加班而上调的当前计划）。输入工作时间（如450分钟=8小时减30分钟休息）— 产能会自动计算，也可手动覆盖。</span></div>' +
       '<table class="cfgtable"><thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Cel dzienny (szt., wg polityki premii)<span class="cn">每日目标（件，按奖金政策）</span></th><th>Czas pracy (min)<span class="cn">工作时间（分钟）</span></th><th>Wydajność (szt./h)<span class="cn">产能（件/小时）</span></th></tr></thead><tbody id="wydajnoscCfgBody">' + wRows + '</tbody></table>' +
-      '<div class="cfgactions"><button class="btn-cfg-save" id="btnCfgSave">Zapisz konfigurację na ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn"> 保存本月配置 ' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></button></div>' +
+      '<div class="cfgactions"><button class="btn-cfg-save" id="btnCfgSave">Zapisz wydajność i czas pracy<span class="cn"> 保存产能与工作时间</span></button></div>' +
     '</div>';
 
   el.addEventListener('input', function() { markCfgDirty(); });
@@ -623,25 +632,21 @@ function renderConfigPanel() {
 function markCfgDirty() {
   STATE.configDirty = true;
   var btn = document.getElementById('btnCfgSave');
-  if (btn) { btn.classList.add('pulse'); btn.innerHTML = 'Zapisz konfigurację — niezapisane zmiany!<span class="cn"> 保存配置 — 有未保存的更改!</span>'; }
+  if (btn) { btn.classList.add('pulse'); btn.innerHTML = 'Zapisz wydajność i czas pracy — niezapisane zmiany!<span class="cn"> 保存产能与工作时间 — 有未保存的更改!</span>'; }
 }
 
+// Progi premii (polityka) NIE sa tu juz zapisywane — patrz komentarz przy
+// renderConfigPanel. Ten formularz zapisuje wylacznie wydajnosc i czas
+// pracy (parametry techniczne, nie polityke).
 function saveConfig() {
-  var mk = monthKey(STATE.monthDate);
-  document.querySelectorAll('#groupCfgBody tr').forEach(function(tr) {
-    var gi = Number(tr.dataset.gi);
-    tr.querySelectorAll('.gf').forEach(function(inp) { STATE.activeGroups[gi][inp.dataset.f] = Number(inp.value) || 0; });
-  });
   document.querySelectorAll('#wydajnoscCfgBody tr').forEach(function(tr) {
     var st = tr.dataset.station;
     STATE.wydajnosc[st] = Number(tr.querySelector('.wf').value) || 0;
     STATE.czasPracy[st] = Number(tr.querySelector('.czasinput').value) || 0;
   });
-  STATE.configByMonth[mk] = STATE.activeGroups;
   STATE.configDirty = false;
   var wh = getWH();
   Promise.all([
-    fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_config', wartosc: JSON.stringify(STATE.configByMonth) }) }),
     fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_wydajnosc', wartosc: JSON.stringify(STATE.wydajnosc) }) }),
     fetch(wh, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ token: getApiToken(), event_type: 'ZAPISZ_USTAWIENIE', klucz: 'cfm_premia_czas_pracy', wartosc: JSON.stringify(STATE.czasPracy) }) }),
   ]).then(function() { render(); }).catch(function() { render(); });
@@ -651,7 +656,7 @@ function renderResultsTable(rows) {
   var table = document.getElementById('resultsTable');
   if (!rows.length) { table.parentElement.parentElement.innerHTML = '<div class="empty">Brak stanowisk przypisanych do żadnej grupy premiowej. <span class="cn">没有工位分配到任何奖金组。</span><br>Sprawdź "Konfiguracja" powyżej.</div>'; return; }
 
-  var thead = '<thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Zmiana<span class="cn">班次</span></th><th>Obsada<span class="cn">人员</span></th><th>Produkcja / plan<span class="cn">产量/计划</span></th><th>Pass rate<span class="cn">合格率</span></th><th>Korekta przestoju (min)<span class="cn">停机修正（分钟）</span></th><th>Wykonanie planu<span class="cn">计划完成率</span></th><th>Premia<span class="cn">奖金</span></th></tr></thead>';
+  var thead = '<thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Zmiana<span class="cn">班次</span></th><th>Obsada<span class="cn">人员</span></th><th>Produkcja / norma<span class="cn">产量/定额</span></th><th>Pass rate<span class="cn">合格率</span></th><th>Korekta przestoju (min)<span class="cn">停机修正（分钟）</span></th><th>Wykonanie normy<span class="cn">定额完成率</span></th><th>Premia<span class="cn">奖金</span></th></tr></thead>';
 
   var byStation = {};
   var order = [];
@@ -669,7 +674,7 @@ function renderResultsTable(rows) {
         '<td><div class="cell-stack"><span class="cell-actual">' + fmt(r.sumQty) + '</span><span class="cell-plan">/' + fmt(r.sumPlan) + '</span></div></td>' +
         '<td><span class="pct ' + pctClass(r.passRate, r.group.passRate) + '">' + (r.passRate === null ? '&#8212;' : r.passRate.toFixed(1) + '%') + '</span></td>' +
         '<td><div class="korektacell"><span class="autolbl">auto z Awarii: ' + r.autoDowntimeMin + ' min <span class="cn">故障自动计入: ' + r.autoDowntimeMin + ' 分钟</span></span><input type="number" class="korektainput" min="0" value="' + r.korektaMin + '" data-station="' + r.station.replace(/"/g, '&quot;') + '" data-shift="' + r.shift + '"></div></td>' +
-        '<td><span class="pct ' + pctClass(r.finalPct, r.group.progNizszy) + '">' + (r.finalPct === null ? '&#8212;' : r.finalPct.toFixed(1) + '%') + '</span>' +
+        '<td><span class="pct ' + pctClass(r.finalPct, 100) + '">' + (r.finalPct === null ? '&#8212;' : r.finalPct.toFixed(1) + '%') + '</span>' +
           '<button type="button" class="techbtn' + (r.techApplied ? ' on' : '') + '" data-station="' + r.station.replace(/"/g, '&quot;') + '" data-shift="' + r.shift + '">+60min</button></td>' +
         '<td><span class="premia ' + (r.premia ? 'yes' : 'no') + '">' + (r.premia ? r.premia + ' PLN' : '&#8212;') + '</span></td>' +
       '</tr>';
@@ -735,7 +740,7 @@ function exportToExcel() {
     '.yes{background:#c9f0d6;font-weight:bold}' +
     'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
     '</style></head><body><h1>' + title + '</h1><table>' +
-    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Produkcja</th><th>Plan</th><th>Pass rate</th><th>Wykonanie planu (surowe)</th><th>Auto z Awarii (min)</th><th>Korekta ręczna (min)</th><th>Rezerwa techn. (min)</th><th>Razem przestój (min)</th><th>Wykonanie planu (po korekcie)</th><th>Premia (PLN)</th></tr>';
+    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Produkcja</th><th>Norma (polityka premiowa)</th><th>Pass rate</th><th>Wykonanie normy (surowe)</th><th>Auto z Awarii (min)</th><th>Korekta ręczna (min)</th><th>Rezerwa techn. (min)</th><th>Razem przestój (min)</th><th>Wykonanie normy (po korekcie)</th><th>Premia (PLN)</th></tr>';
 
   var byStation = {}, order = [];
   rows.forEach(function(r) { if (!byStation[r.station]) { byStation[r.station] = []; order.push(r.station); } byStation[r.station].push(r); });

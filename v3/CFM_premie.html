@@ -308,11 +308,33 @@ var APP_START_MONTH = { year: 2026, month: 7 }; // sierpien 2026 - pierwszy mies
 // wlasnych wartosci dla tego miesiaca.
 // Wydajnosc godzinowa per stanowisko NIE jest miesieczna (moc maszyny sie
 // nie zmienia z miesiaca na miesiac) — osobny, trwaly klucz cfm_premia_wydajnosc.
+// Progi (progNizszy/progWyzszy) przeliczone z dokumentu polityki premii
+// uznaniowej (Premia uznaniowa...2026.08.29.docx, p. 3.6.4 Linia CFM):
+// kazda grupa ma TAM dwie bezwzgledne liczby sztuk/zmiane — "Realizacja"
+// (= 100%, odblokowuje premiaNizsza) i "Przekroczenie oczekiwan"
+// (odblokowuje premiaWyzsza) — NIE 95%/100% jak bylo tu wczesniej (ten
+// blad user zlapal: przy starych progach samo dojscie do Celu juz dawalo
+// WYZSZA premie, zamiast dopiero ja odblokowac przy realnym przekroczeniu):
+//   linia_glowna (GP12/OP51/52): Realizacja 630, Przekroczenie 700  -> 700/630=111.1111...%
+//   op60_61:                     Realizacja 400, Przekroczenie 430  -> 430/400=107.5%
+//   op30_33:                     Realizacja 350, Przekroczenie 370  -> 370/350=105.7142...%
+//   op40:                        Realizacja 2300, Przekroczenie 2500 -> 2500/2300=108.6956...%
+// progNizszy=100% dla wszystkich (samo osiagniecie Realizacji = premiaNizsza;
+// ponizej Realizacji dokument nie przewiduje zadnej premii). Procenty sa
+// liczone wzgledem sumPlan z handlePremia (.gs) — dla OP40 TA liczba jest
+// CELOWO oparta na normie z polityki (2300), nie na zywym Celu (2500 w
+// Panel Admina, ktory jest tam swiadomie wyzszy z innego powodu) — patrz
+// PREMIA_NORMA_OVERRIDE_ w .gs.
+// progWyzszy ZAWSZE zaokraglony W DOL (nie "do najblizszej"!) do 4 miejsc
+// po przecinku — zaokraglenie w gore (np. 108.70 zamiast 108.6956) dawaloby
+// prog WYZSZY niz prawdziwa wartosc z polityki, przez co realne osiagniecie
+// DOKLADNIE progu z dokumentu (np. rowno 2500 szt.) NIE odblokowywaloby
+// wyzszej premii — zlapane testem przy pierwszej probie tej poprawki.
 var DEFAULT_GROUPS = [
-  { key: 'linia_glowna', label: 'Linia główna OP50~GP12', stations: ['GP12', 'OP51/52'], progWyzszy: 100, premiaWyzsza: 600, progNizszy: 95, premiaNizsza: 400, passRate: 99 },
-  { key: 'op60_61', label: 'OP60/OP61', stations: ['OP60/61'], progWyzszy: 100, premiaWyzsza: 800, progNizszy: 95, premiaNizsza: 600, passRate: 99 },
-  { key: 'op30_33', label: 'OP30/OP33A/OP33B', stations: ['OP30', 'OP33A', 'OP33B'], progWyzszy: 100, premiaWyzsza: 600, progNizszy: 95, premiaNizsza: 400, passRate: 99 },
-  { key: 'op40', label: 'OP40 – lutowanie', stations: ['OP40 IN'], progWyzszy: 100, premiaWyzsza: 600, progNizszy: 95, premiaNizsza: 400, passRate: 99 },
+  { key: 'linia_glowna', label: 'Linia główna OP50~GP12', stations: ['GP12', 'OP51/52'], progWyzszy: 111.1111, premiaWyzsza: 600, progNizszy: 100, premiaNizsza: 400, passRate: 99 },
+  { key: 'op60_61', label: 'OP60/OP61', stations: ['OP60/61'], progWyzszy: 107.5, premiaWyzsza: 800, progNizszy: 100, premiaNizsza: 600, passRate: 99 },
+  { key: 'op30_33', label: 'OP30/OP33A/OP33B', stations: ['OP30', 'OP33A', 'OP33B'], progWyzszy: 105.7142, premiaWyzsza: 600, progNizszy: 100, premiaNizsza: 400, passRate: 99 },
+  { key: 'op40', label: 'OP40 – lutowanie', stations: ['OP40 IN'], progWyzszy: 108.6956, premiaWyzsza: 600, progNizszy: 100, premiaNizsza: 400, passRate: 99 },
 ];
 var DEFAULT_WYDAJNOSC = { 'OP30': 9350, 'OP33A': 47, 'OP33B': 47, 'OP40 IN': 134, 'GP12': 78, 'OP51/52': 78, 'OP60/61': 50 };
 

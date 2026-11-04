@@ -340,7 +340,7 @@ var DEFAULT_WYDAJNOSC = { 'OP30': 9350, 'OP33A': 47, 'OP33B': 47, 'OP40 IN': 134
 
 var STATE = {
   monthDate: new Date(), stations: [], shiftLabels: ['A', 'B', 'C'], workers: [], crew: {},
-  configByMonth: {}, wydajnosc: {}, czasPracy: {}, monthlyPlan: {}, stationTargets: {}, korektyByMonth: {}, techByMonth: {},
+  configByMonth: {}, wydajnosc: {}, czasPracy: {}, stationTargets: {}, korektyByMonth: {}, techByMonth: {},
   activeGroups: null, shiftsData: [], downtime: {}, configOpen: false, configDirty: false,
 };
 
@@ -372,37 +372,21 @@ function monthRange(d) {
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : Math.round(n).toLocaleString('pl-PL'); }
 function shiftColor(s) { return s === 'A' ? 'var(--shift-a)' : s === 'B' ? 'var(--shift-b)' : 'var(--shift-c)'; }
 
-// Cel dzienny do kalkulatora wydajnosci — ten sam mechanizm co getCelShift()
-// w glownej apce: plan na DZISIAJ ma pierwszenstwo (sprawdzany po kolei dla
-// kazdej skonfigurowanej zmiany, bo stanowisko moze miec rozne wartosci na
-// A/B/C), a gdy nic nie ma w planie na dzis — spada na staly cel z Panel
-// Admina -> Cele.
-// Cel dzienny sledzi PRZEGLADANY miesiac (STATE.monthDate — ten sam, ktory
-// wlasnie konfigurujesz w panelu), NIE dzisiejsza date kalendarzowa —
-// inaczej otwierajac konfiguracje na przyszly miesiac (np. wrzesien, gdy
-// dzis jest jeszcze 31 sierpnia) widzialbys stara, jeszcze sierpniowa
-// wartosc planu zamiast tej ktora faktycznie zaczyna sie od 1. dnia
-// przegladanego miesiaca. Jesli dzisiejsza data akurat wypada w
-// przegladanym miesiacu, ma pierwszenstwo (najbardziej aktualna) — w
-// przeciwnym razie bierzemy pierwszy dzien tego miesiaca, ktory ma wpis w
-// planie (stanowiska nieregularne, np. lutowanie w piecu, nie pracuja
-// codziennie).
-function getPlanCelForStation(station) {
-  var mk = monthKey(STATE.monthDate);
-  var monthEntry = STATE.monthlyPlan[mk] && STATE.monthlyPlan[mk][station];
-  if (monthEntry) {
-    var todayIso = toISO(new Date());
-    var candidates = [];
-    if (todayIso.slice(0, 7) === mk) candidates.push(todayIso);
-    var nDays = new Date(STATE.monthDate.getFullYear(), STATE.monthDate.getMonth() + 1, 0).getDate();
-    for (var d = 1; d <= nDays; d++) candidates.push(mk + '-' + pad(d));
-    for (var ci = 0; ci < candidates.length; ci++) {
-      for (var i = 0; i < STATE.shiftLabels.length; i++) {
-        var v = monthEntry[STATE.shiftLabels[i]] && monthEntry[STATE.shiftLabels[i]][candidates[ci]];
-        if (v) return Number(v);
-      }
-    }
-  }
+// Cel dzienny do kalkulatora wydajnosci — CELOWO ta sama norma polityki
+// bonusow co do progow premii (patrz DEFAULT_GROUPS i
+// PREMIA_NORMA_OVERRIDE_ w .gs), NIE "co jest akurat wpisane w Planie na
+// dzis". Wczesniej ta wartosc brala pierwszy jawny wpis w dzien-po-dniu
+// Planie (nawet dzisiejszy, podbity pod nadgodziny) — co na tej stronie
+// pokazywalo np. "Cel dzienny GP12 = 750" zamiast prawdziwej normy z
+// polityki (630), a gdyby ktos uzyl auto-przeliczenia wydajnosci z tej
+// zawyzonej liczby, zawyzylaby sie posrednio tez wydajnosc/odzysk z
+// Awarii we wzorze premii. Cala strona Premie ma teraz jedno, spojne
+// zrodlo normy — ta sama funkcja (logicznie) co getPeriodPremiaTarget_ w
+// .gs: Cel stanowiska, z wyjatkiem OP40 IN gdzie polityka ma inna liczbe
+// (2300) niz zywy Cel (2500).
+var PREMIA_NORMA_OVERRIDE = { 'OP40 IN': 2300 };
+function getPremiaNormaForStation(station) {
+  if (PREMIA_NORMA_OVERRIDE.hasOwnProperty(station)) return PREMIA_NORMA_OVERRIDE[station];
   return Number(STATE.stationTargets[station]) || 0;
 }
 function pctClass(p, req) { if (p === null) return 'off'; if (p >= req) return 'good'; if (p >= req - 10) return 'warn'; return 'crit'; }
@@ -438,7 +422,6 @@ function init() {
       try { STATE.configByMonth = JSON.parse(u.cfm_premia_config || '{}'); } catch (e) { STATE.configByMonth = {}; }
       try { STATE.wydajnosc = u.cfm_premia_wydajnosc ? JSON.parse(u.cfm_premia_wydajnosc) : JSON.parse(JSON.stringify(DEFAULT_WYDAJNOSC)); } catch (e) { STATE.wydajnosc = JSON.parse(JSON.stringify(DEFAULT_WYDAJNOSC)); }
       try { STATE.czasPracy = JSON.parse(u.cfm_premia_czas_pracy || '{}'); } catch (e) { STATE.czasPracy = {}; }
-      try { STATE.monthlyPlan = JSON.parse(u.cfm_monthly_plan || '{}'); } catch (e) { STATE.monthlyPlan = {}; }
       try { STATE.stationTargets = JSON.parse(u.cfm_station_targets || '{}'); } catch (e) { STATE.stationTargets = {}; }
       try { STATE.korektyByMonth = JSON.parse(u.cfm_premia_korekty || '{}'); } catch (e) { STATE.korektyByMonth = {}; }
       try { STATE.techByMonth = JSON.parse(u.cfm_premia_tech60 || '{}'); } catch (e) { STATE.techByMonth = {}; }
@@ -605,7 +588,7 @@ function renderConfigPanel() {
 
   var wKeys = Object.keys(STATE.wydajnosc);
   var wRows = wKeys.map(function(st) {
-    var cel = getPlanCelForStation(st);
+    var cel = getPremiaNormaForStation(st);
     var czas = STATE.czasPracy[st] || 450;
     return '<tr data-station="' + st.replace(/"/g, '&quot;') + '" data-cel="' + cel + '">' +
       '<td class="lbl">' + st + '</td>' +
@@ -620,8 +603,8 @@ function renderConfigPanel() {
       '<h3>Progi premii wg grupy stanowisk — ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + (inherited ? ' <span style="color:var(--faint);font-weight:500;font-size:11px">(odziedziczone z poprzedniego miesiąca — zapisz, żeby ustawić własne na ten miesiąc)</span>' : '') + ' <span class="cn">按工位组划分的奖金门槛 —— ' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></h3>' +
       '<table class="cfgtable"><thead><tr><th>Grupa<span class="cn">组</span></th><th>Próg wyższy (% planu)<span class="cn">较高门槛（计划%）</span></th><th>Premia wyższa (PLN)<span class="cn">较高奖金（PLN）</span></th><th>Próg niższy (% planu)<span class="cn">较低门槛（计划%）</span></th><th>Premia niższa (PLN)<span class="cn">较低奖金（PLN）</span></th><th>Wymagany pass rate (%)<span class="cn">要求合格率（%）</span></th></tr></thead><tbody id="groupCfgBody">' + groupRows + '</tbody></table>' +
       '<h3>Wydajność godzinowa per stanowisko (szt./h) <span class="cn">每小时产能（非按月，长期设置）</span></h3>' +
-      '<div class="bulksub">Cel dzienny pobiera się automatycznie z dzisiejszego Planu (lub z Cele, jeśli w Planie nic nie ma na dziś). Wpisz czas pracy (np. 450 min = 8h minus 30 min przerwy) — wydajność wyliczy się sama. Możesz ją też nadpisać ręcznie.<br><span class="cn">每日目标自动从今日计划获取（若计划为空则用"目标"设置）。输入工作时间（如450分钟=8小时减30分钟休息）— 产能会自动计算，也可手动覆盖。</span></div>' +
-      '<table class="cfgtable"><thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Cel dzienny (szt., z planu)<span class="cn">每日目标（件，来自计划）</span></th><th>Czas pracy (min)<span class="cn">工作时间（分钟）</span></th><th>Wydajność (szt./h)<span class="cn">产能（件/小时）</span></th></tr></thead><tbody id="wydajnoscCfgBody">' + wRows + '</tbody></table>' +
+      '<div class="bulksub">Cel dzienny pobiera się z normy polityki premiowej (ten sam Cel co w progach premii powyżej — dla OP40 IN to 2300, NIE bieżący Plan, który bywa podbity pod nadgodziny). Wpisz czas pracy (np. 450 min = 8h minus 30 min przerwy) — wydajność wyliczy się sama. Możesz ją też nadpisać ręcznie.<br><span class="cn">每日目标来自奖金政策基准（与上方奖金门槛相同的目标 — OP40 IN为2300，而非可能因加班而上调的当前计划）。输入工作时间（如450分钟=8小时减30分钟休息）— 产能会自动计算，也可手动覆盖。</span></div>' +
+      '<table class="cfgtable"><thead><tr><th>Stanowisko<span class="cn">工位</span></th><th>Cel dzienny (szt., wg polityki premii)<span class="cn">每日目标（件，按奖金政策）</span></th><th>Czas pracy (min)<span class="cn">工作时间（分钟）</span></th><th>Wydajność (szt./h)<span class="cn">产能（件/小时）</span></th></tr></thead><tbody id="wydajnoscCfgBody">' + wRows + '</tbody></table>' +
       '<div class="cfgactions"><button class="btn-cfg-save" id="btnCfgSave">Zapisz konfigurację na ' + MONTH_NAMES[STATE.monthDate.getMonth()].toLowerCase() + '<span class="cn"> 保存本月配置 ' + MONTH_NAMES_CN[STATE.monthDate.getMonth()] + '</span></button></div>' +
     '</div>';
 

@@ -917,8 +917,16 @@ function exportToExcel() {
         // zostal pozniej poprawiony w CFM_plan.html (ten sam blad juz
         // wczesniej naprawiony w renderPivot/dailyGridHtml/barsHtml -
         // eksport Excel po prostu go jeszcze nie mial).
+        // Domyslny Cel stanowiska dolicza sie TYLKO gdy tego dnia faktycznie
+        // byl raport (realna, niezaplanowana praca) — dokladnie ta sama
+        // zasada co w getPeriodPlan() powyzej. Bez tego kazdy dzien BEZ
+        // jawnego wpisu w Planie (weekend, przestoj, dzien w ktorym admin
+        // wpisal 0 — co i tak nigdzie sie nie zapisuje, patrz
+        // collectPlanFromInputs w CFM_plan.html) wygladal w eksporcie jak
+        // "nie zrobiono Celu" (czerwone 0%), mimo ze tego dnia stacja po
+        // prostu nie miala nic produkowac.
         var plan = effectivePlanEntry(stName, g.shift, d);
-        if (plan === null) plan = Number(STATE.stationTargets[stName]) || 0;
+        if (plan === null) plan = rec ? (Number(STATE.stationTargets[stName]) || 0) : 0;
         var actual = rec ? rec.qty : 0;
         sumPlan += plan; sumActual += actual;
         var pct = plan > 0 ? Math.round((actual / plan) * 100) : null;

@@ -83,6 +83,14 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .dailybar-track{height:12px;border-radius:4px;background:var(--border-soft);overflow:hidden}
 .dailybar-fill{height:100%;border-radius:4px}
 .dailybar-val{text-align:right;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.dailybar-row.clickable{cursor:pointer;border-radius:8px;padding:3px 4px;margin-left:-4px;margin-right:-4px;margin-bottom:5px}
+.dailybar-row.clickable:hover{background:var(--surface-2)}
+.dailybar-detail{display:none;flex-wrap:wrap;gap:6px;margin:0 0 10px;padding-left:4px}
+.dailybar-detail.open{display:flex}
+.dailybar-chip{display:flex;align-items:baseline;gap:6px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:6px;padding:5px 9px;font-size:11.5px;color:var(--text)}
+.dailybar-chip b{font-family:var(--fh);color:var(--muted);flex-shrink:0;font-weight:700}
+.dailybar-chip-total{border-color:var(--border-soft);background:var(--surface);font-weight:700}
+.dailybar-chip-total b{color:var(--blue-soft)}
 .coverage-hero{text-align:center;padding:8px 0 4px}
 .coverage-hero .n{font-family:var(--fh);font-weight:800;font-size:40px;display:block}
 .coverage-hero .l{font-size:12px;color:var(--muted);margin-top:2px}
@@ -923,13 +931,15 @@ function renderDailyPlanBars(days) {
   var any = false;
   var rowsHtml = days.map(function(d) {
     var actual = 0, plan = 0;
+    var shiftQty = {};
+    STATE.shiftLabels.forEach(function(sh) { shiftQty[sh] = 0; });
     STATE.stations.forEach(function(st) {
       if (st !== 'GP12') return;
       STATE.shiftLabels.forEach(function(sh) {
         var r = STATE.rows.filter(function(x) { return x.date === d && x.station === st && x.shift === sh; })[0];
         var hasPlan = planEntryFor(st, sh, d) !== null;
         if (!r && !hasPlan) return;
-        if (r) actual += r.qty;
+        if (r) { actual += r.qty; shiftQty[sh] += r.qty; }
         var pf = effectivePlanEntry(st, sh, d);
         if (pf === null) pf = Number(STATE.stationTargets[st]) || 0;
         plan += pf;
@@ -942,9 +952,21 @@ function renderDailyPlanBars(days) {
     any = true;
     var pct = Math.round((actual / plan) * 100);
     var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
-    return '<div class="dailybar-row"><div class="dailybar-lbl" style="' + (d === todayISO ? 'color:var(--blue-soft)' : '') + '">' + label + '</div><div class="dailybar-track"><div class="dailybar-fill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div><div class="dailybar-val" style="color:' + color + '">' + pct + '%</div></div>';
+    var dayKey = d.replace(/-/g, '');
+    // Rozbicie na zmiany to SUROWA ilosc sztuk (ta sama metryka co pasek —
+    // "ile zrobila A/B/C"), celowo BEZ pass rate / % wykonania przy kazdej
+    // zmianie, user wyraznie tego nie chcial ("nie patrze na pass rate").
+    var detailHtml = STATE.shiftLabels.map(function(sh) {
+      return '<div class="dailybar-chip"><b>Zmiana ' + sh + '</b>' + fmt(shiftQty[sh]) + ' szt.</div>';
+    }).join('') + '<div class="dailybar-chip dailybar-chip-total"><b>Razem</b>' + fmt(actual) + ' szt.</div>';
+    return '<div class="dailybar-row clickable" onclick="toggleDailyPlanDetail(\'' + dayKey + '\')"><div class="dailybar-lbl" style="' + (d === todayISO ? 'color:var(--blue-soft)' : '') + '">' + label + '</div><div class="dailybar-track"><div class="dailybar-fill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div><div class="dailybar-val" style="color:' + color + '">' + pct + '%</div></div>' +
+      '<div class="dailybar-detail" id="dailyPlanDetail-' + dayKey + '">' + detailHtml + '</div>';
   }).join('');
   el.innerHTML = any ? rowsHtml : '<div class="empty">Brak danych. <span class="cn">无数据。</span></div>';
+}
+function toggleDailyPlanDetail(key) {
+  var el = document.getElementById('dailyPlanDetail-' + key);
+  if (el) el.classList.toggle('open');
 }
 
 // Raport godzinny — jedyne miejsce z faktyczna godzina (RaportGodzinny to

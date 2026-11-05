@@ -1222,11 +1222,20 @@ function renderSolderSectionImpl_(firstDate) {
 // — user to wprost potwierdzil na probce przed wdrozeniem (2026-11-05).
 // Excel przy otwarciu moze zapytac o potwierdzenie formatu — normalne,
 // kliknij "Tak".
+// UWAGA: Excel (import HTML->xls) NIE laczy wiele klas na jednym elemencie
+// (class="crit txtcell" nie dziala — zlapane na zrzucie ekranu od usera:
+// kolumna "Podsumowanie tygodnia" i legenda zostaly bez koloru, mimo ze
+// SAMO ".good" na kolumnie Bufor dziala). Dlatego kazda kombinacja koloru
+// + zawijania tekstu ma WLASNA, pojedyncza nazwe klasy (crit-txt/warn-txt/
+// good-txt) zamiast dwoch osobnych klas na jednym elemencie.
 var SOLDER_XLS_STYLE_ = 'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px;margin-top:8px}' +
   'th,td{border:1px solid #999999;padding:4px 8px;text-align:center;white-space:nowrap;mso-number-format:"@"}' +
   'th{background:#1A6ED8;color:#ffffff;font-weight:bold}' +
   '.lbl{text-align:left;font-weight:bold;background:#f2f2f2}' +
   '.crit{background:#ffb3b3;font-weight:bold}.warn{background:#ffe1a8;font-weight:bold}.good{background:#c9f0d6;font-weight:bold}' +
+  '.crit-txt{background:#ffb3b3;font-weight:bold;text-align:left;white-space:normal}' +
+  '.warn-txt{background:#ffe1a8;font-weight:bold;text-align:left;white-space:normal}' +
+  '.good-txt{background:#c9f0d6;font-weight:bold;text-align:left;white-space:normal}' +
   '.txtcell{text-align:left;white-space:normal}' +
   'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}';
 function downloadSolderXls_(title, bodyHtml, filename) {
@@ -1307,7 +1316,7 @@ function exportSolderExcel() {
       '<td class="' + buforCls + '">' + fmt(r.balance) + '</td>' +
       '<td>' + countedTxt + '</td>' +
       '<td>' + statusTxt + '</td>' +
-      '<td class="txtcell ' + weekCls + '">' + weekTxt + '</td></tr>';
+      '<td class="' + (weekCls ? weekCls + '-txt' : 'txtcell') + '">' + weekTxt + '</td></tr>';
   });
 
   // Legenda kolorow nad tabela — te same progi co balanceSeverity_ (Bufor)
@@ -1326,9 +1335,9 @@ function exportSolderExcel() {
         '<td class="warn">' + fmt(BUFOR_PROG_CZERWONY) + '&#8211;' + fmt(BUFOR_PROG_ZOLTY - 1) + '</td>' +
         '<td class="good">&#8805; ' + fmt(BUFOR_PROG_ZOLTY) + '</td></tr>' +
       '<tr><td class="lbl">Podsumowanie tygodnia (magazyn) / 每周汇总（仓库）</td>' +
-        '<td class="crit txtcell">magazyn &lt; 0 lub GP12/wysyłki &lt; 80% &#183; 仓库&lt;0或GP12/发运&lt;80%</td>' +
-        '<td class="warn txtcell">GP12/wysyłki 80&#8211;99% &#183; GP12/发运80-99%</td>' +
-        '<td class="good txtcell">GP12/wysyłki &#8805; 100% &#183; GP12/发运&#8805;100%</td></tr>' +
+        '<td class="crit-txt">magazyn &lt; 0 lub GP12/wysyłki &lt; 80% &#183; 仓库&lt;0或GP12/发运&lt;80%</td>' +
+        '<td class="warn-txt">GP12/wysyłki 80&#8211;99% &#183; GP12/发运80-99%</td>' +
+        '<td class="good-txt">GP12/wysyłki &#8805; 100% &#183; GP12/发运&#8805;100%</td></tr>' +
     '</table>';
   var html = legendHtml + '<table><tr>' + headers.map(function(h) { return '<th>' + h + '</th>'; }).join('') + '</tr>' + bodyRows + '</table>';
   var monthTag = STATE.solderMonthDate.getFullYear() + '-' + String(STATE.solderMonthDate.getMonth() + 1).padStart(2, '0');

@@ -1228,9 +1228,7 @@ var SOLDER_XLS_STYLE_ = 'table{border-collapse:collapse;font-family:Calibri,Aria
   '.lbl{text-align:left;font-weight:bold;background:#f2f2f2}' +
   '.crit{background:#ffb3b3;font-weight:bold}.warn{background:#ffe1a8;font-weight:bold}.good{background:#c9f0d6;font-weight:bold}' +
   '.txtcell{text-align:left;white-space:normal}' +
-  'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
-  '.legend{font-family:Calibri,Arial,sans-serif;font-size:11px}' +
-  '.legend span{display:inline-block;border:1px solid #999999;padding:2px 8px;margin:0 6px 4px 0}';
+  'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}';
 function downloadSolderXls_(title, bodyHtml, filename) {
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="UTF-8"><style>' + SOLDER_XLS_STYLE_ + '</style></head><body>' +
@@ -1316,16 +1314,22 @@ function exportSolderExcel() {
   // i weeksumCls (magazyn w podsumowaniu tygodnia), wprost z kodu (nie
   // przepisane na sztywno), zeby nigdy sie nie rozjechala z rzeczywistymi
   // progami jesli kiedys ktos je zmieni.
-  var legendHtml = '<div class="legend">' +
-    '<b>Legenda &#8226; Bufor / 图例 &#8226; 缓冲区:</b> ' +
-    '<span class="crit">&lt; ' + fmt(BUFOR_PROG_CZERWONY) + '</span>' +
-    '<span class="warn">' + fmt(BUFOR_PROG_CZERWONY) + '&#8211;' + fmt(BUFOR_PROG_ZOLTY - 1) + '</span>' +
-    '<span class="good">&#8805; ' + fmt(BUFOR_PROG_ZOLTY) + '</span>' +
-    '<br><b>Podsumowanie tygodnia (magazyn) / 每周汇总（仓库）:</b> ' +
-    '<span class="crit">magazyn &lt; 0 lub GP12/wysyłki &lt; 80% &#183; 仓库&lt;0或GP12/发运&lt;80%</span>' +
-    '<span class="warn">GP12/wysyłki 80&#8211;99% &#183; GP12/发运80-99%</span>' +
-    '<span class="good">GP12/wysyłki &#8805; 100% &#183; GP12/发运&#8805;100%</span>' +
-    '</div>';
+  // Legenda jako OSOBNA tabelka (nie <div>/<span>) — Excel przy imporcie
+  // HTML honoruje tlo komorek TYLKO wewnatrz <table><td>, wszystko poza
+  // tabela (np. kolorowe <span> w <div>) renderuje sie jako goly tekst bez
+  // stylow (zlapane na zrzucie ekranu od usera: w przegladarce wygladalo
+  // dobrze, w prawdziwym Excelu kolory i odstepy w legendzie zniknely).
+  var legendHtml =
+    '<table style="margin-bottom:10px">' +
+      '<tr><td class="lbl">Legenda &#8226; Bufor / 图例 &#8226; 缓冲区</td>' +
+        '<td class="crit">&lt; ' + fmt(BUFOR_PROG_CZERWONY) + '</td>' +
+        '<td class="warn">' + fmt(BUFOR_PROG_CZERWONY) + '&#8211;' + fmt(BUFOR_PROG_ZOLTY - 1) + '</td>' +
+        '<td class="good">&#8805; ' + fmt(BUFOR_PROG_ZOLTY) + '</td></tr>' +
+      '<tr><td class="lbl">Podsumowanie tygodnia (magazyn) / 每周汇总（仓库）</td>' +
+        '<td class="crit txtcell">magazyn &lt; 0 lub GP12/wysyłki &lt; 80% &#183; 仓库&lt;0或GP12/发运&lt;80%</td>' +
+        '<td class="warn txtcell">GP12/wysyłki 80&#8211;99% &#183; GP12/发运80-99%</td>' +
+        '<td class="good txtcell">GP12/wysyłki &#8805; 100% &#183; GP12/发运&#8805;100%</td></tr>' +
+    '</table>';
   var html = legendHtml + '<table><tr>' + headers.map(function(h) { return '<th>' + h + '</th>'; }).join('') + '</tr>' + bodyRows + '</table>';
   var monthTag = STATE.solderMonthDate.getFullYear() + '-' + String(STATE.solderMonthDate.getMonth() + 1).padStart(2, '0');
   var cfgLabel = cfg.zuzycie + ' &#8594; ' + cfg.produkcja;

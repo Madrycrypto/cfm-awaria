@@ -432,13 +432,20 @@ function balanceSeverity_(balance) {
 // (goodsRow.balance, to samo co widac w tekscie "(magazyn: X)"), NIE
 // stosunek GP12/wysylki (user to explicite poprawil 2026-11-05: najpierw
 // prosil o progi % GP12/wysylki, potem sprostowal ze to magazyn ma
-// decydowac o kolorze). Te same progi co dla Bufora (balanceSeverity_) —
-// to ta sama kategoria "ile zapasu zostalo", wiec sensowne jest uzycie
-// identycznych liczb zamiast nowego, osobnego progu do zapamietania.
+// decydowac o kolorze). WLASNE progi, INNE niz Bufor (balanceSeverity_) —
+// user ustalil je osobno 2026-11-05, bo to inna skala/kontekst (koniec
+// tygodnia wyrobow gotowych, nie bufor lutowania).
+var MAGAZYN_PROG_ZOLTY = 4961;
+var MAGAZYN_PROG_CZERWONY = 2241;
+function magazynSeverity_(balance) {
+  if (balance < MAGAZYN_PROG_CZERWONY) return 'neg';
+  if (balance < MAGAZYN_PROG_ZOLTY) return 'warn';
+  return 'ok';
+}
 // Uzywane zarowno w samej tabeli (live UI), jak i w eksporcie symulacji;
 // jedno zrodlo prawdy, zeby nigdy sie nie rozjechaly.
 function weeksumSeverity_(balance) {
-  var sev = balanceSeverity_(balance);
+  var sev = magazynSeverity_(balance);
   return sev === 'neg' ? 'crit' : sev === 'warn' ? 'warn' : 'good';
 }
 var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
@@ -1347,9 +1354,9 @@ function exportSolderExcel() {
         '<td class="warn">' + fmt(BUFOR_PROG_CZERWONY) + '&#8211;' + fmt(BUFOR_PROG_ZOLTY - 1) + '</td>' +
         '<td class="good">&#8805; ' + fmt(BUFOR_PROG_ZOLTY) + '</td></tr>' +
       '<tr><td class="lbl">Podsumowanie tygodnia (magazyn) / 每周汇总（仓库）</td>' +
-        '<td class="crit-txt">magazyn &lt; ' + fmt(BUFOR_PROG_CZERWONY) + ' &#183; 仓库&lt;' + fmt(BUFOR_PROG_CZERWONY) + '</td>' +
-        '<td class="warn-txt">magazyn ' + fmt(BUFOR_PROG_CZERWONY) + '&#8211;' + fmt(BUFOR_PROG_ZOLTY - 1) + ' &#183; 仓库' + fmt(BUFOR_PROG_CZERWONY) + '-' + fmt(BUFOR_PROG_ZOLTY - 1) + '</td>' +
-        '<td class="good-txt">magazyn &#8805; ' + fmt(BUFOR_PROG_ZOLTY) + ' &#183; 仓库&#8805;' + fmt(BUFOR_PROG_ZOLTY) + '</td></tr>' +
+        '<td class="crit-txt">magazyn &lt; ' + fmt(MAGAZYN_PROG_CZERWONY - 1) + ' &#183; 仓库&lt;' + fmt(MAGAZYN_PROG_CZERWONY - 1) + '</td>' +
+        '<td class="warn-txt">magazyn ' + fmt(MAGAZYN_PROG_CZERWONY) + '&#8211;' + fmt(MAGAZYN_PROG_ZOLTY - 1) + ' &#183; 仓库' + fmt(MAGAZYN_PROG_CZERWONY) + '-' + fmt(MAGAZYN_PROG_ZOLTY - 1) + '</td>' +
+        '<td class="good-txt">magazyn &#8805; ' + fmt(MAGAZYN_PROG_ZOLTY) + ' &#183; 仓库&#8805;' + fmt(MAGAZYN_PROG_ZOLTY) + '</td></tr>' +
     '</table>';
   var html = legendHtml + '<table><tr>' + headers.map(function(h) { return '<th>' + h + '</th>'; }).join('') + '</tr>' + bodyRows + '</table>';
   var monthTag = STATE.solderMonthDate.getFullYear() + '-' + String(STATE.solderMonthDate.getMonth() + 1).padStart(2, '0');

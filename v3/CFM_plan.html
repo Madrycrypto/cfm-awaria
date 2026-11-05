@@ -80,6 +80,9 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .btn-mini.clear:hover{background:rgba(217,43,43,0.12)}
 .btn-mini.toggle{background:var(--surface-2);color:var(--muted);margin-left:auto}
 .btn-mini.toggle:hover{color:var(--text)}
+.copystation-wrap{display:inline-flex;align-items:center;gap:6px}
+.copystation-sel{background:var(--surface-2);border:1px solid var(--border-soft);border-radius:7px;color:var(--text);font-family:var(--fh);font-weight:600;font-size:11.5px;padding:8px 6px;max-width:160px}
+.copystation-sel:focus{outline:none;border-color:var(--blue)}
 .btn-mini.toggle.open{color:var(--blue-soft);border-color:var(--blue-soft)}
 .btn-mini small{display:block;font-family:var(--fc);font-weight:400;text-transform:none;font-size:9px;opacity:.7;margin-top:1px}
 .irregular-flag{font-size:10px;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:0.03em}
@@ -474,6 +477,10 @@ function render() {
     '</div></div>';
 
   var html = '';
+  // Lista stanowisk do wyboru jako zrodlo przy "Kopiuj z innego stanowiska"
+  // — te same, ktore w ogole maja wlasne karty zmian (bez OP40 OUT, ktore
+  // tylko zwierciadli OP40 IN i nie ma wlasnych kart).
+  var copySourceStations = STATE.stations.filter(function(s) { return s !== 'OP40 OUT'; });
   STATE.stations.forEach(function(st) {
     if (st === 'OP40 OUT') {
       html += '<div class="stationgroup"><div class="stationgroup-name">' + st + '</div>' +
@@ -497,12 +504,17 @@ function render() {
         dayCells += '<div class="daycell' + (isSun ? ' sun' : '') + '"><div class="dlabel">' + d + ' ' + WD[(wd + 6) % 7] + ' <span class="cn">' + WD_CN[(wd + 6) % 7] + '</span></div><input type="number" min="0" placeholder="' + (isSat ? '' : (STATE.targets[st] || '')) + '" value="' + val + '" data-station="' + st.replace(/"/g, '&quot;') + '" data-shift="' + sh + '" data-date="' + iso + '"></div>';
       }
 
+      var otherStationOpts = copySourceStations.filter(function(s) { return s !== st; })
+        .map(function(s) { return '<option value="' + s.replace(/"/g, '&quot;') + '">' + s + '</option>'; }).join('');
+
       html += '<div class="shiftcard" data-station="' + st.replace(/"/g, '&quot;') + '" data-shift="' + sh + '">' +
         '<div class="shiftcard-head">' +
           '<span class="shiftpill"><i style="background:' + shiftColor(sh) + '"></i>Zmiana ' + sh + '</span>' +
           '<input type="number" min="0" class="quickval" placeholder="np. ' + (STATE.targets[st] || '0') + '" value="' + info.quickVal + '">' +
           '<button type="button" class="btn-mini copy" onclick="quickCopy(this)">Kopiuj pon&#8211;pt<small>复制周一至周五</small></button>' +
           (sh !== 'A' ? '<button type="button" class="btn-mini copy" onclick="copyFromShiftA(this)">Kopiuj z A<small>从A班复制</small></button>' : '') +
+          (otherStationOpts ? '<span class="copystation-wrap"><select class="copystation-sel"><option value="">Inne stanowisko&#8230;</option>' + otherStationOpts + '</select>' +
+            '<button type="button" class="btn-mini copy" onclick="copyFromOtherStation(this)">Kopiuj<small>从该工位复制</small></button></span>' : '') +
           '<button type="button" class="btn-mini clear" onclick="clearShiftDays(this)">Wyczyść dni<small>清空天数</small></button>' +
           (info.hasSaturday ? '<span class="irregular-flag">+ sobota</span>' : '') +
           (expand ? '<span class="irregular-flag">nieregularne</span>' : '') +
@@ -797,25 +809,58 @@ function quickCopy(btn) {
 // przycisk — przydatne gdy zmiany maja identyczny albo bardzo podobny
 // (nieregularny) harmonogram i nie trzeba przepisywac recznie dzien po
 // dniu. Nie dotyka samej zmiany A. Przycisk widoczny tylko na B/C.
+// Wspolna logika kopiowania (caly daystrip + quickval) z jednej karty
+// zmiany do drugiej — uzywana zarowno przez "Kopiuj z A" (ta sama stacja),
+// jak i "Kopiuj z innego stanowiska" (dowolna stacja, ta sama litera
+// zmiany, ten sam przegladany miesiac wiec te same daty po obu stronach).
+// Zwraca false jesli zrodlo nie mialo nic do skopiowania (zamiast rzucac
+// bledem — wywolujacy decyduje jak to zakomunikowac).
+function copyDaystripFromCard(sourceCard, targetCard) {
+  var sourceVals = {};
+  sourceCard.querySelectorAll('.daystrip input').forEach(function(el) { sourceVals[el.dataset.date] = el.value; });
+  var filled = Object.keys(sourceVals).filter(function(d) { return sourceVals[d] !== ''; }).length;
+  if (!filled) return false;
+  targetCard.querySelectorAll('.daystrip input').forEach(function(el) {
+    if (sourceVals.hasOwnProperty(el.dataset.date)) el.value = sourceVals[el.dataset.date];
+  });
+  var sourceQuick = sourceCard.querySelector('.quickval');
+  var targetQuick = targetCard.querySelector('.quickval');
+  if (sourceQuick && targetQuick) targetQuick.value = sourceQuick.value;
+  return true;
+}
+
 function copyFromShiftA(btn) {
   var card = btn.closest('.shiftcard');
   var group = card.closest('.stationgroup');
   var sourceCard = group ? group.querySelector('.shiftcard[data-shift="A"]') : null;
   if (!sourceCard) { showToast('Brak zmiany A dla tego stanowiska · 该工位没有A班', 'err'); return; }
-  var sourceVals = {};
-  sourceCard.querySelectorAll('.daystrip input').forEach(function(el) { sourceVals[el.dataset.date] = el.value; });
-  var filled = Object.keys(sourceVals).filter(function(d) { return sourceVals[d] !== ''; }).length;
-  if (!filled) { showToast('Zmiana A nie ma wypełnionych dni do skopiowania · A班没有可复制的数据', 'err'); return; }
-  card.querySelectorAll('.daystrip input').forEach(function(el) {
-    if (sourceVals.hasOwnProperty(el.dataset.date)) el.value = sourceVals[el.dataset.date];
-  });
-  var sourceQuick = sourceCard.querySelector('.quickval');
-  var targetQuick = card.querySelector('.quickval');
-  if (sourceQuick && targetQuick) targetQuick.value = sourceQuick.value;
+  if (!copyDaystripFromCard(sourceCard, card)) { showToast('Zmiana A nie ma wypełnionych dni do skopiowania · A班没有可复制的数据', 'err'); return; }
   setDaysOpen(card, true);
   markDirty();
   refreshPlanGrid();
   showToast('Skopiowano ze zmiany A — pamiętaj kliknąć "Zapisz plan"! · 已从A班复制 — 别忘了点击"保存计划"!', 'ok');
+}
+
+// Kopiuje dni (caly daystrip) z TEJ SAMEJ litery zmiany (A/B/C) na innym,
+// wybranym z listy stanowisku — np. OP33A zmiana A -> OP33B zmiana A, gdy
+// dwa stanowiska maja identyczny/bardzo podobny harmonogram. Zaklada te
+// sama litere zmiany po obu stronach (bez drugiego selecta na zmiane
+// zrodlowa) — to wystarcza na realny przypadek uzycia (sparowane
+// stanowiska typu OP33A/OP33B), bez zbednego komplikowania UI.
+function copyFromOtherStation(btn) {
+  var card = btn.closest('.shiftcard');
+  var wrap = btn.closest('.copystation-wrap');
+  var sel = wrap ? wrap.querySelector('.copystation-sel') : null;
+  var srcStation = sel ? sel.value : '';
+  if (!srcStation) { showToast('Wybierz stanowisko źródłowe z listy · 请从列表选择源工位', 'err'); return; }
+  var sh = card.dataset.shift;
+  var sourceCard = document.querySelector('.shiftcard[data-station="' + srcStation.replace(/"/g, '\\"') + '"][data-shift="' + sh + '"]');
+  if (!sourceCard) { showToast('Nie znaleziono zmiany ' + sh + ' na stanowisku ' + srcStation + ' · 未找到该工位的这个班次', 'err'); return; }
+  if (!copyDaystripFromCard(sourceCard, card)) { showToast('Wybrane stanowisko nie ma wypełnionych dni do skopiowania · 所选工位没有可复制的数据', 'err'); return; }
+  setDaysOpen(card, true);
+  markDirty();
+  refreshPlanGrid();
+  showToast('Skopiowano z ' + srcStation + ' — pamiętaj kliknąć "Zapisz plan"! · 已从' + srcStation + '复制 — 别忘了点击"保存计划"!', 'ok');
 }
 
 // Czysci WSZYSTKIE dni tej zmiany naraz (np. gdy przez pomylke wpisano

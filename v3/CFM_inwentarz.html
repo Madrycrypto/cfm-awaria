@@ -428,6 +428,18 @@ function balanceSeverity_(balance) {
   if (balance < BUFOR_PROG_ZOLTY) return 'warn';
   return 'ok';
 }
+// Progi podswietlania podsumowania tygodnia (GP12/wysylki, "ile % tygodnia
+// pokrywa produkcja") — uzywane zarowno w samej tabeli (live UI), jak i w
+// eksporcie symulacji; jedno zrodlo prawdy, zeby nigdy sie nie rozjechaly.
+// User ustalil te konkretne progi 2026-11-05.
+var WEEKSUM_PROG_ZIELONY = 0.81;
+var WEEKSUM_PROG_ZOLTY = 0.50;
+function weeksumSeverity_(balance, ratio) {
+  if (balance < 0) return 'crit';
+  if (ratio >= WEEKSUM_PROG_ZIELONY) return 'good';
+  if (ratio >= WEEKSUM_PROG_ZOLTY) return 'warn';
+  return 'crit';
+}
 var DAY_LABELS = ['PON','WT','ŚR','CZW','PT','SOB','NDZ'];
 var DAY_LABELS_CN = ['周一','周二','周三','周四','周五','周六','周日'];
 function fmt(n) { return n === null || n === undefined ? '&#8212;' : n.toLocaleString('pl-PL'); }
@@ -1163,7 +1175,8 @@ function renderSolderSectionImpl_(firstDate) {
           if (weekSumGoods) {
             var goodsRow = goodsWalk.byDate[r.date];
             var weekRatioGoods = weekSumGoods.ship > 0 ? weekSumGoods.gp12 / weekSumGoods.ship : 1;
-            var weeksumClsGoods = goodsRow.balance < 0 ? 'wk-crit' : weekRatioGoods >= 1 ? 'wk-ok' : weekRatioGoods >= 0.8 ? 'wk-warn' : 'wk-crit';
+            var weekSevGoods = weeksumSeverity_(goodsRow.balance, weekRatioGoods);
+            var weeksumClsGoods = 'wk-' + (weekSevGoods === 'good' ? 'ok' : weekSevGoods);
             label += '<div class="weeksum ' + weeksumClsGoods + '">Tydz.: wysyłki ' + fmt(weekSumGoods.ship) + ' &#183; GP12 ' + fmt(weekSumGoods.gp12) + ' (magazyn: ' + fmt(goodsRow.balance) + ')' +
               '<span class="cn"> &#183; 本周：发运' + fmt(weekSumGoods.ship) + ' &#183; GP12 ' + fmt(weekSumGoods.gp12) + ' &#183;（仓库：' + fmt(goodsRow.balance) + '）</span></div>';
           }
@@ -1302,7 +1315,7 @@ function exportSolderExcel() {
         // tez weeksumClsGoods): ponizej zera zawsze krytyczne, inaczej wg
         // stosunku GP12/wysylki tego tygodnia.
         var weekRatio = weekSumGoods.ship > 0 ? weekSumGoods.gp12 / weekSumGoods.ship : 1;
-        weekCls = goodsRow.balance < 0 ? 'crit' : weekRatio >= 1 ? 'good' : weekRatio >= 0.8 ? 'warn' : 'crit';
+        weekCls = weeksumSeverity_(goodsRow.balance, weekRatio);
       }
     }
 
@@ -1335,9 +1348,9 @@ function exportSolderExcel() {
         '<td class="warn">' + fmt(BUFOR_PROG_CZERWONY) + '&#8211;' + fmt(BUFOR_PROG_ZOLTY - 1) + '</td>' +
         '<td class="good">&#8805; ' + fmt(BUFOR_PROG_ZOLTY) + '</td></tr>' +
       '<tr><td class="lbl">Podsumowanie tygodnia (magazyn) / 每周汇总（仓库）</td>' +
-        '<td class="crit-txt">magazyn &lt; 0 lub GP12/wysyłki &lt; 80% &#183; 仓库&lt;0或GP12/发运&lt;80%</td>' +
-        '<td class="warn-txt">GP12/wysyłki 80&#8211;99% &#183; GP12/发运80-99%</td>' +
-        '<td class="good-txt">GP12/wysyłki &#8805; 100% &#183; GP12/发运&#8805;100%</td></tr>' +
+        '<td class="crit-txt">magazyn &lt; 0 lub GP12/wysyłki &lt; ' + Math.round(WEEKSUM_PROG_ZOLTY * 100) + '% &#183; 仓库&lt;0或GP12/发运&lt;' + Math.round(WEEKSUM_PROG_ZOLTY * 100) + '%</td>' +
+        '<td class="warn-txt">GP12/wysyłki ' + Math.round(WEEKSUM_PROG_ZOLTY * 100) + '&#8211;' + Math.round(WEEKSUM_PROG_ZIELONY * 100 - 1) + '% &#183; GP12/发运' + Math.round(WEEKSUM_PROG_ZOLTY * 100) + '-' + Math.round(WEEKSUM_PROG_ZIELONY * 100 - 1) + '%</td>' +
+        '<td class="good-txt">GP12/wysyłki &#8805; ' + Math.round(WEEKSUM_PROG_ZIELONY * 100) + '% &#183; GP12/发运&#8805;' + Math.round(WEEKSUM_PROG_ZIELONY * 100) + '%</td></tr>' +
     '</table>';
   var html = legendHtml + '<table><tr>' + headers.map(function(h) { return '<th>' + h + '</th>'; }).join('') + '</tr>' + bodyRows + '</table>';
   var monthTag = STATE.solderMonthDate.getFullYear() + '-' + String(STATE.solderMonthDate.getMonth() + 1).padStart(2, '0');

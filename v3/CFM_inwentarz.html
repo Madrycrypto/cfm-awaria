@@ -261,7 +261,6 @@ tbody tr.warn td{background:rgba(240,192,48,0.1)}
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ── PRZELACZNIK JEZYKA (PL/CN) ────────────────────────────────────────
 // Kazda flaga NIEZALEZNIE chowa/pokazuje SWOJ jezyk (to nie jest wybor
@@ -1213,8 +1212,39 @@ function renderSolderSectionImpl_(firstDate) {
 // "co jesli" wpisana w komorki) do pliku .xlsx. Liczymy od zera zamiast
 // zapamietywac "visible" z renderSolderSectionImpl_, zeby nie trzymac w
 // STATE kopii, ktora moglaby sie rozjechac z tym co faktycznie widac.
+// Eksport jako tabela HTML zapisana z rozszerzeniem .xls (ten sam wzorzec
+// co w CFM_statystyki.html / downloadXls_) — NIE przez bibioteke SheetJS
+// (xlsx.full.min.js), bo jej darmowa wersja z CDN NIE zapisuje kolorow
+// komorek (sprawdzone empirycznie: ws[addr].s jest po cichu ignorowane
+// przy XLSX.writeFile). Ta metoda dziala offline bez zadnej biblioteki i
+// POZWALA na realne kolorowanie Bufor/magazyn tymi samymi progami co na
+// ekranie (patrz balanceSeverity_ i weeksumCls w renderSolderSectionImpl_)
+// — user to wprost potwierdzil na probce przed wdrozeniem (2026-11-05).
+// Excel przy otwarciu moze zapytac o potwierdzenie formatu — normalne,
+// kliknij "Tak".
+var SOLDER_XLS_STYLE_ = 'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}' +
+  'th,td{border:1px solid #999999;padding:4px 8px;text-align:center;white-space:nowrap;mso-number-format:"@"}' +
+  'th{background:#1A6ED8;color:#ffffff;font-weight:bold}' +
+  '.lbl{text-align:left;font-weight:bold;background:#f2f2f2}' +
+  '.crit{background:#ffb3b3;font-weight:bold}.warn{background:#ffe1a8;font-weight:bold}.good{background:#c9f0d6;font-weight:bold}' +
+  '.txtcell{text-align:left;white-space:normal}' +
+  'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}';
+function downloadSolderXls_(title, bodyHtml, filename) {
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta charset="UTF-8"><style>' + SOLDER_XLS_STYLE_ + '</style></head><body>' +
+    '<h1>' + title + '</h1>' + bodyHtml + '</body></html>';
+  var blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+// "neg"/"warn"/"ok" (balanceSeverity_) -> klasa CSS tabeli .xls.
+var BALANCE_CLS_TO_XLS_ = { neg: 'crit', warn: 'warn', ok: 'good' };
 function exportSolderExcel() {
-  if (typeof XLSX === 'undefined') { showToast('Biblioteka Excel się nie załadowała — sprawdź połączenie i odśwież <span class="cn">&#183; Excel库加载失败，请检查网络并刷新</span>', 'err'); return; }
   var cfg = getSolderConfig();
   var todayISO = toISO(new Date());
   var mDays = monthDays(STATE.solderMonthDate);
@@ -1229,49 +1259,61 @@ function exportSolderExcel() {
 
   if (!visible.length) { showToast('Brak danych do eksportu w tym miesiącu <span class="cn">&#183; 本月无数据可导出</span>', 'err'); return; }
 
-  var headers = ['Dzień'];
-  if (chain) headers.push('Wysyłki (plan)');
-  headers.push(cfg.zuzycie + (chain ? ' (potrzeba)' : ''));
-  headers.push(cfg.produkcja + (chain ? ' (potrzeba)' : ''));
-  headers.push('Bufor');
-  headers.push('Inwentaryzacja');
-  headers.push('Status dnia');
-  headers.push('Podsumowanie tygodnia (piątek)');
+  var headers = ['Dzień / 日期'];
+  if (chain) headers.push('Wysyłki (plan) / 发运（计划）');
+  headers.push(cfg.zuzycie + (chain ? ' (potrzeba / 需求)' : ''));
+  headers.push(cfg.produkcja + (chain ? ' (potrzeba / 需求)' : ''));
+  headers.push('Bufor / 缓冲区');
+  headers.push('Inwentaryzacja / 盘点');
+  headers.push('Status dnia / 日期状态');
+  headers.push('Podsumowanie tygodnia (piątek) / 每周汇总（周五）');
 
-  var aoa = [headers];
+  // dziś/actual/plan po polsku i chinsku razem — to samo rozroznienie co w
+  // "tagach" przy wierszach w interfejsie (patrz renderSolderSectionImpl_).
+  var STATUS_CN = { 'dziś': '今天', 'actual': '实际', 'plan': '计划' };
+  var bodyRows = '';
   visible.forEach(function(r) {
     var dd = r.date.split('-');
     var wd = isoToDate(r.date).getDay();
     var isFriday = (wd + 6) % 7 === 4;
-    var dayLabel = DAY_LABELS[(wd + 6) % 7] + ' ' + dd[2] + '/' + dd[1] + '/' + dd[0];
-    var statusTxt = r.isToday ? 'dziś' : (r.date === STATE.solderFirstDate ? '' : (r.isActual ? 'actual' : 'plan'));
-    var row = [dayLabel];
-    if (chain) row.push(r.shipPlan);
-    row.push(r.zuzycie);
-    row.push(r.produkcja);
-    row.push(r.balance);
-    var countedVal = STATE.solderInventoryCounts[r.date];
-    row.push(countedVal === undefined ? '' : Number(countedVal));
-    row.push(statusTxt);
-    var weekTxt = '';
+    var dayIdx = (wd + 6) % 7;
+    var dayLabel = DAY_LABELS[dayIdx] + ' ' + DAY_LABELS_CN[dayIdx] + ' ' + dd[2] + '/' + dd[1] + '/' + dd[0];
+    var statusPl = r.isToday ? 'dziś' : (r.date === STATE.solderFirstDate ? '' : (r.isActual ? 'actual' : 'plan'));
+    var statusTxt = statusPl ? statusPl + ' / ' + STATUS_CN[statusPl] : '';
+
+    var weekTxt = '', weekCls = '';
     if (chain && isFriday && STATE.goodsFirstDate) {
       var goodsWalk = computeGoodsWalk(STATE.goodsFirstDate, r.date, todayISO, true);
       var weekSumGoods = weekSummaryForGoods(goodsWalk.byDate, r.date);
       if (weekSumGoods) {
         var goodsRow = goodsWalk.byDate[r.date];
-        weekTxt = 'wysyłki ' + weekSumGoods.ship + ' · GP12 ' + weekSumGoods.gp12 + ' (magazyn: ' + goodsRow.balance + ')';
+        weekTxt = 'wysyłki ' + weekSumGoods.ship + ' · GP12 ' + weekSumGoods.gp12 + ' (magazyn: ' + goodsRow.balance + ')' +
+          ' / 本周：发运' + weekSumGoods.ship + ' · GP12 ' + weekSumGoods.gp12 + ' ·（仓库：' + goodsRow.balance + '）';
+        // Ta sama logika co weeksumCls w renderSolderSectionImpl_ (patrz
+        // tez weeksumClsGoods): ponizej zera zawsze krytyczne, inaczej wg
+        // stosunku GP12/wysylki tego tygodnia.
+        var weekRatio = weekSumGoods.ship > 0 ? weekSumGoods.gp12 / weekSumGoods.ship : 1;
+        weekCls = goodsRow.balance < 0 ? 'crit' : weekRatio >= 1 ? 'good' : weekRatio >= 0.8 ? 'warn' : 'crit';
       }
     }
-    row.push(weekTxt);
-    aoa.push(row);
+
+    var countedVal = STATE.solderInventoryCounts[r.date];
+    var countedTxt = countedVal === undefined ? '' : fmt(Number(countedVal));
+    var buforCls = BALANCE_CLS_TO_XLS_[balanceSeverity_(r.balance)] || '';
+
+    bodyRows += '<tr><td class="lbl">' + dayLabel + '</td>';
+    if (chain) bodyRows += '<td>' + fmt(r.shipPlan) + '</td>';
+    bodyRows += '<td>' + fmt(r.zuzycie) + '</td><td>' + fmt(r.produkcja) + '</td>' +
+      '<td class="' + buforCls + '">' + fmt(r.balance) + '</td>' +
+      '<td>' + countedTxt + '</td>' +
+      '<td>' + statusTxt + '</td>' +
+      '<td class="txtcell ' + weekCls + '">' + weekTxt + '</td></tr>';
   });
 
-  var ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = headers.map(function(h, i) { return { wch: i === 0 ? 18 : (i === headers.length - 1 ? 42 : 15) }; });
-  var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Bufor chlodnic');
+  var html = '<table><tr>' + headers.map(function(h) { return '<th>' + h + '</th>'; }).join('') + '</tr>' + bodyRows + '</table>';
   var monthTag = STATE.solderMonthDate.getFullYear() + '-' + String(STATE.solderMonthDate.getMonth() + 1).padStart(2, '0');
-  XLSX.writeFile(wb, 'CFM_bufor_chlodnic_' + monthTag + '.xlsx');
+  var cfgLabel = cfg.zuzycie + ' &#8594; ' + cfg.produkcja;
+  downloadSolderXls_('Bufor chłodnic zlutowanych (' + cfgLabel + ') — ' + monthTag, html, 'CFM_bufor_chlodnic_' + monthTag + '.xls');
 }
 // "Auto-dopasuj Plan" — pokazuje PODGLAD roznic miedzy tym, co jest teraz
 // jawnie wpisane w Planie (dla przyszlych dni), a tym, co wychodzi z

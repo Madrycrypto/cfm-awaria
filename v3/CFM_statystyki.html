@@ -907,8 +907,8 @@ function exportToExcel() {
   stationOrder.forEach(function(stName) {
     var shifts = byStation[stName];
     shifts.forEach(function(g, si) {
-      var planRow = '', actualRow = '', pctRow = '';
-      var sumPlan = 0, sumActual = 0;
+      var planRow = '', actualRow = '', pctRow = '', okRow = '', passRow = '';
+      var sumPlan = 0, sumActual = 0, sumOk = 0;
       days.forEach(function(d) {
         var rec = g.byDate[d];
         // Plan ZAWSZE z zywego Planu miesiecznego (effectivePlanEntry),
@@ -928,18 +928,26 @@ function exportToExcel() {
         var plan = effectivePlanEntry(stName, g.shift, d);
         if (plan === null) plan = rec ? (Number(STATE.stationTargets[stName]) || 0) : 0;
         var actual = rec ? rec.qty : 0;
-        sumPlan += plan; sumActual += actual;
+        var ok = rec ? (Number(rec.ok_count) || 0) : 0;
+        sumPlan += plan; sumActual += actual; sumOk += ok;
         var pct = plan > 0 ? Math.round((actual / plan) * 100) : null;
         var cls = pct === null ? '' : (pct >= 95 ? 'good' : pct >= 80 ? 'warn' : 'crit');
+        var passPct = actual > 0 ? Math.round((ok / actual) * 100) : null;
+        var passCls = passPct === null ? '' : (passPct >= 99 ? 'good' : passPct >= 95 ? 'warn' : 'crit');
         planRow += '<td>' + (plan || '') + '</td>';
         actualRow += '<td class="' + cls + '">' + (actual || '') + '</td>';
         pctRow += '<td class="' + cls + '">' + (pct === null ? '' : pct + '%') + '</td>';
+        okRow += '<td>' + (ok || '') + '</td>';
+        passRow += '<td class="' + passCls + '">' + (passPct === null ? '' : passPct + '%') + '</td>';
       });
       var totalPct = sumPlan > 0 ? Math.round((sumActual / sumPlan) * 100) : null;
-      html += '<tr>' + (si === 0 ? '<td class="station" rowspan="' + (shifts.length * 3) + '">' + stName + '</td>' : '') +
-        '<td rowspan="3">Zmiana ' + g.shift + '</td><td class="lbl">Plan</td>' + planRow + '<td>' + sumPlan + '</td></tr>';
-      html += '<tr><td class="lbl">Wykonanie</td>' + actualRow + '<td>' + sumActual + '</td></tr>';
-      html += '<tr><td class="lbl">% planu</td>' + pctRow + '<td>' + (totalPct === null ? '' : totalPct + '%') + '</td></tr>';
+      var totalPassPct = sumActual > 0 ? Math.round((sumOk / sumActual) * 100) : null;
+      html += '<tr>' + (si === 0 ? '<td class="station" rowspan="' + (shifts.length * 5) + '">' + stName + '</td>' : '') +
+        '<td rowspan="5">Zmiana ' + g.shift + '<span class="cn">' + g.shift + '班</span></td><td class="lbl">Plan<span class="cn">计划</span></td>' + planRow + '<td>' + sumPlan + '</td></tr>';
+      html += '<tr><td class="lbl">Wykonanie<span class="cn">完成</span></td>' + actualRow + '<td>' + sumActual + '</td></tr>';
+      html += '<tr><td class="lbl">% planu<span class="cn">计划%</span></td>' + pctRow + '<td>' + (totalPct === null ? '' : totalPct + '%') + '</td></tr>';
+      html += '<tr><td class="lbl">Zgodne<span class="cn">合格数量</span></td>' + okRow + '<td>' + sumOk + '</td></tr>';
+      html += '<tr><td class="lbl">% pass rate<span class="cn">合格率%</span></td>' + passRow + '<td>' + (totalPassPct === null ? '' : totalPassPct + '%') + '</td></tr>';
     });
   });
 

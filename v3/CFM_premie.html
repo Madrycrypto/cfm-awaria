@@ -726,10 +726,16 @@ function toggleTech60(station, shift) {
   render();
 }
 
+// User poprosil (2026-11-06) zeby eksport Excela ZAWSZE mial tez
+// tlumaczenie na chinski uproszczony — tytul, naglowki i tresc wierszy,
+// tak jak eksporty w innych sekcjach apki (np. Bufor chlodnic w
+// CFM_inwentarz.html). Te same tlumaczenia co w naglowku zywej tabeli
+// (renderResultsTable) tam gdzie sie pokrywaja, nowe dopisane w tym samym
+// stylu dla kolumn, ktorych nie ma w zywym widoku (rozbicie przestoju).
 function exportToExcel() {
   var rows = computeRows();
   if (!rows.length) return;
-  var title = 'Premie — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear();
+  var title = 'Premie / 奖金 — ' + MONTH_NAMES[STATE.monthDate.getMonth()] + ' ' + STATE.monthDate.getFullYear() + '年' + MONTH_NAMES_CN[STATE.monthDate.getMonth()];
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="UTF-8"><style>' +
     'table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11px}' +
@@ -740,7 +746,12 @@ function exportToExcel() {
     '.yes{background:#c9f0d6;font-weight:bold}' +
     'h1{font-family:Calibri,Arial,sans-serif;font-size:16px}' +
     '</style></head><body><h1>' + title + '</h1><table>' +
-    '<tr><th>Stanowisko</th><th>Zmiana</th><th>Obsada</th><th>Produkcja</th><th>Norma (polityka premiowa)</th><th>Pass rate</th><th>Wykonanie normy (surowe)</th><th>Auto z Awarii (min)</th><th>Korekta ręczna (min)</th><th>Rezerwa techn. (min)</th><th>Razem przestój (min)</th><th>Wykonanie normy (po korekcie)</th><th>Premia (PLN)</th></tr>';
+    '<tr><th>Stanowisko / 工位</th><th>Zmiana / 班次</th><th>Obsada / 人员</th><th>Produkcja / 产量</th>' +
+    '<th>Norma (polityka premiowa) / 定额（奖金政策）</th><th>Pass rate / 合格率</th>' +
+    '<th>Wykonanie normy, surowe / 定额完成率（原始）</th><th>Auto z Awarii (min) / 故障自动计入（分钟）</th>' +
+    '<th>Korekta ręczna (min) / 手动修正（分钟）</th><th>Rezerwa techn. (min) / 技术维护余量（分钟）</th>' +
+    '<th>Razem przestój (min) / 停机合计（分钟）</th><th>Wykonanie normy, po korekcie / 定额完成率（修正后）</th>' +
+    '<th>Premia (PLN) / 奖金（PLN）</th></tr>';
 
   var byStation = {}, order = [];
   rows.forEach(function(r) { if (!byStation[r.station]) { byStation[r.station] = []; order.push(r.station); } byStation[r.station].push(r); });
@@ -754,7 +765,7 @@ function exportToExcel() {
       var techMin = r.techApplied ? 60 * r.count : 0;
       var razemMin = r.autoDowntimeMin + r.korektaMin + techMin;
       html += '<tr>' + (si === 0 ? '<td class="station" rowspan="' + byStation[st].length + '">' + st + '</td>' : '') +
-        '<td>Zmiana ' + r.shift + '</td><td class="crew">' + (r.crewList.join('<br>') || '-') + '</td>' +
+        '<td>Zmiana ' + r.shift + ' / ' + r.shift + '班</td><td class="crew">' + (r.crewList.join('<br>') || '-') + '</td>' +
         '<td>' + Math.round(r.sumQty) + '</td><td>' + Math.round(r.sumPlan) + '</td>' +
         '<td>' + (r.passRate === null ? '' : r.passRate.toFixed(1) + '%') + '</td>' +
         '<td>' + (r.rawPct === null ? '' : r.rawPct.toFixed(1) + '%') + '</td>' +

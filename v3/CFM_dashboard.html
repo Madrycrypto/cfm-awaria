@@ -182,6 +182,23 @@ h1 .cn{font-family:var(--fc);font-size:15px;font-weight:500;margin-left:8px}
 .hbar-chip b{font-family:var(--fh);color:var(--red);flex-shrink:0}
 .hbar-chip .cn-line{display:block;font-family:var(--fc);color:var(--faint);font-size:10px}
 
+/* SQDIP "wytlumaczenie" po kliknieciu kafelka — ten sam wzorzec co
+   "Powody brakow" w Statystykach (reasonbtn/reasonbox/reason-chip),
+   skopiowany tutaj zeby wygladalo identycznie w calej apce. */
+.reasonbtn{font-family:var(--fb);font-weight:600;font-size:10.5px;color:var(--muted);background:none;border:1px solid var(--border-soft);border-radius:6px;padding:4px 9px;cursor:pointer;margin-top:10px}
+.reasonbtn:hover{color:var(--text);border-color:var(--faint)}
+.reasonbox{display:none;flex-direction:column;margin-top:8px;gap:5px}
+.reasonbox.open{display:flex}
+.reason-chip{display:flex;align-items:baseline;gap:7px;background:var(--surface-2);border:1px solid var(--border-soft);border-left:3px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11.5px;color:var(--text);white-space:normal}
+.reason-chip b{font-family:var(--fh);color:var(--blue-soft);flex-shrink:0}
+.reason-chip.scrap{border-left-color:#ff7070}
+.reason-chip.scrap b{color:#ff7070}
+.reason-chip.rework{border-left-color:#f0a030}
+.reason-chip.rework b{color:#f0a030}
+.reason-chip.off{color:var(--faint)}
+.reason-chip .cn-line{font-family:var(--fc);color:var(--faint);font-size:10px}
+.reason-note{font-size:10.5px;color:var(--faint);padding:2px 2px 0;line-height:1.4}
+
 .section{margin-bottom:22px}
 .barsgrid{display:flex;flex-direction:column;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
 .barrow{display:grid;grid-template-columns:80px 1fr 90px;align-items:center;gap:10px}
@@ -631,6 +648,63 @@ function sqdipWypadkiOkPerDay(days) {
   return days.map(function(d) { return !bad[d]; });
 }
 
+// "Wytlumaczenie" po kliknieciu kafelka SQDIP — kazdy kafelek ma INNE
+// zrodlo danych (to co faktycznie moze je wytlumaczyc), nie jeden wspolny
+// mechanizm: Produktywnosc/Wydajnosc -> Awarie (przestoj), Jakosc ->
+// powody scrap/rework z reasons_json, Inwentarz -> produkcja vs wysylki
+// dnia. User to ustalil 2026-11-07 po obejrzeniu propozycji z mockupem.
+
+// Powody scrap/rework — DOKLADNA kopia aggregateReasons/reasonsHtml z
+// CFM_statystyki.html (ten sam format "chmurek"), zeby wygladalo
+// identycznie w calej apce zamiast wymyslac nowy styl.
+function aggregateReasons(rows) {
+  var tally = {};
+  rows.forEach(function(r) {
+    if (!r.reasons_json) return;
+    var parsed;
+    try { parsed = JSON.parse(r.reasons_json); } catch (e) { return; }
+    (parsed.scrap || []).forEach(function(e) { addTally('scrap', e); });
+    (parsed.rework || []).forEach(function(e) { addTally('rework', e); });
+  });
+  function addTally(cat, e) {
+    var qty = Number(e.qty) || 0;
+    if (qty <= 0) return;
+    var reason = e.reason || 'Inne';
+    var key = cat + '||' + reason;
+    if (!tally[key]) tally[key] = { category: cat, reason: reason, qty: 0 };
+    tally[key].qty += qty;
+  }
+  return Object.keys(tally).map(function(k) { return tally[k]; }).sort(function(a, b) { return b.qty - a.qty; });
+}
+function reasonsHtml(reasons) {
+  if (!reasons.length) return '<span class="reason-chip off">brak zarejestrowanych powodów <span class="cn">&#183; 未记录原因</span></span>';
+  return reasons.map(function(rs) {
+    var lbl = rs.category === 'scrap' ? 'scrap' : 'rework';
+    return '<span class="reason-chip ' + rs.category + '"><b>' + rs.qty + '&#215;</b>' + rs.reason + ' <span class="cn">(' + lbl + ')</span></span>';
+  }).join('');
+}
+// Awarie konkretnego stanowiska w calym widocznym okresie (wszystkie
+// zmiany naraz) — kafelki SQDIP agreguja GP12 niezaleznie od zmiany, wiec
+// to inny zakres niz getAwarieForDay (jeden dzien+jedna zmiana).
+function getAwarieForStationPeriod(station, days) {
+  return STATE.awarieRows.filter(function(a) { return a.station === station && days.indexOf(a.date) >= 0; })
+    .sort(function(a, b) { return (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || '')); });
+}
+// Rozklad dnia dla kafelka Inwentarz: produkcja GP12 (dobre sztuki) minus
+// wyslano = saldo tego dnia — ta sama metoda co loadStockLevel (ok_count,
+// nie surowe qty), tylko przeliczona z juz zaladowanych STATE.rows zamiast
+// osobnego fetcha.
+function sqdipInventoryBreakdownHtml(rows, days) {
+  return days.map(function(d) {
+    var prod = 0;
+    rows.forEach(function(r) { if (r.station === 'GP12' && r.date === d) prod += Number(r.ok_count) || 0; });
+    var shipped = shippingActualFor(d);
+    var delta = prod - shipped;
+    var sign = delta >= 0 ? '+' : '';
+    return '<div class="hbar-chip">' + ddmm(d) + ' &#183; produkcja ' + fmt(prod) + ' &#8722; wysłano ' + fmt(shipped) + ' = <b>' + sign + fmt(delta) + '</b></div>';
+  }).join('');
+}
+
 // Linia zawsze biala-szara (neutralna) — kolor niesie tylko status:
 // punkt zielony gdy dzien byl OK wzgledem celu, czerwony gdy nie (albo
 // brak danych = brak punktu, przerwa w linii). Wartosc null = dzien bez
@@ -666,17 +740,27 @@ function sqdipTrendSvg(values, target, higherIsBetter) {
     '<line x1="0" y1="' + targetY.toFixed(1) + '" x2="' + W + '" y2="' + targetY.toFixed(1) + '" stroke="var(--faint)" stroke-width="1" stroke-dasharray="3,3"/>' +
     lines + dots + '</svg>';
 }
-function sqdipTrendCard(title, cn, sub, values, target, fmtFn, days) {
+// explain (opcjonalny) = { key, label, cn, html, note } — "wytlumaczenie"
+// po kliknieciu kafelka (patrz komentarz przy sqdipInventoryBreakdownHtml).
+// note to dodatkowa linijka zastrzezenia (np. dla Wydajnosci, gdzie dane
+// nie daja pelnej precyzji) — opcjonalna, pokazuje sie pod tresciia panelu.
+function sqdipTrendCard(title, cn, sub, values, target, fmtFn, days, explain) {
   var known = values.filter(function(v) { return v !== null; });
   var last = known.length ? known[known.length - 1] : null;
   var ok = last !== null && last >= target;
   var color = last === null ? 'var(--faint)' : (ok ? '#3fd17a' : '#ff7070');
+  var explainBlock = '';
+  if (explain) {
+    explainBlock = '<button type="button" class="reasonbtn" onclick="var b=document.getElementById(\'sqdipExplain-' + explain.key + '\');b.classList.toggle(\'open\')">' + explain.label + ' &#9662; <span class="cn">' + explain.cn + '</span></button>' +
+      '<div class="reasonbox" id="sqdipExplain-' + explain.key + '">' + explain.html + (explain.note ? '<div class="reason-note">' + explain.note + '</div>' : '') + '</div>';
+  }
   return '<div class="card">' +
     '<div class="card-head"><div class="card-title">' + title + '<span class="cn">' + cn + '</span></div>' +
     '<div class="card-val" style="color:' + color + '">' + (last === null ? '&#8212;' : fmtFn(last)) + '</div></div>' +
     '<div class="card-sub">' + sub + '</div>' +
     sqdipTrendSvg(values, target, true) +
     dayLabelsHtml(days) +
+    explainBlock +
     '</div>';
 }
 function sqdipSafetyCard(days) {
@@ -749,12 +833,22 @@ function sqdipOeeCard(rows, days, target) {
 }
 function sqdipHtml(days) {
   var rows = STATE.rows;
+  var gp12Rows = rows.filter(function(r) { return r.station === 'GP12' && days.indexOf(r.date) >= 0; });
+  var awarieGp12 = getAwarieForStationPeriod('GP12', days);
+  var downtimeHtml = awarieGp12.length ? downtimeDetailChipsHtml(awarieGp12, true) :
+    '<span class="reason-chip off">brak zgłoszonych awarii w tym okresie <span class="cn">&#183; 该时段无故障记录</span></span>';
+  var reasonsExplainHtml = reasonsHtml(aggregateReasons(gp12Rows));
   return '<div class="sqdipgrid">' +
     sqdipSafetyCard(sqdipSafetyWindow()) +
-    sqdipTrendCard('Produktywność', '生产率', 'wykonanie planu GP12 &#183; dziennie', sqdipProductivityPerDay(rows, days), SQDIP_TARGETS.productivity, function(v) { return v + '%'; }, days) +
-    sqdipTrendCard('Jakość', '质量 <span class="cn">&#183; 合格率</span>', 'pass rate GP12 &#183; dziennie', sqdipQualityPerDay(rows, days), SQDIP_TARGETS.quality, function(v) { return v + '%'; }, days) +
-    sqdipTrendCard('Wydajność', '性能开动率', 'performance (OEE) GP12 &#183; dziennie', sqdipPerformancePerDay(rows, days), SQDIP_TARGETS.performance, function(v) { return v + '%'; }, days) +
-    sqdipTrendCard('Inwentarz', '库存', 'gotowe sztuki &#183; dziennie', sqdipInventoryPerDay(days), SQDIP_TARGETS.inventory, function(v) { return fmt(v); }, days) +
+    sqdipTrendCard('Produktywność', '生产率', 'wykonanie planu GP12 &#183; dziennie', sqdipProductivityPerDay(rows, days), SQDIP_TARGETS.productivity, function(v) { return v + '%'; }, days,
+      { key: 'productivity', label: 'Powody przestoju', cn: '停机原因', html: downtimeHtml }) +
+    sqdipTrendCard('Jakość', '质量 <span class="cn">&#183; 合格率</span>', 'pass rate GP12 &#183; dziennie', sqdipQualityPerDay(rows, days), SQDIP_TARGETS.quality, function(v) { return v + '%'; }, days,
+      { key: 'quality', label: 'Powody braków', cn: '原因', html: reasonsExplainHtml }) +
+    sqdipTrendCard('Wydajność', '性能开动率', 'performance (OEE) GP12 &#183; dziennie', sqdipPerformancePerDay(rows, days), SQDIP_TARGETS.performance, function(v) { return v + '%'; }, days,
+      { key: 'performance', label: 'Co wpłynęło', cn: '影响因素', html: downtimeHtml,
+        note: 'Pokazane tylko formalnie zgłoszone Awarie — reszta spadku wydajności to wolniejsze tempo pracy w trakcie zmiany, nieujęte osobno w danych. <span class="cn">仅显示正式报告的故障——效率下降的其余部分来自工作节奏变慢，数据中未单独记录。</span>' }) +
+    sqdipTrendCard('Inwentarz', '库存', 'gotowe sztuki &#183; dziennie', sqdipInventoryPerDay(days), SQDIP_TARGETS.inventory, function(v) { return fmt(v); }, days,
+      { key: 'inventory', label: 'Rozkład dnia', cn: '明细', html: sqdipInventoryBreakdownHtml(rows, days) }) +
     sqdipOeeCard(rows, days, SQDIP_TARGETS.oee) +
     '</div>';
 }

@@ -1,0 +1,13 @@
+{
+  "name": "Weryfikacja etykiet wysyłki / 发运标签核验",
+  "short_name": "Etykiety",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1f5fbf",
+  "theme_color": "#1f5fbf",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

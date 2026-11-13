@@ -72,7 +72,7 @@ h1 .cn{font-family:var(--fc);font-size:16px;font-weight:500;margin-left:8px}
 .reasonbtn:hover{color:var(--text);border-color:var(--faint)}
 .reasonbox{display:none;flex-direction:column;margin-top:8px;gap:5px}
 .reasonbox.open{display:flex}
-.reason-chip{display:flex;align-items:baseline;gap:7px;background:var(--surface-2);border:1px solid var(--border-soft);border-left:3px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11.5px;color:var(--text);white-space:normal}
+.reason-chip{display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:var(--surface-2);border:1px solid var(--border-soft);border-left:3px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11.5px;color:var(--text);white-space:normal}
 .reason-chip b{font-family:var(--fh);color:var(--blue-soft);flex-shrink:0}
 .reason-chip.scrap{border-left-color:#ff7070}
 .reason-chip.scrap b{color:#ff7070}
@@ -700,25 +700,36 @@ function aggregateReasons(rows) {
     if (!r.reasons_json) return;
     var parsed;
     try { parsed = JSON.parse(r.reasons_json); } catch (e) { return; }
-    (parsed.scrap || []).forEach(function(e) { addTally('scrap', e); });
-    (parsed.rework || []).forEach(function(e) { addTally('rework', e); });
+    (parsed.scrap || []).forEach(function(e) { addTally('scrap', e, r.date); });
+    (parsed.rework || []).forEach(function(e) { addTally('rework', e, r.date); });
   });
-  function addTally(cat, e) {
+  function addTally(cat, e, dateIso) {
     var qty = Number(e.qty) || 0;
     if (qty <= 0) return;
     var reason = e.reason || 'Inne';
     var key = cat + '||' + reason;
-    if (!tally[key]) tally[key] = { category: cat, reason: reason, qty: 0 };
+    if (!tally[key]) tally[key] = { category: cat, reason: reason, qty: 0, dates: {} };
     tally[key].qty += qty;
+    if (dateIso) tally[key].dates[dateIso] = true;
   }
-  return Object.keys(tally).map(function(k) { return tally[k]; }).sort(function(a, b) { return b.qty - a.qty; });
+  // dateList posortowana rosnaco (najwczesniejsza najpierw) — user chcial
+  // widziec KIEDY dany powod wystapil, nie tylko ile razy (2026-11-13).
+  return Object.keys(tally).map(function(k) {
+    var t = tally[k];
+    t.dateList = Object.keys(t.dates).sort();
+    return t;
+  }).sort(function(a, b) { return b.qty - a.qty; });
 }
 
 function reasonsHtml(reasons) {
   if (!reasons.length) return '<span class="reason-chip off">brak zarejestrowanych powodów <span class="cn">&#183; 未记录原因</span></span>';
   return reasons.map(function(rs) {
     var lbl = rs.category === 'scrap' ? 'scrap' : 'rework';
-    return '<span class="reason-chip ' + rs.category + '"><b>' + rs.qty + '&#215;</b>' + rs.reason + ' <span class="cn">(' + lbl + ')</span></span>';
+    var datesTxt = rs.dateList.map(function(iso) { var p = iso.split('-'); return p[2] + '/' + p[1]; }).join(', ');
+    return '<span class="reason-chip ' + rs.category + '">' +
+      '<span><b>' + rs.qty + '&#215;</b>' + rs.reason + ' <span class="cn">(' + lbl + ')</span></span>' +
+      (datesTxt ? '<span class="cn-line">' + datesTxt + '</span>' : '') +
+      '</span>';
   }).join('');
 }
 

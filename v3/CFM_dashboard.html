@@ -1035,16 +1035,16 @@ function renderDailyPlanBars(days) {
   var todayISO = toISO(new Date());
   var any = false;
   var rowsHtml = days.map(function(d) {
-    var actual = 0, plan = 0;
-    var shiftQty = {};
-    STATE.shiftLabels.forEach(function(sh) { shiftQty[sh] = 0; });
+    var actual = 0, plan = 0, actualOk = 0;
+    var shiftQty = {}, shiftOk = {};
+    STATE.shiftLabels.forEach(function(sh) { shiftQty[sh] = 0; shiftOk[sh] = 0; });
     STATE.stations.forEach(function(st) {
       if (st !== 'GP12') return;
       STATE.shiftLabels.forEach(function(sh) {
         var r = STATE.rows.filter(function(x) { return x.date === d && x.station === st && x.shift === sh; })[0];
         var hasPlan = planEntryFor(st, sh, d) !== null;
         if (!r && !hasPlan) return;
-        if (r) { actual += r.qty; shiftQty[sh] += r.qty; }
+        if (r) { actual += r.qty; shiftQty[sh] += r.qty; actualOk += (Number(r.ok_count) || 0); shiftOk[sh] += (Number(r.ok_count) || 0); }
         var pf = effectivePlanEntry(st, sh, d);
         if (pf === null) pf = Number(STATE.stationTargets[st]) || 0;
         plan += pf;
@@ -1061,9 +1061,11 @@ function renderDailyPlanBars(days) {
     // Rozbicie na zmiany to SUROWA ilosc sztuk (ta sama metryka co pasek —
     // "ile zrobila A/B/C"), celowo BEZ pass rate / % wykonania przy kazdej
     // zmianie, user wyraznie tego nie chcial ("nie patrze na pass rate").
+    // "zgodne" w nawiasie to SUROWA liczba dobrych sztuk (ok_count), NIE %
+    // — user explicite to rozroznil 2026-11-14: chce liczbe, nie pass rate.
     var detailHtml = STATE.shiftLabels.map(function(sh) {
-      return '<div class="dailybar-chip"><b>Zmiana ' + sh + '</b>' + fmt(shiftQty[sh]) + ' szt.</div>';
-    }).join('') + '<div class="dailybar-chip dailybar-chip-total"><b>Razem</b>' + fmt(actual) + ' szt.</div>';
+      return '<div class="dailybar-chip"><b>Zmiana ' + sh + '</b>' + fmt(shiftQty[sh]) + ' szt. <span style="color:var(--muted)">(zgodne: ' + fmt(shiftOk[sh]) + ')</span></div>';
+    }).join('') + '<div class="dailybar-chip dailybar-chip-total"><b>Razem</b>' + fmt(actual) + ' szt. <span style="color:var(--muted)">(zgodne: ' + fmt(actualOk) + ')</span></div>';
     return '<div class="dailybar-row clickable" onclick="toggleDailyPlanDetail(\'' + dayKey + '\')"><div class="dailybar-lbl" style="' + (d === todayISO ? 'color:var(--blue-soft)' : '') + '">' + label + '</div><div class="dailybar-track"><div class="dailybar-fill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div><div class="dailybar-val" style="color:' + color + '">' + pct + '%</div></div>' +
       '<div class="dailybar-detail" id="dailyPlanDetail-' + dayKey + '">' + detailHtml + '</div>';
   }).join('');

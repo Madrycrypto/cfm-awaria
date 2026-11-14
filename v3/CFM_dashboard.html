@@ -1059,13 +1059,17 @@ function renderDailyPlanBars(days) {
     var color = pct >= 95 ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--red)';
     var dayKey = d.replace(/-/g, '');
     // Rozbicie na zmiany to SUROWA ilosc sztuk (ta sama metryka co pasek —
-    // "ile zrobila A/B/C"), celowo BEZ pass rate / % wykonania przy kazdej
-    // zmianie, user wyraznie tego nie chcial ("nie patrze na pass rate").
-    // "zgodne" w nawiasie to SUROWA liczba dobrych sztuk (ok_count), NIE %
-    // — user explicite to rozroznil 2026-11-14: chce liczbe, nie pass rate.
+    // "ile zrobila A/B/C"). "zgodne" to SUROWA liczba dobrych sztuk
+    // (ok_count). Pass rate % DOSZEDL 2026-11-14 — user wczesniej (dla
+    // samego paska postepu) wyraznie go nie chcial, ale skoro szczegoly i
+    // tak juz zawijaja sie do dwoch linii, poprosil o doklejenie go tutaj.
     var detailHtml = STATE.shiftLabels.map(function(sh) {
-      return '<div class="dailybar-chip"><b>Zmiana ' + sh + '</b>' + fmt(shiftQty[sh]) + ' szt. <span style="color:var(--muted)">(zgodne: ' + fmt(shiftOk[sh]) + ')</span></div>';
-    }).join('') + '<div class="dailybar-chip dailybar-chip-total"><b>Razem</b>' + fmt(actual) + ' szt. <span style="color:var(--muted)">(zgodne: ' + fmt(actualOk) + ')</span></div>';
+      var shPass = shiftQty[sh] > 0 ? (shiftOk[sh] / shiftQty[sh] * 100).toFixed(1) : null;
+      return '<div class="dailybar-chip"><b>Zmiana ' + sh + '</b>' + fmt(shiftQty[sh]) + ' szt. <span style="color:var(--muted)">(zgodne: ' + fmt(shiftOk[sh]) + (shPass !== null ? ' &#183; ' + shPass + '%' : '') + ')</span></div>';
+    }).join('') + (function() {
+      var totalPass = actual > 0 ? (actualOk / actual * 100).toFixed(1) : null;
+      return '<div class="dailybar-chip dailybar-chip-total"><b>Razem</b>' + fmt(actual) + ' szt. <span style="color:var(--muted)">(zgodne: ' + fmt(actualOk) + (totalPass !== null ? ' &#183; ' + totalPass + '%' : '') + ')</span></div>';
+    })();
     return '<div class="dailybar-row clickable" onclick="toggleDailyPlanDetail(\'' + dayKey + '\')"><div class="dailybar-lbl" style="' + (d === todayISO ? 'color:var(--blue-soft)' : '') + '">' + label + '</div><div class="dailybar-track"><div class="dailybar-fill" style="width:' + Math.min(pct, 100) + '%;background:' + color + '"></div></div><div class="dailybar-val" style="color:' + color + '">' + pct + '%</div></div>' +
       '<div class="dailybar-detail" id="dailyPlanDetail-' + dayKey + '">' + detailHtml + '</div>';
   }).join('');
